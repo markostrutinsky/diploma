@@ -1,0 +1,70 @@
+.login-page {
+  min-height: calc(100vh - 80px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.login-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.login-card h1 {
+  margin: 0 0 0.25rem;
+  text-align: center;
+  font-size: 1.375rem;
+  font-weight: 600;
+}
+
+.login-card > p {
+  color: var(--text-muted);
+  margin: 0 0 0.5rem;
+  text-align: center;
+  font-size: 0.9375rem;
+}
+
+.login-hint {
+  margin: 0 0 1.5rem !important;
+  text-align: center;
+  font-size: 0.875rem;
+}
+
+.login-hint a {
+  color: var(--accent);
+}
+
+.login-card input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.9375rem;
+}
+
+.login-card input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.login-card .form-error {
+  padding: 0.75rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid var(--error);
+  border-radius: 6px;
+  color: var(--error);
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
+.login-card button {
+  width: 100%;
+  padding: 0.75rem;
+}

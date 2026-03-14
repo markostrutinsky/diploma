@@ -37,9 +37,13 @@ func NewEmailService(host, portStr, email, password string) (EmailService, error
 }
 
 func (s *emailService) SendInviteEmail(toEmail string, inviteLink string) error {
-	m := gomail.NewMessage()
+	fromEmail := s.email
+	if fromEmail == "" {
+		fromEmail = "noreply@millog.local"
+	}
 
-	m.SetHeader("From", fmt.Sprintf("Millog System <%s>", s.email))
+	m := gomail.NewMessage()
+	m.SetHeader("From", fmt.Sprintf("Millog System <%s>", fromEmail))
 	m.SetHeader("To", toEmail)
 	m.SetHeader("Subject", "Запрошення до системи Millog")
 

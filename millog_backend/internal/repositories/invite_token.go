@@ -28,3 +28,22 @@ func (r *InviteTokenRepository) CreateInviteToken(ctx context.Context, db DBExec
 	}
 	return nil
 }
+
+func (r *InviteTokenRepository) FindByTokenHash(ctx context.Context, db DBExecutor, tokenHash string) (*models.InviteToken, error) {
+	query := `SELECT id, user_id, token_hash, expires_at, used_at, created_at
+	FROM invite_tokens WHERE token_hash = $1`
+	var t models.InviteToken
+	err := db.QueryRow(ctx, query, tokenHash).Scan(
+		&t.ID, &t.UserID, &t.TokenHash, &t.ExpiresAt, &t.UsedAt, &t.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &t, nil
+}
+
+func (r *InviteTokenRepository) MarkAsUsed(ctx context.Context, db DBExecutor, tokenID string) error {
+	query := `UPDATE invite_tokens SET used_at = CURRENT_TIMESTAMP WHERE id = $1`
+	_, err := db.Exec(ctx, query, tokenID)
+	return err
+}

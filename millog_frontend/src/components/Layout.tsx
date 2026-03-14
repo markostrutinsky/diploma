@@ -1,0 +1,99 @@
+import { Link, useLocation } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
+import './Layout.css'
+
+const USER_CREATOR_ROLES = ['ADMIN', 'BRIGADE_CMDR', 'BATTALION_CMDR', 'COMPANY_CMDR', 'PLATOON_CMDR', 'BRIGADE_LOGIST', 'BATTALION_LOGIST', 'BRIGADE_STOREKEEPER', 'BATTALION_STOREKEEPER', 'COMPANY_SERGEANT']
+const UNIT_MANAGER_ROLES = ['ADMIN', 'BRIGADE_CMDR', 'BATTALION_CMDR', 'COMPANY_CMDR', 'BRIGADE_LOGIST', 'BATTALION_LOGIST', 'BRIGADE_STOREKEEPER', 'BATTALION_STOREKEEPER']
+
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN: 'Адміністратор',
+  BRIGADE_CMDR: 'Командир бригади',
+  BATTALION_CMDR: 'Командир батальйону',
+  COMPANY_CMDR: 'Командир роти',
+  PLATOON_CMDR: 'Командир взводу',
+  BRIGADE_LOGIST: 'Логіст бригади',
+  BRIGADE_STOREKEEPER: 'Комірник бригади',
+  BATTALION_LOGIST: 'Логіст батальйону',
+  BATTALION_STOREKEEPER: 'Комірник батальйону',
+  COMPANY_SERGEANT: 'Старшина роти',
+  VOLUNTEER: 'Волонтер',
+}
+
+interface LayoutProps {
+  children: React.ReactNode
+}
+
+export default function Layout({ children }: LayoutProps) {
+  const location = useLocation()
+  const { user, token, loading, logout } = useAuth()
+
+  if (loading) {
+    return (
+      <div className="layout-loading">
+        <div className="spinner" />
+        <p>Завантаження...</p>
+      </div>
+    )
+  }
+
+  const showSidebar = !!token
+  const canManageUsers = user?.role && USER_CREATOR_ROLES.includes(user.role)
+  const canManageUnits = user?.role && UNIT_MANAGER_ROLES.includes(user.role)
+
+  return (
+    <div className={`layout ${showSidebar ? 'with-sidebar' : ''}`}>
+      {showSidebar && (
+        <aside className="sidebar">
+          <div className="sidebar-header">
+            <Link to="/" className="sidebar-logo">
+              Millog
+            </Link>
+          </div>
+          <nav className="sidebar-nav">
+            <Link to="/" className={location.pathname === '/' ? 'active' : ''}>
+              Головна
+            </Link>
+            <Link to="/inventory" className={location.pathname === '/inventory' ? 'active' : ''}>
+              Ресурси
+            </Link>
+            <Link to="/requests" className={location.pathname === '/requests' ? 'active' : ''}>
+              Заявки
+            </Link>
+            <Link to="/volunteer-requests" className={location.pathname === '/volunteer-requests' ? 'active' : ''}>
+              Для волонтерів
+            </Link>
+            {canManageUnits && (
+              <Link to="/units" className={location.pathname === '/units' ? 'active' : ''}>
+                Підрозділи
+              </Link>
+            )}
+            {canManageUsers && (
+              <Link to="/admin/users" className={location.pathname === '/admin/users' ? 'active' : ''}>
+                Користувачі
+              </Link>
+            )}
+          </nav>
+          <div className="sidebar-footer">
+            <div className="user-badge">
+              <span className="user-name">{user?.full_name}</span>
+              <span className="user-role">{user?.role ? ROLE_LABELS[user.role] || user.role : ''}</span>
+            </div>
+            <button className="btn btn-secondary btn-sm btn-block" onClick={logout}>
+              Вийти
+            </button>
+          </div>
+        </aside>
+      )}
+
+      <div className="main-content">
+        {!showSidebar && (
+          <header className="top-bar">
+            <Link to="/" className="logo-text">Millog</Link>
+            <Link to="/login" className="btn btn-primary">Увійти</Link>
+          </header>
+        )}
+        <main className="page-content">{children}</main>
+      </div>
+    </div>
+  )
+}
