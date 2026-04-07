@@ -235,6 +235,7 @@ func main() {
 		analyticsGroup.Use(middleware.AuthMiddleware(jwtSecret, dbPool))
 		{
 			analyticsGroup.GET("/dashboard", analyticsHandler.GetDashboard)
+			analyticsGroup.POST("/auto-replenish", analyticsHandler.AutoReplenish)
 		}
 	}
 

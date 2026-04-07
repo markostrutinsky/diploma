@@ -1,46 +1,76 @@
 package models
 
-// --- Базові структури для метрик ---
-type ConditionStat struct {
-	Condition string `json:"condition"`
-	Count     int    `json:"count"`
+type PredictStat struct {
+	ResourceName  string  `json:"resource_name"`
+	CurrentStock  int     `json:"current_stock"`
+	DailyBurnRate float64 `json:"daily_burn_rate"`
+	DaysLeft      int     `json:"days_left"`
 }
 
-type LocationStat struct {
-	LocationType string `json:"location_type"`
-	Count        int    `json:"count"`
+type FleetRiskStat struct {
+	VehicleName  string `json:"vehicle_name"`
+	TotalRefuels int    `json:"total_refuels"`
+	Anomalies    int    `json:"anomalies"`
+	RiskScore    int    `json:"risk_score"`
 }
 
-type VolunteerRequestStat struct {
-	Status string `json:"status"`
-	Count  int    `json:"count"`
+type UnitReadinessStat struct {
+	UnitName       string `json:"unit_name"`
+	TotalResources int    `json:"total_resources"`
+	ReadyResources int    `json:"ready_resources"`
+	ReadinessScore int    `json:"readiness_score"`
 }
 
-// --- Нові структури для розширеної аналітики ---
 type FuelMonthlyStat struct {
 	Month       string  `json:"month"`
 	TotalLiters float64 `json:"total_liters"`
 	Anomalies   int     `json:"anomalies"`
 }
 
-type TacticalStat struct {
-	LocationType string `json:"location_type"`
-	NewItems     int    `json:"new_items"`
-	UsedItems    int    `json:"used_items"`
+type MaintenancePredictStat struct {
+	VehicleName string `json:"vehicle_name"`
+	CurrentOdo  int    `json:"current_odo"`
+	NextMaint   int    `json:"next_maint"`
+	KmLeft      int    `json:"km_left"`
 }
 
-// --- Головна структура, яка збирає все разом ---
+type VolunteerSLAStat struct {
+	AverageDays    float64 `json:"average_days"`
+	CompletedCount int     `json:"completed_count"`
+}
+
+type FleetTCOStat struct {
+	VehicleBrand string  `json:"vehicle_brand"`
+	TotalCost    float64 `json:"total_cost"`
+}
+
+// НОВЕ: Статуси заявок
+type VolunteerRequestStat struct {
+	Status string `json:"status"`
+	Count  int    `json:"count"`
+}
+
+// НОВЕ: Таймлайн заявок
+type VolunteerTimelineStat struct {
+	Date  string `json:"date"`
+	Count int    `json:"count"`
+}
+
+// Головна структура
 type DashboardAnalytics struct {
-	// ТОП Картки
 	ActiveVehicles    int `json:"active_vehicles"`
 	CriticalResources int `json:"critical_resources"`
 	FuelAnomalies     int `json:"fuel_anomalies"`
 
-	// Дані для графіків
-	TacticalStats   []TacticalStat         `json:"tactical_stats"`
-	BurnRate        []ConditionStat        `json:"burn_rate"`
-	CriticalItems   []Resource             `json:"critical_items"`
-	FuelHistory     []FuelMonthlyStat      `json:"fuel_history"`
-	FleetHealth     []ConditionStat        `json:"fleet_health"`
-	VolunteerFunnel []VolunteerRequestStat `json:"volunteer_funnel"`
+	PredictiveBurnRate []PredictStat            `json:"predictive_burn_rate"`
+	FleetRisk          []FleetRiskStat          `json:"fleet_risk"`
+	UnitReadiness      []UnitReadinessStat      `json:"unit_readiness"`
+	FuelHistory        []FuelMonthlyStat        `json:"fuel_history"`
+	MaintenancePredict []MaintenancePredictStat `json:"maintenance_predict"`
+	VolunteerSLA       VolunteerSLAStat         `json:"volunteer_sla"`
+	FleetTCO           []FleetTCOStat           `json:"fleet_tco"`
+
+	// Поля для вкладки "Волонтери"
+	VolunteerFunnel   []VolunteerRequestStat  `json:"volunteer_funnel"`
+	VolunteerTimeline []VolunteerTimelineStat `json:"volunteer_timeline"`
 }
