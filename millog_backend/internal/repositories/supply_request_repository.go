@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"millog_backend/internal/models"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type SupplyRequestRepository struct{}
@@ -32,13 +34,42 @@ func (r *SupplyRequestRepository) GetByID(ctx context.Context, db DBExecutor, id
 	return &req, nil
 }
 
-func (r *SupplyRequestRepository) List(ctx context.Context, db DBExecutor) ([]models.SupplyRequest, error) {
-	rows, err := db.Query(ctx, `SELECT id, created_by, resource_id, quantity, status, approved_by, approved_at, comment, created_at, updated_at
-	FROM supply_requests ORDER BY created_at DESC`)
+func (r *SupplyRequestRepository) List(ctx context.Context, db DBExecutor, userRole string, userUnitID *int64) ([]models.SupplyRequest, error) {
+	var rows pgx.Rows
+	var err error
+
+	if userRole == "ADMIN" || userRole == "VOLUNTEER" {
+		query := `SELECT id, created_by, resource_id, quantity, status, approved_by, approved_at, comment, created_at, updated_at
+				  FROM supply_requests ORDER BY created_at DESC`
+		rows, err = db.Query(ctx, query)
+	} else {
+		if userUnitID == nil {
+			return []models.SupplyRequest{}, nil
+		}
+
+		query := `
+			WITH RECURSIVE unit_tree AS (
+				-- Беремо підрозділ поточного користувача
+				SELECT id FROM units WHERE id = $1
+				UNION
+				-- Шукаємо всі підрозділи, які йому підпорядковуються (через parent_id)
+				SELECT u.id FROM units u
+				INNER JOIN unit_tree ut ON u.parent_id = ut.id
+			)
+			SELECT sr.id, sr.created_by, sr.resource_id, sr.quantity, sr.status, sr.approved_by, sr.approved_at, sr.comment, sr.created_at, sr.updated_at
+			FROM supply_requests sr
+			JOIN users u ON sr.created_by = u.id
+			WHERE u.unit_id IN (SELECT id FROM unit_tree)
+			ORDER BY sr.created_at DESC
+		`
+		rows, err = db.Query(ctx, query, *userUnitID)
+	}
+
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
+
 	var list []models.SupplyRequest
 	for rows.Next() {
 		var req models.SupplyRequest

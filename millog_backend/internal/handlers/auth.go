@@ -1,9 +1,12 @@
 package handlers
 
 import (
+	"fmt"
+	"millog_backend/internal/middleware"
 	"millog_backend/internal/models"
 	"millog_backend/internal/services"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -24,8 +27,18 @@ func (h *AuthHandler) RegisterUser(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	response, err := h.authService.RegisterUser(c.Request.Context(), &request)
+	creatorRoleVal, exists := c.Get("user_role")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "не вдалося визначити права користувача"})
+		return
+	}
+	creatorRole := creatorRoleVal.(models.UserRole)
+	response, err := h.authService.RegisterUser(c.Request.Context(), &request, creatorRole)
 	if err != nil {
+		if strings.Contains(err.Error(), "не має прав для створення") {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -47,6 +60,43 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, response)
+}
+
+func (h *AuthHandler) ListCommanders(c *gin.Context) {
+	commanders, err := h.authService.GetCommanders(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Не вдалося завантажити список командирів"})
+		return
+	}
+
+	if commanders == nil {
+		commanders = []*models.User{}
+	}
+
+	c.JSON(http.StatusOK, commanders)
+}
+
+func (h *AuthHandler) GetVisibleUsers(c *gin.Context) {
+	claimsVal, exists := c.Get("claims")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Не знайдено токен авторизації"})
+		return
+	}
+	claims := claimsVal.(*middleware.Claims)
+
+	var reqUnitID *int64
+	if claims.UnitID != 0 {
+		val := claims.UnitID
+		reqUnitID = &val
+	}
+
+	users, err := h.authService.GetVisibleUsers(c.Request.Context(), string(claims.Role), reqUnitID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка завантаження списку користувачів"})
+		return
+	}
+
+	c.JSON(http.StatusOK, users)
 }
 
 func (h *AuthHandler) BootstrapAdmin(c *gin.Context) {
@@ -119,4 +169,94 @@ func (h *AuthHandler) RegisterVolunteer(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusCreated, response)
+}
+
+func (h *AuthHandler) UpdateRoleAndUnit(c *gin.Context) {
+	targetUserID := c.Param("id")
+
+	commanderID := c.GetString("user_id")
+
+	var req models.UpdateRoleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Неправильний формат даних"})
+		return
+	}
+
+	err := h.authService.UpdateRoleAndUnit(c.Request.Context(), commanderID, targetUserID, string(req.Role), req.UnitID)
+	if err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Кадрове переміщення виконано успішно"})
+}
+
+func (h *AuthHandler) BlockUser(c *gin.Context) {
+	targetUserID := c.Param("id")
+
+	claimsVal, exists := c.Get("claims")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Не знайдено токен"})
+		return
+	}
+	claims := claimsVal.(*middleware.Claims)
+
+	if fmt.Sprint(claims.UserID) == targetUserID {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Неможливо заблокувати власний профіль"})
+		return
+	}
+
+	isAuthorized := false
+
+	if claims.Role == "ADMIN" {
+		isAuthorized = true
+	} else if strings.HasSuffix(string(claims.Role), "_CMDR") {
+		if claims.UnitID != 0 {
+			isSubordinate, err := h.authService.CheckSubordination(c.Request.Context(), claims.UnitID, targetUserID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка перевірки підпорядкування"})
+				return
+			}
+			if isSubordinate {
+				isAuthorized = true
+			}
+		}
+	}
+
+	if !isAuthorized {
+		c.JSON(http.StatusForbidden, gin.H{"error": "У вас немає прав для блокування цього користувача (він не є вашим підлеглим)"})
+		return
+	}
+
+	err := h.authService.BlockUser(c.Request.Context(), targetUserID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Не вдалося заблокувати користувача"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Користувача переведено в резерв (заблоковано)"})
+}
+
+func (h *AuthHandler) UnblockUser(c *gin.Context) {
+	targetUserID := c.Param("id")
+
+	claimsVal, exists := c.Get("claims")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Не знайдено токен"})
+		return
+	}
+	claims := claimsVal.(*middleware.Claims)
+
+	if claims.Role != "ADMIN" && claims.Role != "BRIGADE_CMDR" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Тільки Адміністратор або Командир бригади може повертати людей з резерву"})
+		return
+	}
+
+	err := h.authService.UnblockUser(c.Request.Context(), targetUserID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Не вдалося розблокувати користувача"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Користувача розблоковано та переведено в кадровий резерв"})
 }

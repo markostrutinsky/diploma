@@ -49,3 +49,307 @@
 .required {
   color: var(--error);
 }
+
+/* --- НОВІ КЛАСИ ДЛЯ МОДАЛКИ ТА ТАБЛИЦІ --- */
+
+.page-header-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.page-header-flex .page-subtitle {
+  margin: 0;
+}
+
+.modal-form {
+  max-width: 500px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-description {
+  font-size: 14px;
+  color: #6c757d;
+  margin-bottom: 20px;
+}
+
+.form-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 15px;
+}
+
+.modal-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.card-table-spaced {
+  margin-top: 20px;
+}
+
+.table-header-with-tabs {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.table-header-with-tabs h2 {
+  margin: 0;
+}
+
+/* Стилі для клітинок таблиці */
+.user-name-cell {
+  font-weight: 500;
+}
+
+.user-email-cell {
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.unit-name-cell {
+  font-weight: 500;
+}
+
+/* Відступи для повідомлень про помилку/успіх у модалці */
+.form-error.modal-alert,
+.form-success.modal-alert {
+  margin-bottom: 15px;
+}
+
+/* Дозволяємо картці з таблицею розтягуватися на всю ширину екрана */
+.admin-users .card-table {
+  max-width: 100%;
+  width: 100%;
+}
+
+/* Якщо таблиця все ще здається завузькою, перевір, чи немає обмеження на самому списку */
+.admin-users .data-table {
+  width: 100%;
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 5px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.btn-icon:hover {
+  background: #f0f2f5;
+}
+
+.text-muted {
+  color: #6c757d;
+  font-size: 13px;
+}
+
+.btn-action-small {
+  background-color: transparent;
+  color: #0056b3; /* Синій колір, як посилання або активна дія */
+  border: 1px solid #0056b3;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-action-small:hover {
+  background-color: #0056b3;
+  color: white;
+}
+
+/* Стиль для заблокованого інпута (читання) */
+.input-readonly {
+  background-color: #f8f9fa;
+  cursor: not-allowed;
+}
+
+/* Червона кнопка для блокування */
+.btn-danger-small {
+  background-color: #dc3545;
+  color: white;
+  border: 1px solid #dc3545;
+}
+
+.btn-danger-small:hover {
+  background-color: #c82333;
+  border-color: #bd2130;
+}
+
+/* Обгортка для кнопок дій */
+.action-buttons-row {
+  display: flex;
+  gap: 8px;
+}
+
+/* Стиль для будь-якої вимкненої кнопки */
+.btn-action-small:disabled {
+  background-color: #e9ecef !important; /* Сірий колір */
+  color: #adb5bd !important;            /* Тьмяний текст */
+  border-color: #dee2e6 !important;
+  cursor: not-allowed;                  /* Курсор "заборонено" */
+  opacity: 0.7;
+}
+
+/* Прибираємо ефекти наведення для вимкненої кнопки */
+.btn-action-small:disabled:hover {
+  background-color: #e9ecef !important;
+  box-shadow: none;
+}
+
+.btn-success-small {
+  background-color: #198754;
+  color: white;
+  border: 1px solid #198754;
+}
+
+.btn-success-small:hover {
+  background-color: #157347;
+  border-color: #146c43;
+}
+
+.btn-success-small:disabled {
+  background-color: #a3cfbb !important;
+  color: #fff !important;
+  border-color: #a3cfbb !important;
+  cursor: not-allowed;
+}
+
+/* =========================================
+   МОДАЛКА ПІДТВЕРДЖЕННЯ (Блокування / Розблокування)
+   ========================================= */
+
+/* Затемнення фону (якщо у вас ще немає загального класу overlay) */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+/* Контейнер модалки підтвердження (робимо вужчим за звичайну форму) */
+.modal-confirm {
+  background: #fff;
+  border-radius: 8px;
+  padding: 24px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  text-align: center; /* Текст по центру для вікон підтвердження */
+  animation: slideUpIn 0.3s ease-out;
+}
+
+/* Іконка або бейджик зверху (опціонально, для краси) */
+.modal-confirm-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px auto;
+  font-size: 24px;
+}
+
+.modal-confirm-icon.warning {
+  background-color: #fef2f2;
+  color: #dc3545;
+}
+
+.modal-confirm-icon.info {
+  background-color: #f0fdf4;
+  color: #198754;
+}
+
+.modal-confirm h3 {
+  margin: 0 0 10px 0;
+  font-size: 1.125rem;
+  color: #212529;
+}
+
+.modal-confirm p {
+  color: #6c757d;
+  font-size: 0.9375rem;
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+
+/* Кнопки в модалці підтвердження (на всю ширину або по центру) */
+.modal-confirm-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.modal-confirm-actions button {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: background-color 0.2s;
+}
+
+/* Кнопка скасування */
+.btn-cancel {
+  background-color: #e9ecef;
+  color: #495057;
+}
+
+.btn-cancel:hover {
+  background-color: #dde2e6;
+}
+
+/* Кнопка підтвердження блокування (велика) */
+.btn-danger {
+  background-color: #dc3545;
+  color: white;
+}
+
+.btn-danger:hover {
+  background-color: #c82333;
+}
+
+/* Кнопка підтвердження розблокування (велика) */
+.btn-success {
+  background-color: #198754;
+  color: white;
+}
+
+.btn-success:hover {
+  background-color: #157347;
+}
+
+/* Анімації появи */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUpIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}

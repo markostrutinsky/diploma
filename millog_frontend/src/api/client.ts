@@ -62,6 +62,17 @@ export const api = {
         body: JSON.stringify(body),
       }),
   },
+  users: {
+    listCommanders: () => request<User[]>('/users/commanders'),
+    getVisible: () => request<User[]>('/users/visible'),
+    updateRole: (id: string, role: string, unitId: number | null) => 
+      request<{ message: string }>(`/users/${id}/role`, {
+        method: 'PUT',
+        body: JSON.stringify({ role, unit_id: unitId }),
+      }),
+    block: (id: string) => request<{ message: string }>(`/users/${id}/block`, { method: 'PUT' }),
+    unblock: (id: string) => request<{ message: string }>(`/users/${id}/unblock`, { method: 'PUT' }),
+  },
   inventory: {
     listCategories: () => request<ResourceCategory[]>('/inventory/categories'),
     createCategory: (body: { name: string; description?: string }) =>
@@ -75,6 +86,30 @@ export const api = {
       request<Resource>('/inventory/resources', {
         method: 'POST',
         body: JSON.stringify(body),
+      }),
+    writeOffResource: (id: string, quantity: number) =>
+      request<{ message: string }>(`/inventory/resources/${id}/write-off`, {
+        method: 'POST',
+        body: JSON.stringify({ quantity }),
+      }),
+    updateResource: (id: string, data: Partial<Resource>) => 
+      request<Resource>(`/inventory/resources/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+    transferResource: (id: string, body: TransferResourceRequest) =>
+      request<{ message: string }>(`/inventory/resources/${id}/transfer`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+    deleteResource: (id: string) =>
+      request<{ message: string }>(`/inventory/resources/${id}`, {
+        method: 'DELETE',
+      }),
+    assignResource: (id: string, data: AssignResourceRequest) =>
+      request<{ message: string }>(`/inventory/resources/${id}/assign`, {
+        method: 'POST',
+        body: JSON.stringify(data),
       }),
   },
   requests: {
@@ -92,24 +127,140 @@ export const api = {
   },
   units: {
     list: () => request<Unit[]>('/units'),
+    getAvailableForRole: (role: string) => 
+      request<Unit[]>(`/units/available?role=${encodeURIComponent(role)}`),
+
+    getMyHierarchyForRole: (role: string) => 
+      request<Unit[]>(`/units/my-hierarchy?role=${encodeURIComponent(role)}`),
+
     create: (body: { parent_id?: number; name: string; unit_type: string }) =>
       request<Unit>('/units', {
         method: 'POST',
         body: JSON.stringify(body),
       }),
+    changeCommander: (unitId: number, newCommanderId: string) => 
+      request<{ message: string }>(`/units/${unitId}/change-commander`, {
+        method: 'POST',
+        body: JSON.stringify({ new_commander_id: newCommanderId }),
+      }),
   },
   volunteerRequests: {
-    list: () => request<VolunteerRequest[]>('/volunteer-requests'),
-    create: (body: { title: string; description?: string }) =>
+    list: (status?: string) => 
+      request<VolunteerRequest[]>(`/volunteer-requests${status ? `?status=${status}` : ''}`),
+    
+    create: (body: { title: string; description: string }) =>
       request<VolunteerRequest>('/volunteer-requests', {
         method: 'POST',
         body: JSON.stringify(body),
       }),
-    take: (id: string) =>
+      
+    take: (id: string) => 
       request<{ message: string }>(`/volunteer-requests/${id}/take`, { method: 'POST' }),
-    complete: (id: string) =>
-      request<{ message: string }>(`/volunteer-requests/${id}/complete`, { method: 'POST' }),
+      
+    deliver: (id: string) => 
+      request<{ message: string }>(`/volunteer-requests/${id}/deliver`, { method: 'POST' }),
+      
+    accept: (id: string, body: { resource_id?: string; category_id: string; name: string; quantity: number; unit_type: string }) =>
+      request<{ message: string }>(`/volunteer-requests/${id}/accept`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+    }),
+    reject: (id: string) => 
+      request<{ message: string }>(`/volunteer-requests/${id}/reject`, { method: 'POST' }),
+      
+    cancel: (id: string) => 
+      request<{ message: string }>(`/volunteer-requests/${id}/cancel`, { method: 'POST' }),
   },
+
+  vehicles: {
+    list: async (): Promise<Vehicle[]> => {
+      return request('/vehicles');
+    },
+    // ОНОВЛЕНО: Додали driver_id
+    create: async (data: { brand: string; model: string; plate_number: string; tank_capacity: number; fuel_norm: number; driver_id?: string }): Promise<Vehicle> => {
+      return request('/vehicles', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+    updateStatus: async (vehicleId: string, data: { status: string; reason: string }): Promise<void> => {
+      return request(`/vehicles/${vehicleId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      });
+    },
+    addFuelRecord: async (vehicleId: string, data: { liters: number; odometer_km?: number; record_type: 'REFUEL' | 'EXPENSE' }): Promise<FuelRecord> => {
+      return request(`/vehicles/${vehicleId}/fuel`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+    getFuelHistory: async (vehicleId: string): Promise<FuelRecord[]> => {
+      return request(`/vehicles/${vehicleId}/fuel`);
+    },
+    performMaintenance: async (vehicleId: string, formData: FormData): Promise<MaintenanceRecord> => {
+      const token = localStorage.getItem('token'); 
+      const response = await fetch(`/api/vehicles/${vehicleId}/maintenance`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Помилка збереження акту з файлом');
+      }
+
+      return response.json();
+    },
+    
+    getMaintenanceHistory: async (vehicleId: string): Promise<MaintenanceRecord[]> => {
+      return request(`/vehicles/${vehicleId}/maintenance`);
+    },
+    assignDriver: async (vehicleId: string, driverId: string | null): Promise<void> => {
+      return request(`/vehicles/${vehicleId}/driver`, {
+        method: 'PATCH',
+        body: JSON.stringify({ driver_id: driverId }),
+      });
+    },
+    getDriverHistory: async (vehicleId: string): Promise<DriverHistoryRecord[]> => {
+      return request(`/vehicles/${vehicleId}/drivers`);
+    },
+    
+  },
+  warehouses: {
+    list: async (): Promise<Warehouse[]> => {
+      return request('/warehouses');
+    },
+    create: async (data: CreateWarehouseData): Promise<Warehouse> => {
+      return request('/warehouses', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
+    },
+  },
+}
+
+export interface Warehouse {
+  id: string;
+  unit_id: number;
+  name: string;
+  location_type: 'STATIONARY' | 'MOBILE';
+  latitude?: number;
+  longitude?: number;
+  capacity_level?: 'LARGE' | 'MEDIUM' | 'SMALL';
+  zone_type?: 'REAR' | 'TACTICAL' | 'FORWARD';
+  created_at: string;
+}
+
+export interface CreateWarehouseData {
+  unit_id: number;
+  name: string;
+  location_type: 'STATIONARY' | 'MOBILE';
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface Unit {
@@ -122,6 +273,8 @@ export interface Unit {
 export interface VolunteerRequest {
   id: string
   created_by: string
+  unit_id?: number;
+  unit_name?: string;
   title: string
   description: string
   status: string
@@ -131,13 +284,24 @@ export interface VolunteerRequest {
   created_at: string
 }
 
+export interface AcceptVolunteerPayload {
+  category_id: string;
+  name: string;
+  quantity: number;
+  unit_type: string;
+}
+
 export interface User {
   id: string
   email: string
   full_name: string
   role: string
   status: string
+  unit_id?: number
 }
+
+// ДОДАНО: Аліас для SystemUser, щоб не ламався Vehicles.tsx
+export type SystemUser = User;
 
 export interface LoginResponse {
   token: string
@@ -183,25 +347,33 @@ export interface Resource {
   id: string
   category_id: string
   unit_id?: number
+  warehouse_id?: string;
   name: string
   description: string
   quantity: number
   serial_number: string
-  location: string
-  condition: string
+  unit_type: 'PCS' | 'KIT' | 'KG' | 'L';
+  condition: 'NEW' | 'USED' | 'WRITTEN_OFF';
   min_quantity: number
+  assigned_to_user_id?: string;
+  assigned_to_user_name?: string;
+}
+export interface AssignResourceRequest {
+  quantity: number;
+  user_id: string;
 }
 
 export interface CreateResourceRequest {
-  category_id: string
-  unit_id?: number
-  name: string
-  description?: string
-  quantity?: number
-  serial_number?: string
-  location?: string
-  condition?: string
-  min_quantity?: number
+  category_id: string;
+  unit_id?: number;
+  warehouse_id?: string;
+  name: string;
+  description?: string;
+  quantity: number;
+  unit_type: 'PCS' | 'KIT' | 'KG' | 'L';
+  serial_number?: string;
+  condition?: 'NEW' | 'USED' | 'WRITTEN_OFF';
+  min_quantity: number;
 }
 
 export interface SupplyRequest {
@@ -213,4 +385,63 @@ export interface SupplyRequest {
   approved_by?: string
   comment: string
   created_at: string
+}
+
+export type FuelRecordType = 'REFUEL' | 'EXPENSE';
+
+export type VehicleStatus = 'ACTIVE' | 'INACTIVE' | 'IN_REPAIR';
+
+export interface Vehicle {
+  id: string;
+  brand: string;
+  model: string;
+  plate_number: string;
+  status: VehicleStatus;
+  tank_capacity: number;
+  fuel_norm: number;
+  maintenance_interval_km: number;
+  last_maintenance_odometer: number;
+  current_odometer: number;
+  km_to_next_maintenance: number;
+  maintenance_status: 'OK' | 'WARNING' | 'OVERDUE';
+  driver_id?: string; // ДОДАНО: Поле водія
+}
+
+export interface FuelRecord {
+  id: string;
+  vehicle_id: string;
+  liters: number;
+  odometer_km?: number;
+  record_type: FuelRecordType;
+  is_anomaly: boolean;
+  anomaly_reason?: string;
+  created_by?: string;
+  created_at: string;
+}
+
+// ВИДАЛЕНІ ДУБЛІКАТИ: Залишився лише один правильний і повний запис
+export interface MaintenanceRecord {
+  id: string;
+  vehicle_id: string;
+  odometer_km: number;
+  description: string;
+  performed_by?: string;
+  cost_amount: number;
+  document_url?: string;
+  driver_name?: string;
+  created_at: string;
+}
+
+export interface DriverHistoryRecord {
+  id: string;
+  vehicle_id: string;
+  driver_id: string | null;
+  driver_name: string;
+  assigned_at: string;
+}
+
+export interface TransferResourceRequest {
+  quantity: number;
+  target_warehouse_id?: string;
+  target_unit_id?: number;
 }

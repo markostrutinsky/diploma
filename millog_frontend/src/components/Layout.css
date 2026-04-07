@@ -1,5 +1,6 @@
 .layout {
-  min-height: 100vh;
+  height: 100vh; /* Фіксуємо висоту на розмір екрану */
+  overflow: hidden; /* Забороняємо браузеру скролити весь сайт цілком */
 }
 
 .layout.with-sidebar {
@@ -7,7 +8,7 @@
 }
 
 .layout-loading {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -36,6 +37,17 @@
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  height: 100vh; /* Сайдбар займає всю висоту */
+  overflow-y: auto; /* Незалежний скрол для сайдбару, якщо меню задовге */
+}
+
+/* Красивий тонкий скролбар для темного сайдбару (для Webkit-браузерів) */
+.sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebar::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
 }
 
 .sidebar-header {
@@ -113,6 +125,8 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  height: 100vh; /* Головний контент теж обмежуємо екраном */
+  overflow-y: auto; /* Незалежний скрол для сторінок додатку */
 }
 
 .top-bar {

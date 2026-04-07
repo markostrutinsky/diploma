@@ -84,24 +84,43 @@ func main() {
 		os.Exit(1)
 	}
 
-	authService := services.NewAuthService(userRepo, tokenRepo, refreshTokenRepo, dbPool, emailService, jwtSecret)
-	authHandler := handlers.NewAuthHandler(authService)
-
 	catRepo := repositories.NewCategoryRepository()
 	resRepo := repositories.NewResourceRepository()
 	reqRepo := repositories.NewSupplyRequestRepository()
 	unitRepo := repositories.NewUnitRepository()
 	volReqRepo := repositories.NewVolunteerRequestRepository()
+	vehicleRepo := repositories.NewVehicleRepository()
+	fuelRepo := repositories.NewFuelRepository()
+	warehouseRepo := repositories.NewWarehouseRepository()
+	analyticsRepo := repositories.NewAnalyticsRepository()
+
 	invService := services.NewInventoryService(catRepo, resRepo, dbPool)
-	reqService := services.NewRequestService(reqRepo, resRepo, dbPool)
-	unitService := services.NewUnitService(unitRepo, dbPool)
+	reqService := services.NewRequestService(reqRepo, resRepo, userRepo, dbPool)
+	unitService := services.NewUnitService(unitRepo, userRepo, dbPool)
 	volReqService := services.NewVolunteerRequestService(volReqRepo, dbPool)
+	warehouseService := services.NewWarehouseService(warehouseRepo, dbPool)
+	analyticsService := services.NewAnalyticsService(analyticsRepo, dbPool) // dbPool - твоє з'єднання
+
 	invHandler := handlers.NewInventoryHandler(invService)
 	reqHandler := handlers.NewRequestHandler(reqService)
 	unitHandler := handlers.NewUnitHandler(unitService)
 	volReqHandler := handlers.NewVolunteerRequestHandler(volReqService)
+	analyticsHandler := handlers.NewAnalyticsHandler(analyticsService)
+	warehouseHandler := handlers.NewWarehouseHandler(warehouseService)
+
+	authService := services.NewAuthService(userRepo, unitRepo, tokenRepo, refreshTokenRepo, dbPool, emailService, jwtSecret)
+	authHandler := handlers.NewAuthHandler(authService)
+	fuelService := services.NewFuelService(fuelRepo, dbPool)
+	fuelHandler := handlers.NewFuelHandler(fuelService)
+
+	vehicleService := services.NewVehicleService(vehicleRepo, dbPool)
+	vehicleHandler := handlers.NewVehicleHandler(vehicleService)
 
 	r := gin.Default()
+
+	os.MkdirAll("uploads/maintenance", os.ModePerm)
+
+	r.Static("/uploads", "./uploads")
 
 	api := r.Group("/api")
 	{
@@ -111,38 +130,56 @@ func main() {
 			auth.POST("/refresh", authHandler.Refresh)
 			auth.POST("/register", authHandler.RegisterVolunteer)
 			auth.POST("/setup-password", authHandler.SetupPassword)
-			auth.GET("/me", middleware.AuthMiddleware(jwtSecret), authHandler.Me)
+			auth.GET("/me", middleware.AuthMiddleware(jwtSecret, dbPool), authHandler.Me)
+		}
+
+		users := api.Group("/users")
+		users.Use(middleware.AuthMiddleware(jwtSecret, dbPool))
+		{
+			users.GET("/commanders", authHandler.ListCommanders)
+			users.GET("/visible", authHandler.GetVisibleUsers)
+			users.PUT("/:id/role", authHandler.UpdateRoleAndUnit)
+			users.PUT("/:id/block", authHandler.BlockUser)
+			users.PUT("/:id/unblock", authHandler.UnblockUser)
 		}
 
 		api.POST("/bootstrap", authHandler.BootstrapAdmin)
 
 		admin := api.Group("/admin")
-		admin.Use(middleware.AuthMiddleware(jwtSecret), middleware.RequireAnyRole(models.UserCreatorRoles))
+		admin.Use(middleware.AuthMiddleware(jwtSecret, dbPool), middleware.RequireAnyRole(models.UserCreatorRoles))
 		{
 			admin.POST("/users", authHandler.RegisterUser)
 		}
 
 		// Units: Admin + commanders + logists + storekeepers
 		units := api.Group("/units")
-		units.Use(middleware.AuthMiddleware(jwtSecret))
+		units.Use(middleware.AuthMiddleware(jwtSecret, dbPool))
 		{
 			units.GET("", unitHandler.List)
+			units.GET("/available", unitHandler.GetAvailableForRole)
 			units.POST("", middleware.RequireAnyRole(models.UnitManagerRoles), unitHandler.Create)
+			units.POST("/:id/change-commander", middleware.RequireAnyRole(models.UnitManagerRoles), unitHandler.ChangeCommander)
+			units.GET("/my-hierarchy", unitHandler.GetMyHierarchyForRole)
 		}
 
 		// Inventory: storekeepers + company sergeant
 		inv := api.Group("/inventory")
-		inv.Use(middleware.AuthMiddleware(jwtSecret))
+		inv.Use(middleware.AuthMiddleware(jwtSecret, dbPool))
 		{
 			inv.GET("/categories", invHandler.ListCategories)
 			inv.GET("/resources", invHandler.ListResources)
 			inv.POST("/categories", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.CreateCategory)
 			inv.POST("/resources", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.CreateResource)
+			inv.POST("/resources/:id/write-off", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.WriteOff)
+			inv.PATCH("/resources/:id", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.UpdateResource)
+			inv.POST("/resources/:id/transfer", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.Transfer)
+			inv.DELETE("/resources/:id", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.Delete)
+			inv.POST("/resources/:id/assign", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.Assign)
 		}
 
 		// Supply requests: commanders + logists + sergeant create; commanders + logists approve
 		requests := api.Group("/requests")
-		requests.Use(middleware.AuthMiddleware(jwtSecret))
+		requests.Use(middleware.AuthMiddleware(jwtSecret, dbPool))
 		{
 			requests.POST("", middleware.RequireAnyRole(models.SupplyRequestCreatorRoles), reqHandler.Create)
 			requests.GET("", reqHandler.List)
@@ -151,12 +188,53 @@ func main() {
 
 		// Volunteer requests: military creates, volunteers take and complete
 		volRequests := api.Group("/volunteer-requests")
-		volRequests.Use(middleware.AuthMiddleware(jwtSecret))
+		volRequests.Use(middleware.AuthMiddleware(jwtSecret, dbPool))
 		{
+			// Перегляд списку (доступно всім)
 			volRequests.GET("", volReqHandler.List)
-			volRequests.POST("", middleware.RequireAnyRole(models.VolunteerRequestCreatorRoles), volReqHandler.Create)
-			volRequests.POST("/:id/take", middleware.RequireRoles(models.RoleVolunteer), volReqHandler.Take)
-			volRequests.POST("/:id/complete", middleware.RequireRoles(models.RoleVolunteer), volReqHandler.Complete)
+
+			// Створення заявки (тільки для військових)
+			volRequests.POST("", middleware.RequireAnyRole(models.MilitaryInventoryRoles), volReqHandler.Create)
+
+			// Дії ВОЛОНТЕРА (Взяти в роботу, Доставити)
+			volRequests.POST("/:id/take", middleware.RequireAnyRole([]models.UserRole{models.RoleVolunteer}), volReqHandler.Take)
+			volRequests.POST("/:id/deliver", middleware.RequireAnyRole([]models.UserRole{models.RoleVolunteer}), volReqHandler.Deliver)
+
+			// Дії ВІЙСЬКОВИХ (Прийняти на баланс, Відхилити, Скасувати)
+			volRequests.POST("/:id/accept", middleware.RequireAnyRole(models.MilitaryInventoryRoles), volReqHandler.Accept)
+			volRequests.POST("/:id/reject", middleware.RequireAnyRole(models.MilitaryInventoryRoles), volReqHandler.Reject)
+			volRequests.POST("/:id/cancel", middleware.RequireAnyRole(models.MilitaryInventoryRoles), volReqHandler.Cancel)
+		}
+
+		// Fuel records: logists + commanders create; logists + commanders view
+		vehicleGroup := api.Group("/vehicles")
+		vehicleGroup.Use(middleware.AuthMiddleware(jwtSecret, dbPool))
+		vehicleGroup.Use(middleware.RequireAnyRole(models.FuelRecordCreatorRoles))
+		{
+			vehicleGroup.POST("", vehicleHandler.Create)
+			vehicleGroup.GET("", vehicleHandler.GetAll)
+			vehicleGroup.GET("/:id", vehicleHandler.GetByID)
+			vehicleGroup.PATCH("/:id/status", vehicleHandler.UpdateStatus)
+
+			vehicleGroup.POST("/:id/fuel", fuelHandler.CreateRecord)
+			vehicleGroup.GET("/:id/fuel", fuelHandler.GetHistory)
+			vehicleGroup.POST("/:id/maintenance", vehicleHandler.PerformMaintenance)
+			vehicleGroup.GET("/:id/maintenance", vehicleHandler.GetMaintenanceHistory)
+			vehicleGroup.PATCH("/:id/driver", vehicleHandler.AssignDriver)
+			vehicleGroup.GET("/:id/drivers", vehicleHandler.GetDriverHistory)
+		}
+
+		warehouseGroup := api.Group("/warehouses")
+		warehouseGroup.Use(middleware.AuthMiddleware(jwtSecret, dbPool), middleware.RequireAnyRole(models.WarehouseManagerRoles))
+		{
+			warehouseGroup.GET("", warehouseHandler.List)
+			warehouseGroup.POST("", warehouseHandler.Create)
+		}
+
+		analyticsGroup := api.Group("/analytics")
+		analyticsGroup.Use(middleware.AuthMiddleware(jwtSecret, dbPool))
+		{
+			analyticsGroup.GET("/dashboard", analyticsHandler.GetDashboard)
 		}
 	}
 

@@ -36,3 +36,20 @@
   gap: 0.5rem;
 }
 
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.status-text-own {
+  color: #868e96;
+  font-size: 0.9em;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.status-text-processed {
+  color: #adb5bd;
+  font-size: 0.9em;
+}

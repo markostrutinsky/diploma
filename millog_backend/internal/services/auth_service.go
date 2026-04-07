@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 	"millog_backend/internal/middleware"
-	"os"
 	"millog_backend/internal/models"
 	"millog_backend/internal/repositories"
 	"millog_backend/internal/tokens"
+	"os"
 	"strings"
 	"time"
 
@@ -19,6 +19,7 @@ import (
 
 type AuthService struct {
 	userRepository         *repositories.UserRepository
+	unitRepository         *repositories.UnitRepository
 	inviteTokenRepository  *repositories.InviteTokenRepository
 	refreshTokenRepository *repositories.RefreshTokenRepository
 	dbPool                 *pgxpool.Pool
@@ -28,6 +29,7 @@ type AuthService struct {
 
 func NewAuthService(
 	userRepository *repositories.UserRepository,
+	unitRepository *repositories.UnitRepository,
 	inviteTokenRepository *repositories.InviteTokenRepository,
 	refreshTokenRepository *repositories.RefreshTokenRepository,
 	dbPool *pgxpool.Pool,
@@ -36,18 +38,23 @@ func NewAuthService(
 ) *AuthService {
 	return &AuthService{
 		userRepository:         userRepository,
+		unitRepository:         unitRepository,
 		inviteTokenRepository:  inviteTokenRepository,
 		refreshTokenRepository: refreshTokenRepository,
 		dbPool:                 dbPool,
-		emailService:          emailService,
+		emailService:           emailService,
 		jwtSecret:              jwtSecret,
 	}
 }
 
-func (s *AuthService) RegisterUser(ctx context.Context, request *models.CreateUserRequest) (*models.CreateUserResponse, error) {
+func (s *AuthService) RegisterUser(ctx context.Context, request *models.CreateUserRequest, creatorRole models.UserRole) (*models.CreateUserResponse, error) {
 	role := s.parseRole(request.Role)
 	if role == models.RoleVolunteer {
 		return nil, fmt.Errorf("волонтери реєструються самостійно через сторінку реєстрації")
+	}
+
+	if !creatorRole.CanCreate(role) {
+		return nil, fmt.Errorf("ваша посада не має прав для створення користувача з роллю %s", role)
 	}
 
 	tx, err := s.dbPool.Begin(ctx)
@@ -167,6 +174,19 @@ func (s *AuthService) deriveUsername(request *models.CreateUserRequest) string {
 	return request.Email
 }
 
+func (s *AuthService) GetCommanders(ctx context.Context) ([]*models.User, error) {
+	commanders, err := s.userRepository.GetCommanders(ctx, s.dbPool)
+	if err != nil {
+		return nil, fmt.Errorf("помилка отримання командирів: %w", err)
+	}
+
+	for _, cmdr := range commanders {
+		cmdr.PasswordHash = nil
+	}
+
+	return commanders, nil
+}
+
 func (s *AuthService) BootstrapAdmin(ctx context.Context, email, password, fullName string) error {
 	if os.Getenv("ALLOW_BOOTSTRAP_OVERRIDE") != "true" {
 		var count int
@@ -283,11 +303,17 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*model
 		return nil, fmt.Errorf("account is not active")
 	}
 
+	var unitID int64
+
+	if user.UnitID != nil {
+		unitID = *user.UnitID
+	}
 	accessExpiresAt := time.Now().Add(24 * time.Hour)
 	claims := &middleware.Claims{
 		UserID: user.ID,
 		Email:  user.Email,
 		Role:   user.Role,
+		UnitID: unitID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(accessExpiresAt),
 			Subject:   user.ID,
@@ -322,7 +348,7 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*model
 		Token:        tokenStr,
 		RefreshToken: refreshRaw,
 		ExpiresAt:    accessExpiresAt.Unix(),
-		User:        *user,
+		User:         *user,
 	}, nil
 }
 
@@ -365,10 +391,95 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (*models
 		Token:        tokenStr,
 		RefreshToken: refreshToken,
 		ExpiresAt:    accessExpiresAt.Unix(),
-		User:        *user,
+		User:         *user,
 	}, nil
 }
 
 func (s *AuthService) GetUserByID(ctx context.Context, userID string) (*models.User, error) {
 	return s.userRepository.GetByID(ctx, s.dbPool, userID)
+}
+
+func (s *AuthService) GetVisibleUsers(ctx context.Context, requesterRole string, requesterUnitID *int64) ([]*models.User, error) {
+	// Передаємо s.dbPool (або s.db), як ти це робиш в інших методах
+	return s.userRepository.GetVisibleUsers(ctx, s.dbPool, requesterRole, requesterUnitID)
+}
+
+// Оновлюємо в auth_service.go
+// Фрагмент твого AuthService
+func (s *AuthService) UpdateRoleAndUnit(ctx context.Context, commanderID string, targetUserID string, newRole string, newUnitID *int64) error {
+
+	commander, err := s.userRepository.GetByID(ctx, s.dbPool, commanderID)
+	if err != nil {
+		return fmt.Errorf("помилка авторизації командира")
+	}
+
+	// 1. ПЕРЕВІРКА РОЛІ (через твою ApprovalMatrix)
+	if !s.isRoleChangePermitted(string(commander.Role), newRole) {
+		return fmt.Errorf("субординація: ви не маєте прав призначати на посаду %s", newRole)
+	}
+
+	if newUnitID != nil && commander.Role != models.RoleAdmin {
+		if commander.UnitID == nil {
+			return fmt.Errorf("ви не прив'язані до підрозділу")
+		}
+
+		allowedUnits, err := s.unitRepository.GetSubordinateUnitIDs(ctx, s.dbPool, *commander.UnitID)
+		if err != nil {
+			return fmt.Errorf("помилка бази даних при перевірці ієрархії")
+		}
+
+		hasAccess := false
+		for _, id := range allowedUnits {
+			if id == *newUnitID {
+				hasAccess = true
+				break
+			}
+		}
+
+		if !hasAccess {
+			return fmt.Errorf("помилка безпеки: підрозділ не входить до вашого формування")
+		}
+	}
+
+	return s.userRepository.UpdateRoleAndUnit(ctx, s.dbPool, targetUserID, newRole, newUnitID)
+}
+
+// Допоміжна функція-валідатор ролей у тому ж файлі auth_service.go
+// Допоміжна функція-валідатор ролей (використовує твою ApprovalMatrix)
+func (s *AuthService) isRoleChangePermitted(commanderRole string, targetRole string) bool {
+	// 1. Адмін може все (хоча він і є в матриці, це хороший "швидкий пропуск")
+	if commanderRole == string(models.RoleAdmin) {
+		return true
+	}
+
+	// 2. Дістаємо список тих, хто має право призначати на targetRole
+	allowedCommanders, exists := models.ApprovalMatrix[models.UserRole(targetRole)]
+	if !exists {
+		// Якщо посади немає в матриці (або це якась невідома роль) — забороняємо
+		return false
+	}
+
+	// 3. Перевіряємо, чи є роль нашого командира в цьому списку
+	for _, allowedRole := range allowedCommanders {
+		if commanderRole == string(allowedRole) {
+			return true // Знайшли! Командир має право
+		}
+	}
+
+	// Якщо цикл закінчився і ми не знайшли ролі командира — забороняємо
+	return false
+}
+
+// BlockUser передає команду на блокування в репозиторій
+func (s *AuthService) BlockUser(ctx context.Context, userID string) error {
+	return s.userRepository.BlockUser(ctx, s.dbPool, userID)
+}
+
+func (s *AuthService) CheckSubordination(ctx context.Context, commanderUnitID int64, targetUserID string) (bool, error) {
+	return s.userRepository.CheckSubordination(ctx, s.dbPool, commanderUnitID, targetUserID)
+}
+
+// UnblockUser передає команду на розблокування в репозиторій
+func (s *AuthService) UnblockUser(ctx context.Context, userID string) error {
+	return s.userRepository.UnblockUser(ctx, s.dbPool, userID)
 }

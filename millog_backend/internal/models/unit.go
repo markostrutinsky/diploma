@@ -21,3 +21,7 @@ type CreateUnitRequest struct {
 	Name     string   `json:"name" binding:"required"`
 	UnitType UnitType `json:"unit_type" binding:"required,oneof=BRIGADE BATTALION COMPANY PLATOON"`
 }
+
+type ChangeCommanderRequest struct {
+	NewCommanderID string `json:"new_commander_id" binding:"required"`
+}

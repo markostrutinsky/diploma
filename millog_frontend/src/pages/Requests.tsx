@@ -46,8 +46,16 @@ export default function Requests() {
   }
 
   const handleApprove = async (id: string, approved: boolean) => {
+    let comment = ""
+    
+    if (!approved) {
+      const reason = window.prompt("Вкажіть причину відхилення (необов'язково):")
+      if (reason === null) return 
+      comment = reason
+    }
+
     try {
-      await api.requests.approve(id, approved)
+      await (api.requests.approve as any)(id, approved, comment) 
       loadData()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Помилка')
@@ -144,16 +152,29 @@ export default function Requests() {
                     </span>
                   </td>
                   <td>{new Date(r.created_at).toLocaleDateString('uk-UA')}</td>
-                  {canApprove && r.status === 'PENDING' && (
+                  
+                  {canApprove && (
                     <td>
-                      <div className="action-buttons">
-                        <button className="btn btn-sm btn-primary" onClick={() => handleApprove(r.id, true)}>
-                          Затвердити
-                        </button>
-                        <button className="btn btn-sm btn-secondary" onClick={() => handleApprove(r.id, false)}>
-                          Відхилити
-                        </button>
-                      </div>
+                      {r.status === 'PENDING' ? (
+                        r.created_by !== String(user?.id) ? (
+                          <div className="action-buttons">
+                            <button className="btn btn-sm btn-primary" onClick={() => handleApprove(r.id, true)}>
+                              Затвердити
+                            </button>
+                            <button className="btn btn-sm btn-secondary" onClick={() => handleApprove(r.id, false)}>
+                              Відхилити
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="status-text-own">
+                            🔒 Власна заявка
+                          </span>
+                        )
+                      ) : (
+                        <span className="status-text-processed">
+                          ✓ Оброблено
+                        </span>
+                      )}
                     </td>
                   )}
                 </tr>

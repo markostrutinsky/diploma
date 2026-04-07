@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"millog_backend/internal/models"
@@ -40,11 +41,12 @@ func (s *InventoryService) CreateResource(ctx context.Context, req *models.Creat
 	res := &models.Resource{
 		CategoryID:   req.CategoryID,
 		UnitID:       req.UnitID,
+		WarehouseID:  req.WarehouseID, // <--- ЗАМІНИЛИ Location на WarehouseID
 		Name:         req.Name,
 		Description:  req.Description,
 		Quantity:     req.Quantity,
+		UnitType:     req.UnitType, // <--- ДОДАЛИ одиниці виміру
 		SerialNumber: req.SerialNumber,
-		Location:     req.Location,
 		Condition:    cond,
 		MinQuantity:  req.MinQuantity,
 	}
@@ -60,4 +62,83 @@ func (s *InventoryService) ListResources(ctx context.Context, unitID *int64) ([]
 
 func (s *InventoryService) GetResource(ctx context.Context, id string) (*models.Resource, error) {
 	return s.resourceRepo.GetByID(ctx, s.dbPool, id)
+}
+
+func (s *InventoryService) WriteOff(ctx context.Context, id string, req models.WriteOffResourceRequest) error {
+	if req.Quantity <= 0 {
+		return errors.New("кількість для списання має бути більшою за нуль")
+	}
+	return s.resourceRepo.WriteOff(ctx, s.dbPool, id, req.Quantity)
+}
+
+// UpdateResource обгортає процес оновлення ресурсу в транзакцію
+func (s *InventoryService) UpdateResource(ctx context.Context, id string, req models.UpdateResourceRequest) error {
+	// 1. Відкриваємо транзакцію
+	tx, err := s.dbPool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	// 2. Гарантуємо, що транзакція відкотиться у разі паніки або помилки
+	defer tx.Rollback(ctx)
+
+	// 3. Викликаємо репозиторій, ПЕРЕДАЮЧИ ЙОМУ ТРАНЗАКЦІЮ (tx), а не звичайний пул
+	err = s.resourceRepo.Update(ctx, tx, id, req)
+	if err != nil {
+		return fmt.Errorf("repository update failed: %w", err)
+	}
+
+	// 4. Якщо все чудово, комітимо зміни в базу
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}
+
+func (s *InventoryService) Transfer(ctx context.Context, id string, req models.TransferResourceRequest) error {
+	// Базова валідація бізнес-логіки
+	tx, err := s.dbPool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+
+	// 2. Гарантуємо, що транзакція відкотиться у разі паніки або помилки
+	defer tx.Rollback(ctx)
+	if req.Quantity <= 0 {
+		return errors.New("кількість для переміщення має бути більшою за нуль")
+	}
+
+	if id == "" {
+		return errors.New("не вказано ID ресурсу")
+	}
+
+	// Викликаємо репозиторій.
+	// s.db - це твій підключений пул бази даних (DBExecutor), який лежить у структурі сервісу.
+	err = s.resourceRepo.Transfer(ctx, tx, id, req)
+	if err != nil {
+		return fmt.Errorf("не вдалося виконати переміщення: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+	return nil
+}
+
+func (s *InventoryService) Delete(ctx context.Context, id string) error {
+	if id == "" {
+		return errors.New("не вказано ID ресурсу")
+	}
+	return s.resourceRepo.Delete(ctx, s.dbPool, id)
+}
+
+func (s *InventoryService) Assign(ctx context.Context, id string, req models.AssignResourceRequest) error {
+	if req.Quantity <= 0 {
+		return errors.New("кількість для видачі має бути більшою за нуль")
+	}
+	if req.UserID == "" {
+		return errors.New("не вказано користувача")
+	}
+	return s.resourceRepo.Assign(ctx, s.dbPool, id, req.UserID, req.Quantity)
 }

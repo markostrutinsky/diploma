@@ -12,22 +12,71 @@ import Inventory from './pages/Inventory'
 import Requests from './pages/Requests'
 import VolunteerRequests from './pages/VolunteerRequests'
 import Units from './pages/Units'
+import Vehicles from './pages/Vehicles'
+import Warehouses from './pages/Warehouses'
+import AnalyticsDashboard from './pages/AnalyticsDashboard' // <--- 1. ДОДАНО ІМПОРТ
+import { Toaster } from 'react-hot-toast'
 
 function App() {
   return (
     <AuthProvider>
+      <Toaster 
+        position="top-right" 
+        toastOptions={{
+          duration: 4000,
+          style: { background: '#1e293b', color: '#fff', border: '1px solid #334155' }
+        }} 
+      />
       <Layout>
         <Routes>
+          {/* Публічні маршрути */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/bootstrap" element={<Bootstrap />} />
           <Route path="/setup-password" element={<SetupPassword />} />
+
+          {/* Головна доступна всім авторизованим */}
           <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-          <Route path="/admin/users" element={<ProtectedRoute><AdminUsers /></ProtectedRoute>} />
-          <Route path="/inventory" element={<ProtectedRoute><Inventory /></ProtectedRoute>} />
-          <Route path="/requests" element={<ProtectedRoute><Requests /></ProtectedRoute>} />
-          <Route path="/volunteer-requests" element={<ProtectedRoute><VolunteerRequests /></ProtectedRoute>} />
-          <Route path="/units" element={<ProtectedRoute><Units /></ProtectedRoute>} />
+
+          {/* Внутрішні військові маршрути — ЗАБОРОНЕНІ для волонтерів */}
+          <Route 
+            path="/inventory" 
+            element={<ProtectedRoute forbidRoles={['VOLUNTEER']}><Inventory /></ProtectedRoute>} 
+          />
+          <Route 
+            path="/warehouses" 
+            element={<ProtectedRoute forbidRoles={['VOLUNTEER']}><Warehouses /></ProtectedRoute>} 
+          />
+          <Route 
+            path="/requests" 
+            element={<ProtectedRoute forbidRoles={['VOLUNTEER']}><Requests /></ProtectedRoute>} 
+          />
+          <Route 
+            path="/units" 
+            element={<ProtectedRoute forbidRoles={['VOLUNTEER']}><Units /></ProtectedRoute>} 
+          />
+          <Route 
+            path="/admin/users" 
+            element={<ProtectedRoute forbidRoles={['VOLUNTEER']}><AdminUsers /></ProtectedRoute>} 
+          />
+          <Route 
+            path="/vehicles" 
+            element={<ProtectedRoute forbidRoles={['VOLUNTEER']}><Vehicles /></ProtectedRoute>} 
+          />
+          
+          {/* ДОДАНО: Маршрут для Аналітики */}
+          <Route 
+            path="/analytics" 
+            element={<ProtectedRoute forbidRoles={['VOLUNTEER']}><AnalyticsDashboard /></ProtectedRoute>} 
+          />
+
+          {/* Волонтерські маршрути */}
+          <Route 
+            path="/volunteer-requests" 
+            element={<ProtectedRoute><VolunteerRequests /></ProtectedRoute>} 
+          />
+
+          {/* Редирект для всього іншого */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

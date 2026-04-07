@@ -39,6 +39,7 @@ export default function Layout({ children }: LayoutProps) {
   const showSidebar = !!token
   const canManageUsers = user?.role && USER_CREATOR_ROLES.includes(user.role)
   const canManageUnits = user?.role && UNIT_MANAGER_ROLES.includes(user.role)
+  const isVolunteer = user?.role === 'VOLUNTEER'
 
   return (
     <div className={`layout ${showSidebar ? 'with-sidebar' : ''}`}>
@@ -53,15 +54,34 @@ export default function Layout({ children }: LayoutProps) {
             <Link to="/" className={location.pathname === '/' ? 'active' : ''}>
               Головна
             </Link>
-            <Link to="/inventory" className={location.pathname === '/inventory' ? 'active' : ''}>
-              Ресурси
-            </Link>
-            <Link to="/requests" className={location.pathname === '/requests' ? 'active' : ''}>
-              Заявки
-            </Link>
+
+            {/* Ховаємо внутрішні військові вкладки від волонтера */}
+            {!isVolunteer && (
+              <>
+                {/* ДОДАНО: Аналітика */}
+                <Link to="/analytics" className={location.pathname === '/analytics' ? 'active' : ''}>
+                  Аналітика
+                </Link>
+                
+                <Link to="/inventory" className={location.pathname === '/inventory' ? 'active' : ''}>
+                  Ресурси
+                </Link>
+                <Link to="/requests" className={location.pathname === '/requests' ? 'active' : ''}>
+                  Заявки
+                </Link>
+                <Link to="/vehicles" className={location.pathname === '/vehicles' ? 'active' : ''}>
+                  Автопарк
+                </Link>
+                <Link to="/warehouses" className={location.pathname === '/warehouses' ? 'active' : ''}>
+                  Склади
+                </Link>
+              </>
+            )}
+
             <Link to="/volunteer-requests" className={location.pathname === '/volunteer-requests' ? 'active' : ''}>
-              Для волонтерів
+              {isVolunteer ? 'Відкриті потреби' : 'Для волонтерів'}
             </Link>
+
             {canManageUnits && (
               <Link to="/units" className={location.pathname === '/units' ? 'active' : ''}>
                 Підрозділи

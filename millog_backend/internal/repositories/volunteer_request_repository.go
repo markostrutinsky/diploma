@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"fmt"
 
 	"millog_backend/internal/models"
 )
@@ -13,22 +14,67 @@ func NewVolunteerRequestRepository() *VolunteerRequestRepository {
 }
 
 func (r *VolunteerRequestRepository) Create(ctx context.Context, db DBExecutor, vr *models.VolunteerRequest) error {
-	query := `INSERT INTO volunteer_requests (created_by, title, description, status)
-		VALUES ($1, $2, $3, $4) RETURNING id, created_at`
-	return db.QueryRow(ctx, query, vr.CreatedBy, vr.Title, vr.Description, vr.Status).Scan(&vr.ID, &vr.CreatedAt)
+	query := `
+		INSERT INTO volunteer_requests (created_by, unit_id, title, description, status)
+		VALUES ($1, $2, $3, $4, $5) 
+		RETURNING id, created_at
+	`
+	return db.QueryRow(ctx, query, vr.CreatedBy, vr.UnitID, vr.Title, vr.Description, vr.Status).Scan(&vr.ID, &vr.CreatedAt)
 }
 
-func (r *VolunteerRequestRepository) List(ctx context.Context, db DBExecutor) ([]models.VolunteerRequest, error) {
-	rows, err := db.Query(ctx, `SELECT id, created_by, title, description, status, taken_by, taken_at, completed_at, created_at
-		FROM volunteer_requests ORDER BY created_at DESC`)
+func (r *VolunteerRequestRepository) List(ctx context.Context, db DBExecutor, status models.VolunteerRequestStatus) ([]models.VolunteerRequest, error) {
+
+	query := `
+		SELECT 
+			vr.id, 
+			vr.created_by, 
+			vr.unit_id, 
+			u.name as unit_name, 
+			vr.title, 
+			vr.description, 
+			vr.status, 
+			vr.taken_by, 
+			vr.taken_at, 
+			vr.completed_at, 
+			vr.created_at
+		FROM volunteer_requests vr
+		LEFT JOIN units u ON vr.unit_id = u.id
+		WHERE 1=1
+	`
+
+	var args []interface{}
+	paramID := 1
+
+	if status != "" {
+		query += fmt.Sprintf(" AND vr.status = $%d", paramID)
+		args = append(args, status)
+		paramID++
+	}
+
+	query += " ORDER BY vr.created_at DESC"
+
+	rows, err := db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
+
 	var list []models.VolunteerRequest
 	for rows.Next() {
 		var vr models.VolunteerRequest
-		if err := rows.Scan(&vr.ID, &vr.CreatedBy, &vr.Title, &vr.Description, &vr.Status, &vr.TakenBy, &vr.TakenAt, &vr.CompletedAt, &vr.CreatedAt); err != nil {
+		if err := rows.Scan(
+			&vr.ID,
+			&vr.CreatedBy,
+			&vr.UnitID,
+			&vr.UnitName,
+			&vr.Title,
+			&vr.Description,
+			&vr.Status,
+			&vr.TakenBy,
+			&vr.TakenAt,
+			&vr.CompletedAt,
+			&vr.CreatedAt,
+		); err != nil {
 			return nil, err
 		}
 		list = append(list, vr)
@@ -36,14 +82,32 @@ func (r *VolunteerRequestRepository) List(ctx context.Context, db DBExecutor) ([
 	return list, rows.Err()
 }
 
-func (r *VolunteerRequestRepository) Take(ctx context.Context, db DBExecutor, id, userID string) error {
-	query := `UPDATE volunteer_requests SET status = $1, taken_by = $2, taken_at = CURRENT_TIMESTAMP WHERE id = $3 AND status = $4`
-	_, err := db.Exec(ctx, query, models.VolunteerTaken, userID, id, models.VolunteerOpen)
-	return err
-}
+func (r *VolunteerRequestRepository) UpdateStatus(ctx context.Context, db DBExecutor, requestID string, userID string, newStatus models.VolunteerRequestStatus) error {
 
-func (r *VolunteerRequestRepository) Complete(ctx context.Context, db DBExecutor, id, userID string) error {
-	query := `UPDATE volunteer_requests SET status = $1, completed_at = CURRENT_TIMESTAMP WHERE id = $2 AND taken_by = $3 AND status = $4`
-	_, err := db.Exec(ctx, query, models.VolunteerCompleted, id, userID, models.VolunteerTaken)
-	return err
+	query := `UPDATE volunteer_requests SET status = $1`
+	args := []interface{}{newStatus}
+	paramID := 2
+
+	switch newStatus {
+	case models.VolunteerTaken:
+		query += fmt.Sprintf(", taken_by = $%d, taken_at = CURRENT_TIMESTAMP", paramID)
+		args = append(args, userID)
+		paramID++
+	case models.VolunteerAccepted, models.VolunteerRejected, models.VolunteerCanceled:
+		query += ", completed_at = CURRENT_TIMESTAMP"
+	}
+
+	query += fmt.Sprintf(" WHERE id = $%d", paramID)
+	args = append(args, requestID)
+
+	cmdTag, err := db.Exec(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+
+	if cmdTag.RowsAffected() == 0 {
+		return fmt.Errorf("заявку не знайдено або статус не змінено")
+	}
+
+	return nil
 }

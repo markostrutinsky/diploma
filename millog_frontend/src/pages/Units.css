@@ -4,3 +4,46 @@
   align-items: center;
   margin-bottom: 1.5rem;
 }
+
+.commander-cell {
+  display: flex;
+  flex-direction: column;
+}
+
+.commander-name {
+  color: inherit;
+}
+
+.commander-name.pending {
+  color: #64748b; 
+}
+
+.commander-status-badge {
+  font-size: 10px;
+  color: #b45309;
+  font-weight: 600;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.commander-empty {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+.modal-subtitle {
+  margin-bottom: 15px;
+  color: #6c757d;
+}
+
+.form-help-error {
+  color: #dc3545;
+  font-size: 12px;
+  margin-top: 4px;
+  display: block;
+}
+
+.btn-action-small {
+  padding: 4px 8px;
+  font-size: 12px;
+}

@@ -1,0 +1,174 @@
+/* Головний контейнер */
+.analytics-pro-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  padding-bottom: 40px;
+}
+
+.page-header {
+  margin-bottom: 24px;
+}
+
+.page-header h2 {
+  color: #1e293b;
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+/* Блоки-секції (Тактична логістика, Автопарк тощо) */
+.dashboard-section {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.dashboard-section h3 {
+  margin-top: 0;
+  color: #0f172a;
+  border-bottom: 2px solid #f1f5f9;
+  padding-bottom: 12px;
+  font-size: 1.2rem;
+  margin-bottom: 20px;
+}
+
+/* Картки з цифрами (Топ метрики та Волонтери) */
+.metrics-cards-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.top-metrics {
+  margin-bottom: 24px;
+}
+
+.funnel-card {
+  text-align: center;
+  padding: 24px 20px;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  flex: 1;
+  min-width: 200px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.border-card {
+  background: #f8fafc;
+}
+
+.alert-bg {
+  background-color: #fef2f2;
+  border-color: #fca5a5;
+}
+
+.funnel-value {
+  display: block;
+  font-size: 2.8rem;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.funnel-label {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #64748b;
+}
+
+/* Кольори тексту */
+.text-success { color: #10b981; }
+.text-warning { color: #f59e0b; }
+.text-danger { color: #ef4444; }
+.font-bold { font-weight: 600; }
+
+/* Сітка для графіків */
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 992px) {
+  .charts-row { 
+    grid-template-columns: 1fr; 
+  }
+}
+
+.chart-item {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid #f1f5f9;
+}
+
+.chart-label {
+  font-weight: 600;
+  color: #475569;
+  margin-top: 0;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+/* Червона зона (Критичні залишки) */
+.critical-list {
+  margin-top: 24px;
+  background: #fff1f2;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #fecaca;
+}
+
+.critical-list h4 {
+  margin-top: 0;
+  color: #be123c;
+  margin-bottom: 16px;
+  font-size: 1.1rem;
+}
+
+.critical-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px dashed #fca5a5;
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.critical-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.badge-critical {
+  color: #be123c;
+  font-weight: 700;
+  background: #ffe4e6;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+/* Стани завантаження та помилок */
+.loading-state, .error-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 50vh;
+  font-size: 1.2rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.error-state { 
+  color: #ef4444; 
+}

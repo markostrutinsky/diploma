@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"millog_backend/internal/models"
@@ -10,14 +11,31 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+func CanApproveRequest(creatorRole models.UserRole, approverRole models.UserRole) bool {
+	if approverRole == models.RoleAdmin {
+		return true
+	}
+	allowedApprovers, exists := models.ApprovalMatrix[creatorRole]
+	if !exists {
+		return false
+	}
+	for _, role := range allowedApprovers {
+		if role == approverRole {
+			return true
+		}
+	}
+	return false
+}
+
 type RequestService struct {
 	requestRepo  *repositories.SupplyRequestRepository
 	resourceRepo *repositories.ResourceRepository
+	userRepo     *repositories.UserRepository
 	dbPool       *pgxpool.Pool
 }
 
-func NewRequestService(reqRepo *repositories.SupplyRequestRepository, resRepo *repositories.ResourceRepository, db *pgxpool.Pool) *RequestService {
-	return &RequestService{requestRepo: reqRepo, resourceRepo: resRepo, dbPool: db}
+func NewRequestService(reqRepo *repositories.SupplyRequestRepository, resRepo *repositories.ResourceRepository, userRepo *repositories.UserRepository, db *pgxpool.Pool) *RequestService {
+	return &RequestService{requestRepo: reqRepo, resourceRepo: resRepo, userRepo: userRepo, dbPool: db}
 }
 
 func (s *RequestService) Create(ctx context.Context, userID string, req *models.CreateSupplyRequest) (*models.SupplyRequest, error) {
@@ -33,11 +51,12 @@ func (s *RequestService) Create(ctx context.Context, userID string, req *models.
 	return sr, nil
 }
 
-func (s *RequestService) List(ctx context.Context) ([]models.SupplyRequest, error) {
-	return s.requestRepo.List(ctx, s.dbPool)
+// Додаємо аргументи userRole та userUnitID
+func (s *RequestService) List(ctx context.Context, userRole string, userUnitID *int64) ([]models.SupplyRequest, error) {
+	return s.requestRepo.List(ctx, s.dbPool, userRole, userUnitID)
 }
 
-func (s *RequestService) Approve(ctx context.Context, requestID, approverID string, approved bool, comment string) error {
+func (s *RequestService) Approve(ctx context.Context, requestID, approverID string, approverRole models.UserRole, approved bool, comment string) error {
 	tx, err := s.dbPool.Begin(ctx)
 	if err != nil {
 		return err
@@ -50,6 +69,19 @@ func (s *RequestService) Approve(ctx context.Context, requestID, approverID stri
 	}
 	if req.Status != models.RequestPending {
 		return fmt.Errorf("request already processed")
+	}
+
+	if req.CreatedBy == approverID {
+		return errors.New("неможливо погодити власну заявку (конфлікт інтересів)")
+	}
+
+	creator, err := s.userRepo.GetByID(ctx, tx, req.CreatedBy)
+	if err != nil {
+		return fmt.Errorf("failed to get creator details: %w", err)
+	}
+
+	if !CanApproveRequest(models.UserRole(creator.Role), approverRole) {
+		return errors.New("недостатньо прав для погодження заявки цього рівня (порушення субординації)")
 	}
 
 	if err := s.requestRepo.Approve(ctx, tx, requestID, approverID, approved, comment); err != nil {

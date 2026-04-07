@@ -51,3 +51,67 @@
 .request-list .badge {
   margin-right: 0.5rem;
 }
+
+/* --- Стилі для групи кнопок у списку --- */
+.request-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center; /* Вирівнюємо текст і кнопки по центру вертикалі */
+}
+
+.request-info {
+  flex: 1; /* Дозволяємо тексту займати весь вільний простір зліва */
+  padding-right: 24px;
+}
+
+.action-buttons-row {
+  display: flex;
+  gap: 8px; /* Акуратна відстань між кнопками */
+  align-items: center;
+  flex-shrink: 0; /* Забороняємо кнопкам стискатися */
+}
+
+/* --- Стилі для самих маленьких кнопок --- */
+.btn-action-small {
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+/* Зелена кнопка (Прийняти) */
+.btn-success-small {
+  background-color: #198754;
+  color: #fff;
+}
+
+.btn-success-small:hover {
+  background-color: #157347;
+  box-shadow: 0 2px 4px rgba(25, 135, 84, 0.2);
+}
+
+/* Червона кнопка (Відхилити) */
+.btn-danger-small {
+  background-color: #dc3545;
+  color: #fff;
+}
+
+.btn-danger-small:hover {
+  background-color: #bb2d3b;
+  box-shadow: 0 2px 4px rgba(220, 53, 69, 0.2);
+}
+
+/* Сіра кнопка (Скасувати) - для статусу OPEN */
+.btn-action-small.btn-secondary {
+  background-color: #f8f9fa;
+  color: #495057;
+  border: 1px solid #ced4da;
+}
+
+.btn-action-small.btn-secondary:hover {
+  background-color: #e2e6ea;
+}

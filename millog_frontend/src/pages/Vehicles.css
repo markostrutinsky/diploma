@@ -1,0 +1,533 @@
+/* =========================================
+   АВТОПАРК ТА ПАЛЬНЕ (Vehicles.css)
+========================================= */
+
+/* --- Аномалії --- */
+.anomaly-modal {
+  border-top: 4px solid #dc2626 !important;
+}
+
+.anomaly-modal h3 {
+  color: #dc2626 !important;
+}
+
+.anomaly-modal-actions {
+  justify-content: center !important;
+}
+
+/* --- Модалка пального --- */
+.fuel-type-select {
+  font-weight: bold;
+}
+
+.fuel-type-select.type-refuel {
+  color: #16a34a;
+}
+
+.fuel-type-select.type-expense {
+  color: #dc2626;
+}
+
+.fuel-helper-text {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: -10px;
+  margin-bottom: 15px;
+}
+
+/* Зелена кнопка для заправки */
+.btn-success {
+  background-color: #16a34a;
+  color: #ffffff;
+  border: 1px solid transparent;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: background-color 0.2s;
+}
+
+.btn-success:hover {
+  background-color: #15803d;
+}
+
+/* --- Таблиця автопарку --- */
+.vehicle-brand-cell {
+  font-weight: 500;
+}
+
+.vehicle-model-text {
+  color: #64748b;
+  font-weight: normal;
+  margin-left: 4px;
+}
+
+.plate-badge {
+  font-family: monospace;
+  font-size: 14px;
+  background-color: #f1f5f9;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+}
+
+.norm-text {
+  color: #64748b;
+  font-size: 12px;
+  margin-left: 4px;
+}
+
+.btn-fuel-action {
+  padding: 6px 12px !important;
+  font-size: 13px !important;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* --- Стилі для модалок і повідомлень --- */
+.anomaly-modal {
+  border-top: 4px solid #dc2626;
+}
+
+.text-danger {
+  color: #dc2626;
+}
+
+.center-actions {
+  justify-content: center;
+}
+
+.success-text {
+  color: #16a34a;
+  text-align: center;
+  font-weight: 500;
+  margin: 10px 0;
+}
+
+.error-text {
+  color: #dc2626;
+  text-align: center;
+  font-weight: 500;
+  margin: 10px 0;
+}
+
+/* --- Інші елементи --- */
+.fuel-type-select {
+  font-weight: bold;
+}
+.fuel-type-select.type-refuel {
+  color: #16a34a;
+}
+.fuel-type-select.type-expense {
+  color: #dc2626;
+}
+
+.fuel-helper-text {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: -10px;
+  margin-bottom: 15px;
+}
+
+.btn-success {
+  background-color: #16a34a;
+  color: #ffffff;
+  border-color: #16a34a;
+}
+.btn-success:hover {
+  background-color: #15803d;
+}
+
+.vehicle-brand-cell { font-weight: 500; }
+.vehicle-model-text { color: #64748b; font-weight: normal; margin-left: 4px; }
+.plate-badge {
+  font-family: monospace; font-size: 14px; background-color: #f1f5f9;
+  padding: 4px 8px; border-radius: 4px; border: 1px solid #cbd5e1;
+}
+.norm-text { color: #64748b; font-size: 12px; margin-left: 4px; }
+.btn-fuel-action { padding: 6px 12px; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+
+/* =========================================
+   ДОДАТКОВІ СТИЛІ ДЛЯ ІСТОРІЇ ПАЛЬНОГО
+========================================= */
+
+/* Група кнопок дій у таблиці автопарку */
+.action-buttons-group {
+  display: flex;
+  gap: 8px;
+}
+
+/* Модалка історії (ширша за стандартну) */
+.history-modal {
+  max-width: 700px !important;
+  width: 90%;
+}
+
+/* Обгортка для таблиці історії зі скролом */
+.history-table-wrapper {
+  max-height: 400px;
+  overflow-y: auto;
+  margin-top: 15px;
+}
+
+/* Спінер завантаження історії */
+.history-spinner {
+  margin: 30px auto;
+}
+
+/* Повідомлення, коли історія порожня */
+.history-empty {
+  text-align: center;
+  color: #64748b;
+  padding: 20px 0;
+}
+
+/* Відступи кнопок в модалці історії */
+.history-actions {
+  margin-top: 20px;
+}
+
+/* Стилізація конкретних комірок історії */
+.date-cell {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.liters-cell {
+  font-weight: 500;
+}
+
+/* --- Інфо-блок автомобіля в модалці історії --- */
+.vehicle-info-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 15px;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.v-card {
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 120px;
+  flex: 1; /* Щоб картки тягнулися рівномірно */
+}
+
+.v-card-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.v-card-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+}
+
+.v-card-value small {
+  color: #64748b;
+  font-size: 12px;
+  margin-left: 2px;
+  font-weight: normal;
+}
+
+/* --- Картка з прогрес-баром (Залишок у баку) --- */
+.fuel-gauge-card {
+  flex: 2; /* Робимо її ширшою за інші картки */
+  min-width: 200px;
+}
+
+.gauge-bg {
+  height: 8px;
+  background-color: #e2e8f0;
+  border-radius: 4px;
+  margin-top: 8px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.gauge-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); /* Плавна анімація заповнення */
+}
+
+/* Якщо пального достатньо (Зелений) */
+.gauge-normal {
+  background-color: #16a34a;
+}
+
+/* Якщо пального менше 20% (Червоний) */
+.gauge-low {
+  background-color: #dc2626;
+}
+/* Жовтий бейдж (Попередження / Ремонт) */
+.badge-warning {
+  background-color: #fef08a;
+  color: #854d0e;
+}
+
+/* Сірий текст для нормального статусу ТО */
+.text-muted {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* --- Вкладки (Tabs) в модалці історії --- */
+.history-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.history-tab {
+  background: none;
+  border: none;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.history-tab:hover {
+  color: #0f172a;
+}
+
+.history-tab.active {
+  color: #2563eb; /* Синій колір активної вкладки */
+  border-bottom: 2px solid #2563eb;
+}
+
+/* Специфічні стилі для таблиці ремонтів */
+.desc-cell {
+  max-width: 250px;
+  white-space: normal; /* Дозволяємо перенесення тексту */
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.performer-cell {
+  font-size: 13px;
+  color: #475569;
+}
+input, select {
+  height: 42px;
+  box-sizing: border-box;
+}
+
+textarea {
+  height: auto; /* Щоб поле опису могло розтягуватись */
+}
+/* =========================================
+   КАСТОМНА КНОПКА ЗАВАНТАЖЕННЯ ФАЙЛУ
+   ========================================= */
+
+.form-group label.file-upload-custom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0;
+  
+  height: 42px; /* ВАЖЛИВО: Точно така ж висота, як у звичайного input */
+  padding: 0 12px;
+  box-sizing: border-box;
+  width: 100%;
+  
+  background-color: #f8fafc;
+  border: 1px dashed #94a3b8;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.form-group label.file-upload-custom:hover {
+  border-color: #3b82f6;
+  background-color: #eff6ff;
+}
+
+.file-upload-text {
+  color: #475569;
+  font-size: 14px; 
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis; 
+  max-width: 100%;
+}
+
+/* =========================================
+   ФІКС ТАБЛИЦІ ТА КОМПАКТНІ КНОПКИ ДІЙ
+   ========================================= */
+
+/* Трохи розширюємо сторінку, щоб таблиці було вільніше дихати (замість 1200px) */
+.inventory-page {
+  max-width: 1400px; 
+}
+
+/* Компактна група кнопок */
+.action-buttons-group {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap; /* Дозволяємо переноситись на новий рядок на малих екранах */
+  justify-content: flex-start;
+  align-items: center;
+}
+
+/* Робимо самі кнопки дій набагато акуратнішими */
+.btn-fuel-action {
+  padding: 5px 8px !important; /* Менші відступи */
+  font-size: 12px !important;  /* Менший шрифт */
+  white-space: nowrap !important; /* Забороняємо тексту ламатися на два рядки */
+  border-radius: 4px !important;
+  line-height: 1.2 !important;
+  height: 28px !important; /* Фіксована невелика висота */
+}
+
+/* Іконки всередині кнопок (щоб не були завеликими) */
+.btn-fuel-action span {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Задаємо колонці 'Дії' мінімальну ширину, щоб вона акуратно групувала кнопки */
+.data-table th:last-child,
+.data-table td:last-child {
+  min-width: 280px; 
+}
+
+/* =========================================
+   МОДАЛКА ІСТОРІЇ - БРОНЬОБІЙНИЙ CSS
+   ========================================= */
+
+.history-modal {
+  width: 90vw !important;       /* Беремо 90% ширини екрану (завжди ідеально по центру) */
+  max-width: 1100px !important; /* Але не більше 1100px на величезних моніторах */
+}
+
+.history-table-wrapper {
+  width: 100%;
+  display: block;
+  overflow-x: auto; /* Скрол з'явиться ТІЛЬКИ на дуже малих екранах */
+}
+
+/* Примусово розтягуємо таблицю на весь доступний контейнер */
+.history-table-wrapper .data-table {
+  width: 100% !important;
+  min-width: 100% !important;
+  table-layout: auto !important;
+}
+
+/* Базові колонки: контент в один рядок, займають мінімум потрібного місця */
+.history-table-wrapper .data-table th,
+.history-table-wrapper .data-table td {
+  padding: 10px 12px !important;
+  font-size: 13px !important;
+  white-space: nowrap !important; /* Забороняємо датам і цифрам ламатися */
+}
+
+/* ТРЮК "ПРУЖИНИ" ДЛЯ КОЛОНКИ ОПИСУ */
+.history-table-wrapper .data-table td.desc-cell {
+  white-space: normal !important; /* Тільки тут дозволяємо тексту переноситись */
+  width: 99% !important;          /* Працює як пружина: забирає весь вільний простір */
+  min-width: 250px;
+  line-height: 1.4;
+}
+
+/* Іконки біля імен водіїв і документів */
+.history-table-wrapper .data-table td span,
+.history-table-wrapper .data-table td a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Скролбари (тонкі та сучасні) */
+.history-table-wrapper::-webkit-scrollbar { width: 8px; height: 8px; }
+.history-table-wrapper::-webkit-scrollbar-track { background: #f8fafc; border-radius: 4px; }
+.history-table-wrapper::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+.history-table-wrapper::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+/* Вкладки */
+.history-tabs {
+  gap: 15px !important;
+  margin-bottom: 20px !important;
+}
+.history-tab {
+  padding: 8px 15px !important;
+}
+
+/* --- НОВІ КЛАСИ ЗАМІСТЬ INLINE СТИЛІВ --- */
+.select-normal-weight { font-weight: normal; }
+.modal-description { margin-bottom: 15px; color: #64748b; }
+.form-row-bottom-align { align-items: flex-end; }
+.form-group-no-margin { margin-bottom: 0; }
+.file-input-hidden { display: none; }
+.fuel-gauge-header { display: flex; justify-content: space-between; align-items: flex-end; }
+.fuel-gauge-value-text { font-size: 14px; }
+.driver-history-cell { color: #475569; font-size: 13px; }
+.unassigned-text { font-style: italic; opacity: 0.6; }
+.unassigned-text-italic { font-style: italic; color: #64748b; }
+.odometer-cell { font-weight: 500; }
+.cost-cell { font-weight: bold; color: #0f172a; }
+.document-link-btn { 
+  text-decoration: none; background: #e2e8f0; padding: 4px 8px; 
+  border-radius: 4px; font-size: 13px; color: #334155; 
+  display: inline-block; font-weight: 500; 
+}
+.document-link-btn:hover { background: #cbd5e1; }
+.driver-assigned { font-weight: 600; color: #0f172a; }
+.driver-unassigned { font-weight: normal; color: #64748b; }
+.table-header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+.table-header-actions { display: flex; gap: 10px; }
+.tab-toggle-btn { 
+  padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1; 
+  background: #fff; cursor: pointer; font-weight: normal; color: #64748b; 
+}
+.tab-toggle-btn.active { background: #e2e8f0; font-weight: bold; color: #0f172a; }
+.tab-toggle-btn.archive.active { background: #fee2e2; color: #b91c1c; font-weight: bold; }
+.row-inactive { opacity: 0.7; }
+.btn-finish-repair { background: #22c55e !important; color: white !important; border: none !important; }
+.btn-finish-repair:hover { background: #16a34a !important; }
+/* =========================================
+   ФІКС ТАБЛИЦІ ПАЛЬНОГО (Розтягування на 100%)
+   ========================================= */
+
+/* Базове правило: всі таблиці історії намагаються зайняти 100% */
+.history-table-wrapper .data-table {
+  display: table !important;
+  width: 100% !important;
+}
+
+/* МАГІЯ: Застосовуємо стилі ТІЛЬКИ до таблиці, у якої рівно 5 колонок (Пальне) */
+.history-table-wrapper .data-table:has(th:nth-child(5):last-child) {
+  table-layout: fixed !important;
+}
+
+/* Робимо всі 5 колонок рівними по 20% і центруємо текст */
+.history-table-wrapper .data-table:has(th:nth-child(5):last-child) th,
+.history-table-wrapper .data-table:has(th:nth-child(5):last-child) td {
+  width: 20% !important;
+  text-align: center !important;
+}
+
+/* Дату (першу колонку) залишаємо притиснутою ліворуч для краси */
+.history-table-wrapper .data-table:has(th:nth-child(5):last-child) th:first-child,
+.history-table-wrapper .data-table:has(th:nth-child(5):last-child) td:first-child {
+  text-align: left !important;
+}
+
