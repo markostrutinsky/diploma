@@ -1,419 +1,217 @@
 /* =========================================
    ГЛОБАЛЬНА СТРУКТУРА ТА СІТКА
 ========================================= */
-.inventory-page {
-  max-width: 1400px; /* Обмежуємо ширину на величезних моніторах */
-  margin: 0 auto;
-  width: 100%;
-}
-
-.inventory-page .page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  flex-wrap: wrap;
-  gap: 1rem;
-}
-
-.page-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.content-grid {
-  display: grid;
-  grid-template-columns: 240px 1fr;
-  gap: 1.5rem;
-  align-items: start;
-}
-
-@media (max-width: 768px) {
-  .content-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.card {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 1.5rem;
-}
-
-.card h2 {
-  margin: 0 0 1rem;
-  font-size: 1rem;
-  font-weight: 600;
-}
+.inventory-page { max-width: 1400px; margin: 0 auto; width: 100%; }
+.page-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; }
+.page-actions { display: flex; gap: 0.5rem; }
+.content-grid { display: grid; grid-template-columns: 240px 1fr; gap: 1.5rem; align-items: start; }
+.card { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.5rem; }
+.card h2 { margin: 0 0 1rem; font-size: 1rem; font-weight: 600; color: #0f172a; }
 
 /* =========================================
    МЕНЮ КАТЕГОРІЙ (Зліва)
 ========================================= */
-.category-list.clean-list {
-  list-style: none !important;
-  margin: 0 !important;
-  padding: 0 !important;
-}
-
-.category-item {
-  cursor: pointer;
-  padding: 10px 14px !important;
-  margin-bottom: 6px !important;
-  border-radius: 6px;
-  color: #495057;
-  font-size: 0.9375rem;
-  transition: all 0.2s ease;
-  display: block; 
-}
-
-.category-item:hover {
-  background-color: #f1f3f5;
-}
-
-.active-category {
-  background-color: #e9ecef !important;
-  font-weight: 600 !important;
-  color: #0d47a1 !important; 
-}
+.category-list.clean-list { list-style: none !important; margin: 0 !important; padding: 0 !important; }
+.category-item { cursor: pointer; padding: 10px 14px !important; margin-bottom: 6px !important; border-radius: 6px; color: #495057; font-size: 0.9375rem; transition: all 0.2s ease; display: block; }
+.category-item:hover { background-color: #f1f3f5; }
+.active-category { background-color: #e9ecef !important; font-weight: 600 !important; color: #0d47a1 !important; }
 
 /* =========================================
-   ІДЕАЛЬНА ТАБЛИЦЯ РЕСУРСІВ
+   ТАБЛИЦЯ "РЕСУРСИ" (Жорсткий контроль)
 ========================================= */
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: auto; 
-  font-size: 0.9375rem;
-  margin-top: 10px;
-}
+.data-table { width: 100%; border-collapse: collapse; font-size: 0.9375rem; margin-top: 10px; }
+.data-table th, .data-table td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; vertical-align: middle; }
+.data-table th { font-weight: 600; color: #475569; background-color: #f8fafc; }
 
-.data-table th,
-.data-table td {
-  padding: 12px 16px;
-  text-align: left;
-  border-bottom: 1px solid #f1f5f9;
-  vertical-align: middle;
-}
-
-.data-table th {
-  font-weight: 500;
-  color: #64748b;
-}
-
-/* 1. Назва працює як пружина, забираючи весь вільний простір */
-.data-table th:first-child, 
-.data-table td:first-child {
-  width: 100%;
-}
-
-/* 2. Всі інші колонки стискаються до мінімуму */
-.data-table th:not(:first-child), 
-.data-table td:not(:first-child) {
-  width: 1%; 
-  white-space: nowrap; /* Текст не ламається на два рядки */
-}
-
-/* 3. Центруємо цифри та статуси */
-.data-table th:nth-child(3), .data-table td:nth-child(3),
-.data-table th:nth-child(4), .data-table td:nth-child(4),
-.data-table th:nth-child(5), .data-table td:nth-child(5) {
-  text-align: center;
-}
-
-/* 4. Колонка дій (остання) - по центру і з відступом від краю */
-.data-table th:last-child, 
-.data-table td:last-child {
-  text-align: center;
-  padding-right: 20px;
-}
-
-/* =========================================
-   ЗАГОЛОВКИ ПІДРОЗДІЛІВ У ТАБЛИЦІ
-========================================= */
-.unit-header-row {
-  background-color: #f8f9fa;
-}
-
-.unit-header-row td {
-  font-weight: 600;
-  color: #495057;
-  padding-top: 12px !important; 
-  padding-bottom: 12px !important;
-  border-top: 2px solid #dee2e6 !important;
-}
-
-.my-unit-header {
-  background-color: #e3f2fd;
-}
-
-.my-unit-header td {
-  color: #0d47a1;
-}
-
-.my-unit-badge {
-  font-size: 12px;
-  color: #1976d2;
-  margin-left: 8px;
-  font-weight: normal;
-}
-
-.resource-name-cell {
-  padding-left: 24px !important;
-}
-
-/* =========================================
-   СТАТУСИ, БЕДЖІ ТА РЯДКИ
-========================================= */
-.badge {
-  display: inline-block;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-.badge-success { background: rgba(34, 197, 94, 0.15); color: #16a34a; }
-.badge-warning { background: rgba(245, 158, 11, 0.15); color: #d97706; }
-.badge-critical { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
-.badge-neutral { background-color: #e2e8f0; color: #475569; }
-
-/* Легка підсвітка проблемних рядків */
-.data-table tr.row-critical { background: rgba(239, 68, 68, 0.04); }
-.data-table tr.row-success { background: rgba(34, 197, 94, 0.02); }
-.data-table tr.row-warning { background: rgba(245, 158, 11, 0.04); }
-
-.written-off-row { opacity: 0.6; background-color: #f8fafc; }
-.written-off-qty { color: #ef4444; font-weight: bold; }
-.empty-state { color: #64748b; font-size: 0.9375rem; margin: 0; }
-.text-assigned { color: #0056b3; font-weight: 500; }
-
-/* =========================================
-   ВИПАДАЮЧЕ МЕНЮ ДІЙ (ТРИ КРАПКИ)
-========================================= */
-.dropdown-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  position: relative;
-}
-
-.btn-kebab {
-  background: transparent;
-  border: none;
-  color: #94a3b8;
-  font-size: 20px;
-  cursor: pointer;
-  width: 32px;
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  transition: 0.2s;
-  padding: 0;
-  margin: 0;
-}
-
-.btn-kebab:hover, .btn-kebab.active {
-  background: #f1f5f9;
-  color: #0f172a;
-}
-
-.actions-dropdown-menu {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 4px);
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
-  min-width: 220px;
-  padding: 6px;
-}
-
-.actions-dropdown-menu button {
-  display: flex;
-  width: 100%;
-  padding: 10px 12px;
-  font-size: 13px;
-  color: #334155;
-  background: none;
-  border: none;
-  text-align: left;
-  cursor: pointer;
-  border-radius: 6px;
-  transition: background 0.2s;
-}
-
-.actions-dropdown-menu button:hover { background: #f8fafc; color: #0f172a; }
-.actions-dropdown-menu button.text-primary-action { color: #2563eb; font-weight: 600; }
-.actions-dropdown-menu button.text-danger { color: #ef4444; }
-
-.dropdown-divider {
-  height: 1px;
-  background: #f1f5f9;
-  margin: 4px 0;
-}
-
-/* =========================================
-   ВКЛАДКИ (На балансі / Списані)
-========================================= */
-.table-header-with-tabs {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.25rem;
-}
-
-.inventory-tabs {
-  display: flex;
-  background-color: #f1f5f9; 
-  padding: 4px;
-  border-radius: 8px;
-}
-
-.tab-btn {
-  padding: 6px 16px;
-  border: none;
-  background: transparent;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #64748b; 
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.tab-btn:hover:not(.active) { color: #334155; }
-.tab-btn.active {
-  background-color: #ffffff;
-  color: #0f172a; 
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); 
-}
-
-/* =========================================
-   СТАНДАРТНІ КНОПКИ (Модалки тощо)
-========================================= */
-.btn-primary {
-  background-color: #2563eb; 
-  color: #ffffff;
-  border: 1px solid transparent;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  transition: 0.2s;
-}
-
-.btn-primary:hover:not(:disabled) { background-color: #1d4ed8; }
-.btn-primary:disabled { background-color: #93c5fd; cursor: not-allowed; }
-
-.btn-secondary {
-  background-color: #ffffff;
-  color: #334155; 
-  border: 1px solid #cbd5e1; 
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  transition: 0.2s;
-}
-
-.btn-secondary:hover { background-color: #f8fafc; border-color: #94a3b8; color: #0f172a; }
-
-.btn-danger {
-  background-color: #dc2626;
-  color: #ffffff;
-  border: 1px solid transparent;
-  transition: 0.2s;
-}
-
-.btn-danger:hover { background-color: #b91c1c; }
-
-/* =========================================
-   МОДАЛКИ ТА АЛЕРТИ
-========================================= */
-.confirm-modal { max-width: 440px; }
-.confirm-modal h3 { color: #0f172a; margin-top: 0; margin-bottom: 1rem; font-size: 1.125rem; }
-.confirm-text { color: #334155; line-height: 1.5; margin: 0 0 1.25rem 0; font-size: 0.9375rem; }
-
-.warning-box {
-  background-color: rgba(239, 68, 68, 0.05); 
-  border: 1px solid rgba(239, 68, 68, 0.2); 
-  padding: 12px 16px;
-  border-radius: 6px;
-  margin-bottom: 1.5rem;
-}
-.warning-box p { margin: 0 0 6px 0; color: #991b1b; font-size: 0.875rem; }
-.warning-box p:last-child { margin: 0; }
-.critical-text { font-weight: 600; color: #dc2626 !important; }
-
-.modal-error-box {
-  background-color: #ffe6e6;
-  color: #d93025;
-  padding: 10px;
-  border-radius: 4px;
-  margin-bottom: 15px;
-  font-size: 14px;
-  border: 1px solid #f5c6c6;
-}
-
-/* --- ІДЕАЛЬНА ТАБЛИЦЯ (ЧИСТИЙ CSS) --- */
-/* =========================================
-   ГЛОБАЛЬНА ТАБЛИЦЯ (Для всіх сторінок: Автопарк, Заявки)
-========================================= */
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 10px;
-}
-
-.data-table th, 
-.data-table td {
-  padding: 10px 16px;
-  text-align: left;
-  border-bottom: 1px solid #f1f5f9;
-  vertical-align: middle;
-}
-
-.data-table th {
-  font-weight: 500;
-  color: #64748b;
-}
-
-/* =========================================
-   СПЕЦИФІЧНА ТАБЛИЦЯ "РЕСУРСИ" (Фіксовані колонки)
-========================================= */
+/* ФІКС: Залізобетонна структура таблиці */
 .table-inventory {
-  table-layout: fixed; 
+  width: 100%;
+  table-layout: fixed; /* Гарантує, що таблиця не розлізеться */
 }
 
-/* Ширина колонок працює ТІЛЬКИ для таблиці ресурсів */
-.table-inventory th:nth-child(1) { width: auto; }  /* Назва */
-.table-inventory th:nth-child(2) { width: 200px; } /* Склад */
-.table-inventory th:nth-child(3) { width: 90px; text-align: center; } /* Кількість */
-.table-inventory th:nth-child(4) { width: 70px; text-align: center; } /* Мін. */
-.table-inventory th:nth-child(5) { width: 90px; text-align: center; } /* Стан */
-.table-inventory th:nth-child(6) { width: 60px; text-align: center; padding: 0 !important; } /* Дії */
-
-/* Вирівнювання тексту в комірках ТІЛЬКИ для ресурсів */
-.table-inventory td:first-child {
-  white-space: normal;
+.table-inventory th, .table-inventory td {
   word-wrap: break-word;
+  white-space: normal;
 }
 
-.table-inventory td:nth-child(3),
-.table-inventory td:nth-child(4),
-.table-inventory td:nth-child(5) {
-  text-align: center;
-  white-space: nowrap;
+/* Точний розподіл колонок (сума 100%) */
+.table-inventory th:nth-child(1) { width: 22%; }
+.table-inventory th:nth-child(2) { width: 35%; }
+.table-inventory th:nth-child(3) { width: 13%; text-align: center; }
+.table-inventory th:nth-child(4) { width: 10%; text-align: center; }
+.table-inventory th:nth-child(5) { width: 10%; text-align: center; }
+.table-inventory th:nth-child(6) { width: 10%; text-align: center; }
+
+.location-stack { display: flex; flex-direction: column; gap: 6px; }
+.stock-info { font-size: 0.85rem; color: #334155; background-color: #f1f5f9; padding: 4px 8px; border-radius: 6px; display: inline-block; width: fit-content; }
+.issued-info { font-size: 0.85rem; color: #1d4ed8; background-color: #eff6ff; padding: 4px 8px; border-radius: 6px; display: inline-block; width: fit-content; }
+
+.unit-header-row td { font-weight: 600; color: #495057; padding: 12px !important; border-top: 2px solid #dee2e6 !important; background-color: #f8f9fa; }
+.my-unit-header td { color: #0d47a1; background-color: #e3f2fd; }
+.my-unit-badge { font-size: 12px; color: #1976d2; background: #dbeafe; padding: 2px 6px; border-radius: 4px; margin-left: 8px; font-weight: normal; }
+
+.badge { display: inline-block; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+.badge-success { background: #dcfce7; color: #059669; }
+.badge-warning { background: #fef3c7; color: #d97706; }
+.badge-critical { background: #fee2e2; color: #dc2626; }
+.badge-neutral { background-color: #f1f5f9; color: #475569; }
+
+.dropdown-container { display: flex; justify-content: center; align-items: center; position: relative; }
+.btn-kebab { background: transparent; border: none; color: #94a3b8; font-size: 20px; cursor: pointer; width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; transition: 0.2s; }
+.btn-kebab:hover, .btn-kebab.active { background: #f1f5f9; color: #0f172a; }
+.actions-dropdown-menu { position: absolute; right: 0; top: calc(100% + 4px); background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); z-index: 1000; min-width: 220px; padding: 6px; }
+.actions-dropdown-menu button { display: flex; width: 100%; padding: 10px 12px; font-size: 13px; color: #334155; background: none; border: none; text-align: left; cursor: pointer; border-radius: 6px; transition: 0.2s; }
+.actions-dropdown-menu button:hover { background: #f8fafc; color: #0f172a; }
+
+/* =========================================
+   МОДАЛЬНІ ВІКНА ТА ФОРМИ (ЗАЛІЗОБЕТОННІ СТИЛІ)
+========================================= */
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 9999 !important; }
+
+.modal { 
+  background: white; border-radius: 12px; padding: 24px; 
+  width: 100% !important; max-width: 550px !important; /* Ширше для комфорту */
+  max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); 
+  z-index: 10000 !important; box-sizing: border-box !important; 
+}
+    
+.form-group { width: 100%; margin-bottom: 16px; box-sizing: border-box; }
+.form-group label { display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px; }
+    
+/* Фікс для інпутів: забороняємо вилазити за рамки */
+.form-group input, .form-group select, .form-group textarea, .erp-input {
+  width: 100% !important; max-width: 100% !important; box-sizing: border-box !important;
+  padding: 10px 12px !important; border: 1px solid #cbd5e1 !important; border-radius: 6px !important; font-size: 14px !important;
+}
+    
+/* Фікс для двох колонок в один ряд */
+.form-row-2 { 
+  display: flex !important; flex-direction: row !important; gap: 16px !important; 
+  width: 100% !important; box-sizing: border-box !important; 
+}
+.form-row-2 .form-group { 
+  flex: 1 1 50% !important; min-width: 0 !important; margin-bottom: 0 !important; 
+}
+    
+.modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
+.btn-primary { background-color: #2563eb; color: #ffffff; border: 1px solid transparent; border-radius: 6px; padding: 8px 16px; font-size: 14px; font-weight: 500; cursor: pointer; transition: 0.2s; }
+.btn-primary:hover { background-color: #1d4ed8; }
+.btn-secondary { background-color: #ffffff; color: #334155; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 16px; font-size: 14px; font-weight: 500; cursor: pointer; transition: 0.2s; }
+.btn-secondary:hover { background-color: #f1f5f9; }
+.btn-danger { background-color: #dc2626; color: #ffffff; border: 1px solid transparent; border-radius: 6px; padding: 8px 16px; font-size: 14px; font-weight: 500; cursor: pointer; transition: 0.2s; }
+.btn-danger:hover { background-color: #b91c1c; }
+    
+.text-center { text-align: center; }
+/* =========================================
+   ФОРМИ ТА ІНПУТИ (З правильними відступами)
+========================================= */
+.form-group { 
+  width: 100%; 
+  margin-bottom: 24px; /* Збільшив відступ між блоками */
+  box-sizing: border-box; 
 }
 
-.table-inventory td:nth-child(6) {
-  text-align: center;
-  padding: 0 !important;
+.form-group label { 
+  display: block; 
+  font-size: 12px; 
+  font-weight: 600; 
+  color: #475569; 
+  margin-bottom: 8px; /* Більше повітря між назвою і інпутом */
+  text-transform: uppercase; /* Робимо назви акуратнішими */
+  letter-spacing: 0.05em;
+}
+    
+/* Фікс для інпутів: забороняємо вилазити за рамки */
+.form-group input, .form-group select, .form-group textarea, .erp-input {
+  width: 100% !important; max-width: 100% !important; box-sizing: border-box !important;
+  padding: 10px 12px !important; border: 1px solid #cbd5e1 !important; border-radius: 6px !important; font-size: 14px !important;
+  background-color: #fff !important; /* Щоб інпути не зливалися з фоном */
 }
 
-/* Десь у твоєму файлі зі стилями модалок */
-.modal-overlay { /* або твій клас для темного фону */
-  z-index: 9999 !important; /* Робимо вище за меню (яке має 1000) */
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus, .erp-input:focus { 
+  outline: none !important; border-color: #3b82f6 !important; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important; 
+}
+    
+/* Фікс для двох колонок в один ряд */
+.form-row-2 { 
+  display: flex !important; flex-direction: row !important; gap: 16px !important; 
+  width: 100% !important; box-sizing: border-box !important; 
+  margin-bottom: 24px !important; /* ОСЬ ГОЛОВНИЙ ФІКС: Повертаємо відступ МІЖ рядами */
 }
 
-.modal-content, .confirm-modal { /* Сама біла карточка модалки */
-  z-index: 10000 !important;
+.form-row-2 .form-group { 
+  flex: 1 1 50% !important; min-width: 0 !important; margin-bottom: 0 !important; 
+}
+    
+.modal-actions { 
+  display: flex; justify-content: flex-end; gap: 12px; margin-top: 32px; 
+  padding-top: 16px; border-top: 1px solid #e2e8f0; 
+}
+
+.btn-primary { background-color: #2563eb; color: #ffffff; border: 1px solid transparent; border-radius: 6px; padding: 10px 20px; font-size: 14px; font-weight: 500; cursor: pointer; transition: 0.2s; }
+.btn-primary:hover:not(:disabled) { background-color: #1d4ed8; }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btn-secondary { background-color: #ffffff; color: #334155; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 20px; font-size: 14px; font-weight: 500; cursor: pointer; transition: 0.2s; }
+.btn-secondary:hover { background-color: #f1f5f9; }
+
+.btn-danger { background-color: #dc2626; color: #ffffff; border: 1px solid transparent; border-radius: 6px; padding: 10px 20px; font-size: 14px; font-weight: 500; cursor: pointer; transition: 0.2s; }
+.btn-danger:hover { background-color: #b91c1c; }
+    
+.text-center { text-align: center; }
+
+/* =========================================
+   ФІКС КНОПОК У ШАПЦІ (Inventory.tsx)
+========================================= */
+
+.page-actions {
+  display: flex;
+  gap: 12px; /* Відстань між кнопками */
+  align-items: center;
+}
+
+/* Базовий стиль для кнопок у шапці */
+.page-actions .btn {
+  height: 40px; /* Фіксована висота */
+  padding: 0 20px !important; /* Внутрішні відступи */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  white-space: nowrap; /* Щоб текст не переносився */
+  margin: 0 !important; /* Скидаємо зайві відступи */
+}
+
+/* Конкретно для кнопки + Ресурс (ТВІЙ ТЕМНО-СИНІЙ) */
+.page-actions .btn-primary {
+  background-color: #1e3a8a !important; /* Повернув твій колір */
+  color: #ffffff !important;
+  border: none !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.page-actions .btn-primary:hover {
+  background-color: #1e40af !important;
+}
+
+/* Конкретно для кнопки + Категорія (БІЛА) */
+.page-actions .btn-secondary {
+  background-color: #ffffff !important;
+  color: #1e293b !important; /* Твій колір тексту */
+  border: 1px solid #cbd5e1 !important;
+}
+
+.page-actions .btn-secondary:hover {
+  background-color: #f1f5f9 !important;
+}
+
+/* Виправляємо відступ селектора підрозділів */
+.filter-select.erp-input {
+  height: 40px !important;
+  width: auto !important;
+  min-width: 200px;
+  margin: 0 !important;
 }

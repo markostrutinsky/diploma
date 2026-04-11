@@ -9,6 +9,8 @@ import (
 
 type EmailService interface {
 	SendInviteEmail(toEmail string, inviteLink string) error
+	SendPasswordChangedAlert(toEmail string) error
+	SendPasswordResetEmail(toEmail, resetLink string) error
 }
 
 type emailService struct {
@@ -73,6 +75,45 @@ func (s *emailService) SendInviteEmail(toEmail string, inviteLink string) error 
 	`, inviteLink, inviteLink, inviteLink)
 
 	m.AddAlternative("text/html", htmlBody)
+
+	if err := s.dialer.DialAndSend(m); err != nil {
+		return fmt.Errorf("failed to send email via smtp: %w", err)
+	}
+
+	return nil
+}
+
+// 1. Для Security Alert (Сповіщення про зміну в профілі)
+func (s *emailService) SendPasswordChangedAlert(toEmail string) error {
+	subject := "Увага: Ваш пароль було змінено"
+	body := "Вітаємо!\n\nВаш пароль у системі Millog щойно було успішно змінено.\n\nЯкщо ви цього не робили, негайно зверніться до вашого командира або адміністратора системи."
+
+	// Тут твій стандартний код відправки (smtp.SendMail)
+	return s.sendMail(toEmail, subject, body)
+}
+
+// 2. Для Забув пароль (Лінк на відновлення)
+func (s *emailService) SendPasswordResetEmail(toEmail, resetLink string) error {
+	subject := "Millog: Відновлення пароля"
+	body := fmt.Sprintf("Ви подали запит на скидання пароля.\n\nПерейдіть за посиланням нижче, щоб встановити новий пароль. Посилання дійсне 1 годину:\n\n%s\n\nЯкщо ви не робили цього запиту, просто проігноруйте цей лист.", resetLink)
+
+	// Тут твій стандартний код відправки (smtp.SendMail)
+	return s.sendMail(toEmail, subject, body)
+}
+
+// Допоміжний метод для відправки простих текстових листів через gomail
+func (s *emailService) sendMail(toEmail, subject, plainText string) error {
+	fromEmail := s.email
+	if fromEmail == "" {
+		fromEmail = "noreply@millog.local"
+	}
+
+	m := gomail.NewMessage()
+	m.SetHeader("From", fmt.Sprintf("Millog System <%s>", fromEmail))
+	m.SetHeader("To", toEmail)
+	m.SetHeader("Subject", subject)
+
+	m.SetBody("text/plain", plainText)
 
 	if err := s.dialer.DialAndSend(m); err != nil {
 		return fmt.Errorf("failed to send email via smtp: %w", err)

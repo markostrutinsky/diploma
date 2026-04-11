@@ -14,7 +14,8 @@ import VolunteerRequests from './pages/VolunteerRequests'
 import Units from './pages/Units'
 import Vehicles from './pages/Vehicles'
 import Warehouses from './pages/Warehouses'
-import AnalyticsDashboard from './pages/AnalyticsDashboard' // <--- 1. ДОДАНО ІМПОРТ
+import AnalyticsDashboard from './pages/AnalyticsDashboard'
+import Profile from './pages/Profile'
 import { Toaster } from 'react-hot-toast'
 
 function App() {
@@ -35,10 +36,14 @@ function App() {
           <Route path="/bootstrap" element={<Bootstrap />} />
           <Route path="/setup-password" element={<SetupPassword />} />
 
-          {/* Головна доступна всім авторизованим */}
           <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
 
-          {/* Внутрішні військові маршрути — ЗАБОРОНЕНІ для волонтерів */}
+          {/* НОВИЙ МАРШРУТ: МОЄ МАЙНО */}
+          <Route 
+            path="/my-equipment" 
+            element={<ProtectedRoute forbidRoles={['VOLUNTEER']}><Profile /></ProtectedRoute>} 
+          />
+
           <Route 
             path="/inventory" 
             element={<ProtectedRoute forbidRoles={['VOLUNTEER']}><Inventory /></ProtectedRoute>} 
@@ -64,13 +69,11 @@ function App() {
             element={<ProtectedRoute forbidRoles={['VOLUNTEER']}><Vehicles /></ProtectedRoute>} 
           />
           
-          {/* ДОДАНО: Маршрут для Аналітики */}
           <Route 
             path="/analytics" 
             element={<ProtectedRoute forbidRoles={['VOLUNTEER']}><AnalyticsDashboard /></ProtectedRoute>} 
           />
 
-          {/* Волонтерські маршрути */}
           <Route 
             path="/volunteer-requests" 
             element={<ProtectedRoute><VolunteerRequests /></ProtectedRoute>} 

@@ -53,3 +53,442 @@
   color: #adb5bd;
   font-size: 0.9em;
 }
+
+/* =========================================
+   СТОІРНКА ЗАЯВОК (Requests.css)
+========================================= */
+
+.requests-page {
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  padding-bottom: 2rem;
+}
+
+/* =========================================
+   ШАПКА (Page Header)
+========================================= */
+.header-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.header-titles h1 {
+  margin: 0;
+}
+
+.header-subtitle {
+  margin: 4px 0 0 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+/* =========================================
+   КНОПКИ
+========================================= */
+.btn {
+  height: 40px;
+  padding: 0 16px;
+  font-weight: 500;
+  font-size: 0.875rem;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: none;
+  white-space: nowrap;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background-color: #1e3a8a;
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #1e40af;
+}
+
+.btn-secondary {
+  background-color: #ffffff;
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+/* Фіолетова кнопка для збірного рейсу */
+.btn-dispatch {
+  background-color: #8b5cf6;
+  color: #ffffff;
+  box-shadow: 0 4px 6px -1px rgba(139, 92, 246, 0.3);
+}
+
+.btn-dispatch:hover:not(:disabled) {
+  background-color: #7c3aed;
+}
+
+.btn-sm {
+  height: 32px;
+  padding: 0 12px;
+  font-size: 0.8125rem;
+}
+
+.btn-danger-outline {
+  background-color: transparent;
+  color: #ef4444;
+  border: 1px solid #ef4444;
+}
+
+.btn-danger-outline:hover:not(:disabled) {
+  background-color: #fef2f2;
+}
+
+.action-buttons-flex {
+  display: flex;
+  gap: 8px;
+}
+
+/* =========================================
+   ТАБЛИЦІ ТА КАРТКИ
+========================================= */
+.card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+}
+
+.mt-24 {
+  margin-top: 24px;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+
+.data-table th, 
+.data-table td {
+  padding: 14px 16px;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+
+.data-table th {
+  font-weight: 600;
+  color: #475569;
+  background-color: #f8fafc;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+}
+
+.data-table tbody tr {
+  transition: background-color 0.2s ease;
+}
+
+.data-table tbody tr:hover {
+  background-color: #f8fafc;
+}
+
+/* Рядок, виділений чекбоксом */
+.row-selected {
+  background-color: #f5f3ff !important;
+}
+
+.empty-state {
+  padding: 40px;
+  text-align: center;
+  color: #64748b;
+  font-weight: 500;
+  margin: 0;
+}
+
+/* =========================================
+   ЧЕКБОКСИ ТА СТАТУСИ (Текст)
+========================================= */
+.th-checkbox, .td-checkbox {
+  width: 40px;
+  text-align: center;
+}
+
+.custom-checkbox {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  accent-color: #8b5cf6;
+}
+
+.font-medium { font-weight: 500; }
+.text-muted { color: #64748b; }
+
+.status-text-waiting {
+  font-size: 13px;
+  color: #8b5cf6;
+  font-weight: 500;
+}
+
+.status-text-closed {
+  font-size: 13px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+/* =========================================
+   БЕЙДЖІ СТАТУСІВ
+========================================= */
+.badge {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+  white-space: nowrap;
+}
+.badge-warning { background-color: #fef3c7; color: #d97706; }
+.badge-success { background-color: #dcfce7; color: #059669; }
+.badge-danger, .badge-critical { background-color: #fee2e2; color: #dc2626; }
+.badge-neutral { background-color: #f1f5f9; color: #475569; }
+
+/* =========================================
+   ФОРМИ
+========================================= */
+.form-group {
+  margin-bottom: 20px;
+  width: 100%;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 8px;
+}
+
+.form-row-2 {
+  display: flex;
+  gap: 16px;
+}
+.gap-16 { gap: 16px; }
+.mb-16 { margin-bottom: 16px; }
+.mb-8 { margin-bottom: 8px; }
+.mb-0 { margin-bottom: 0; }
+.flex-1 { flex: 1; }
+
+.erp-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  color: #1e293b;
+  background-color: #ffffff;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  box-sizing: border-box;
+}
+
+.erp-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.error-text {
+  color: #ef4444;
+  font-size: 12px;
+  margin-top: 4px;
+  display: block;
+}
+
+/* =========================================
+   МОДАЛЬНІ ВІКНА
+========================================= */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(2px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  padding: 1rem;
+}
+
+.modal {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 400px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.modal-wide {
+  max-width: 600px;
+}
+
+.modal-title {
+  color: #1e293b;
+  margin: 0 0 16px 0;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* =========================================
+   БЛОК: ІНФО ПРО ВАНТАЖ ТА ІНДИКАТОР ВАГИ
+========================================= */
+.dispatch-summary {
+  background-color: #f8fafc;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 20px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.summary-title {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.summary-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  padding: 6px 0;
+  border-bottom: 1px dashed #cbd5e1;
+}
+
+.item-name {
+  font-weight: 500;
+  color: #0f172a;
+}
+
+.item-weight {
+  color: #64748b;
+}
+
+.summary-total {
+  margin-top: 12px;
+  text-align: right;
+  font-size: 14px;
+  font-weight: bold;
+  color: #1e293b;
+}
+
+.capacity-indicator {
+  margin-bottom: 24px;
+  background-color: #f1f5f9;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.capacity-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.capacity-label { color: #475569; }
+.text-normal { color: #0f172a; }
+.text-critical { color: #ef4444; }
+
+.progress-bg {
+  height: 8px;
+  background-color: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.bar-safe { background-color: #10b981; }
+.bar-warning { background-color: #f59e0b; }
+.bar-critical { background-color: #ef4444; }
+
+.capacity-warning {
+  font-size: 11px;
+  color: #f59e0b;
+  margin-top: 6px;
+}
+
+.capacity-error {
+  font-size: 11px;
+  color: #ef4444;
+  margin-top: 6px;
+}
+
+/* =========================================
+   СТАН ЗАВАНТАЖЕННЯ (Спінер)
+========================================= */
+.page-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 50vh;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e2e8f0;
+  border-top-color: #1e3a8a;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

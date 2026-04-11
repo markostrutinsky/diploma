@@ -20,19 +20,11 @@ func NewVehicleHandler(service *services.VehicleService) *VehicleHandler {
 	return &VehicleHandler{service: service}
 }
 
-type CreateVehicleRequest struct {
-	Brand        string  `json:"brand" binding:"required"`
-	Model        string  `json:"model"`
-	PlateNumber  string  `json:"plate_number" binding:"required"`
-	TankCapacity float64 `json:"tank_capacity" binding:"required,gt=0"`
-	FuelNorm     float64 `json:"fuel_norm" binding:"required,gt=0"`
-}
-
 func (h *VehicleHandler) Create(c *gin.Context) {
-	var req CreateVehicleRequest
+	var req models.CreateVehicleRequest
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Перевірте правильність заповнення полів (марка, номер, бак та норма є обов'язковими)"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Перевірте правильність заповнення полів (марка, номер, тип, вантажопідйомність, бак та норма є обов'язковими)"})
 		return
 	}
 
@@ -40,9 +32,12 @@ func (h *VehicleHandler) Create(c *gin.Context) {
 		Brand:        req.Brand,
 		Model:        req.Model,
 		PlateNumber:  req.PlateNumber,
+		Type:         req.Type,       // ВИПРАВЛЕНО: Просто передаємо рядок req.Type без касту
+		CapacityKg:   req.CapacityKg, // ДОДАНО
 		TankCapacity: req.TankCapacity,
 		FuelNorm:     req.FuelNorm,
-		Status:       models.VehicleActive, // Зверни увагу: константа має залишатись або бути "ACTIVE"
+		DriverID:     req.DriverID, // ДОДАНО
+		Status:       "ACTIVE",     // За замовчуванням вільна
 	}
 
 	err := h.service.CreateVehicle(c.Request.Context(), vehicle)

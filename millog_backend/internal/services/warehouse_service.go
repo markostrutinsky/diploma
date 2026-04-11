@@ -37,3 +37,8 @@ func (s *WarehouseService) CreateWarehouse(ctx context.Context, req *models.Crea
 func (s *WarehouseService) ListWarehouses(ctx context.Context, unitID int64) ([]models.Warehouse, error) {
 	return s.repo.ListByUnit(ctx, s.dbPool, unitID)
 }
+
+// Додай цей метод до WarehouseService
+func (s *WarehouseService) UpdateLocation(ctx context.Context, warehouseID string, lat, lng float64) error {
+	return s.repo.UpdateLocation(ctx, s.dbPool, warehouseID, lat, lng)
+}

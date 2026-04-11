@@ -55,14 +55,14 @@ export default function Layout({ children }: LayoutProps) {
               Головна
             </Link>
 
-            {/* Ховаємо внутрішні військові вкладки від волонтера */}
             {!isVolunteer && (
               <>
-                {/* ДОДАНО: Аналітика */}
+                <Link to="/my-equipment" className={location.pathname === '/profile' ? 'active' : ''}>
+                  Профіль
+                </Link>
                 <Link to="/analytics" className={location.pathname === '/analytics' ? 'active' : ''}>
                   Аналітика
                 </Link>
-                
                 <Link to="/inventory" className={location.pathname === '/inventory' ? 'active' : ''}>
                   Ресурси
                 </Link>

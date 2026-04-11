@@ -54,6 +54,16 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ email, password, full_name }),
       }),
+    updatePassword: (data: { old_password: string; new_password: string }) =>
+      request<{ message: string }>('/users/password', {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+    requestPasswordReset: (email: string) =>
+      request<{ message: string }>('/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      }),
   },
   admin: {
     createUser: (body: CreateUserRequest) =>
@@ -72,6 +82,11 @@ export const api = {
       }),
     block: (id: string) => request<{ message: string }>(`/users/${id}/block`, { method: 'PUT' }),
     unblock: (id: string) => request<{ message: string }>(`/users/${id}/unblock`, { method: 'PUT' }),
+    updateProfile: (data: UpdateProfileData) =>
+      request<{ message: string }>('/users/profile', {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
   },
   inventory: {
     listCategories: () => request<ResourceCategory[]>('/inventory/categories'),
@@ -111,10 +126,13 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(data),
       }),
+    getMyEquipment: () => request<MyEquipmentItem[]>('/inventory/my-equipment'),
+    getByWarehouse: (warehouseId: string) => 
+      request<InventoryItem[]>(`/inventory/warehouse/${warehouseId}`),
   },
   requests: {
     list: () => request<SupplyRequest[]>('/requests'),
-    create: (body: { resource_id: string; quantity: number }) =>
+    create: (body: { resource_id: string; quantity: number; target_warehouse_id: string }) =>
       request<SupplyRequest>('/requests', {
         method: 'POST',
         body: JSON.stringify(body),
@@ -176,8 +194,7 @@ export const api = {
     list: async (): Promise<Vehicle[]> => {
       return request('/vehicles');
     },
-    // ОНОВЛЕНО: Додали driver_id
-    create: async (data: { brand: string; model: string; plate_number: string; tank_capacity: number; fuel_norm: number; driver_id?: string }): Promise<Vehicle> => {
+    create: async (data: { brand: string; model: string; plate_number: string; type: string; capacity_kg: number; tank_capacity: number; fuel_norm: number; driver_id?: string }): Promise<Vehicle> => {
       return request('/vehicles', {
         method: 'POST',
         body: JSON.stringify(data),
@@ -240,7 +257,35 @@ export const api = {
         body: JSON.stringify(data),
       });
     },
+    updateLocation: async (id: string, lat: number, lng: number): Promise<void> => {
+      return request(`/warehouses/${id}/location`, {
+        method: 'PATCH',
+        body: JSON.stringify({ latitude: lat, longitude: lng }),
+      });
+    },
   },
+  analytics: {
+    getDashboard: (startDate: string, endDate: string, unitId?: string) => {
+      const query = new URLSearchParams({ start: startDate, end: endDate });
+      if (unitId) query.append('unit_id', unitId);
+      return request<any>(`/analytics/dashboard?${query.toString()}`);
+    },
+    smartReplenish: (items: any[]) => 
+      request<{ message: string; count: number }>('/analytics/auto-replenish', {
+        method: 'POST',
+        body: JSON.stringify({ items }),
+      }),
+  },
+}
+
+export interface MyEquipmentItem {
+  assignment_id: string;
+  resource_id: string;
+  resource_name: string;
+  quantity: number;
+  unit_type: string;
+  issued_at: string;
+  status: string;
 }
 
 export interface Warehouse {
@@ -291,16 +336,28 @@ export interface AcceptVolunteerPayload {
   unit_type: string;
 }
 
+export type UserStatus = 'PENDING' | 'ACTIVE' | 'BLOCKED';
+
 export interface User {
-  id: string
-  email: string
-  full_name: string
-  role: string
-  status: string
-  unit_id?: number
+  id: string;
+  username?: string | null;      
+  email: string;
+  full_name: string;
+  phone?: string | null;         
+  role: UserRole;                
+  status: UserStatus;            
+  unit_id?: number | null;       
+  created_at: string;            
+  updated_at: string;
 }
 
-// ДОДАНО: Аліас для SystemUser, щоб не ламався Vehicles.tsx
+export interface UpdateProfileData {
+  full_name?: string;
+  phone?: string;
+  username?: string;
+  email?: string;
+}
+
 export type SystemUser = User;
 
 export interface LoginResponse {
@@ -357,6 +414,7 @@ export interface Resource {
   min_quantity: number
   assigned_to_user_id?: string;
   assigned_to_user_name?: string;
+  weight_kg: number;
 }
 export interface AssignResourceRequest {
   quantity: number;
@@ -374,14 +432,17 @@ export interface CreateResourceRequest {
   serial_number?: string;
   condition?: 'NEW' | 'USED' | 'WRITTEN_OFF';
   min_quantity: number;
+  weight_kg: number;
 }
+export type RequestStatus = 'PENDING' | 'APPROVED' | 'DISPATCHED' | 'REJECTED' | 'COMPLETED' | 'OPEN';
 
 export interface SupplyRequest {
   id: string
   created_by: string
   resource_id: string
   quantity: number
-  status: string
+  status: RequestStatus // <-- Повертаємо строгий тип статусів
+  target_warehouse_id: string // <-- ОСЬ НАШЕ НОВЕ ПОЛЕ
   approved_by?: string
   comment: string
   created_at: string
@@ -389,7 +450,9 @@ export interface SupplyRequest {
 
 export type FuelRecordType = 'REFUEL' | 'EXPENSE';
 
-export type VehicleStatus = 'ACTIVE' | 'INACTIVE' | 'IN_REPAIR';
+export type VehicleType = 'PICKUP' | 'VAN' | 'TRUCK';
+
+export type VehicleStatus = 'ACTIVE' | 'INACTIVE' | 'IN_REPAIR' | 'ON_MISSION';
 
 export interface Vehicle {
   id: string;
@@ -404,7 +467,10 @@ export interface Vehicle {
   current_odometer: number;
   km_to_next_maintenance: number;
   maintenance_status: 'OK' | 'WARNING' | 'OVERDUE';
-  driver_id?: string; // ДОДАНО: Поле водія
+  driver_id?: string;
+  type: VehicleType;
+  capacity_kg: number;
+  driver_name?: string;
 }
 
 export interface FuelRecord {
@@ -419,7 +485,6 @@ export interface FuelRecord {
   created_at: string;
 }
 
-// ВИДАЛЕНІ ДУБЛІКАТИ: Залишився лише один правильний і повний запис
 export interface MaintenanceRecord {
   id: string;
   vehicle_id: string;
@@ -444,4 +509,41 @@ export interface TransferResourceRequest {
   quantity: number;
   target_warehouse_id?: string;
   target_unit_id?: number;
+}
+
+export interface InventoryItem {
+  id: string;
+  warehouse_id: string;
+  name: string;
+  category: string;
+  available: number;
+  weight_kg: number;
+}
+
+// ==========================================
+// ЛОГІСТИКА ТА РЕЙСИ (SHIPMENTS)
+// ==========================================
+
+export interface ShipmentItemPayload {
+  resource_id: string;
+  quantity: number;
+  request_id?: string;
+}
+
+export interface CreateShipmentPayload {
+  from_warehouse_id: string;
+  to_warehouse_id: string;
+  vehicle_id: string;
+  priority: 'NORMAL' | 'URGENT';
+  items: ShipmentItemPayload[];
+}
+
+export interface ShipmentRecord {
+  id: string;
+  from_warehouse: string;
+  to_warehouse: string;
+  vehicle: string;
+  priority: 'NORMAL' | 'URGENT';
+  status: 'DISPATCHED' | 'DELIVERED';
+  created_at: string;
 }

@@ -44,23 +44,50 @@ type FleetTCOStat struct {
 	TotalCost    float64 `json:"total_cost"`
 }
 
-// НОВЕ: Статуси заявок
 type VolunteerRequestStat struct {
 	Status string `json:"status"`
 	Count  int    `json:"count"`
 }
 
-// НОВЕ: Таймлайн заявок
 type VolunteerTimelineStat struct {
 	Date  string `json:"date"`
 	Count int    `json:"count"`
 }
 
-// Головна структура
+// --- НОВЕ ДЛЯ SMART ПОПОВНЕННЯ (МОДАЛЬНЕ ВІКНО) ---
+
+// Товар, якого не вистачає (для відображення у таблиці)
+type DeficitResource struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Current int    `json:"current"`
+	Min     int    `json:"min"`
+	Needed  int    `json:"needed"` // Скільки треба дозамовити
+}
+
+// Структура одного елемента, який юзер вибрав для замовлення
+type SmartReplenishItem struct {
+	ResourceID string `json:"resource_id"`
+	Name       string `json:"name"`
+	Quantity   int    `json:"quantity"`
+	Target     string `json:"target"` // "WAREHOUSE" (Зі складу) або "VOLUNTEER" (Волонтери)
+}
+
+// Загальне тіло запиту (Payload), яке прилетить з фронтенду
+type SmartReplenishRequest struct {
+	Items []SmartReplenishItem `json:"items"`
+}
+
+// --- ГОЛОВНА СТРУКТУРА ДАШБОРДУ ---
 type DashboardAnalytics struct {
 	ActiveVehicles    int `json:"active_vehicles"`
 	CriticalResources int `json:"critical_resources"`
 	FuelAnomalies     int `json:"fuel_anomalies"`
+
+	WrittenOffResources int `json:"written_off_resources"` // Списане майно
+	CompletedRequests   int `json:"completed_requests"`    // Виконані заявки на склади (отримане майно)
+	InRepairVehicles    int `json:"in_repair_vehicles"`    // Машини в ремонті
+	InactiveVehicles    int `json:"inactive_vehicles"`
 
 	PredictiveBurnRate []PredictStat            `json:"predictive_burn_rate"`
 	FleetRisk          []FleetRiskStat          `json:"fleet_risk"`
@@ -70,7 +97,9 @@ type DashboardAnalytics struct {
 	VolunteerSLA       VolunteerSLAStat         `json:"volunteer_sla"`
 	FleetTCO           []FleetTCOStat           `json:"fleet_tco"`
 
-	// Поля для вкладки "Волонтери"
 	VolunteerFunnel   []VolunteerRequestStat  `json:"volunteer_funnel"`
 	VolunteerTimeline []VolunteerTimelineStat `json:"volunteer_timeline"`
+
+	// НОВЕ: Поле для списку дефіциту (для модалки та віджета)
+	DeficitResources []DeficitResource `json:"deficit_resources"`
 }

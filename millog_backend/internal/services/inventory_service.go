@@ -15,10 +15,11 @@ type InventoryService struct {
 	categoryRepo *repositories.CategoryRepository
 	resourceRepo *repositories.ResourceRepository
 	dbPool       *pgxpool.Pool
+	userRepo     *repositories.UserRepository
 }
 
-func NewInventoryService(catRepo *repositories.CategoryRepository, resRepo *repositories.ResourceRepository, db *pgxpool.Pool) *InventoryService {
-	return &InventoryService{categoryRepo: catRepo, resourceRepo: resRepo, dbPool: db}
+func NewInventoryService(catRepo *repositories.CategoryRepository, resRepo *repositories.ResourceRepository, userRepo *repositories.UserRepository, db *pgxpool.Pool) *InventoryService {
+	return &InventoryService{categoryRepo: catRepo, resourceRepo: resRepo, userRepo: userRepo, dbPool: db}
 }
 
 func (s *InventoryService) CreateCategory(ctx context.Context, req *models.CreateCategoryRequest) (*models.ResourceCategory, error) {
@@ -140,5 +141,50 @@ func (s *InventoryService) Assign(ctx context.Context, id string, req models.Ass
 	if req.UserID == "" {
 		return errors.New("не вказано користувача")
 	}
-	return s.resourceRepo.Assign(ctx, s.dbPool, id, req.UserID, req.Quantity)
+	return s.resourceRepo.AssignResource(ctx, s.dbPool, id, req.UserID, req.Quantity)
+}
+
+func (s *InventoryService) GetMyEquipment(ctx context.Context, userID string) ([]models.MyEquipmentItem, error) {
+	// Якщо в тебе транзакції обробляються на рівні сервісу, передавай s.db,
+	// або якщо репо сам знає свою БД, то без s.db
+	return s.resourceRepo.GetMyEquipment(ctx, s.dbPool, userID)
+}
+
+func (s *InventoryService) IssueResource(ctx context.Context, commanderUnitID *int64, req models.IssueResourceRequest) error {
+	if commanderUnitID == nil {
+		return errors.New("ви не прив'язані до жодного підрозділу і не маєте доступу до складів")
+	}
+
+	// Перевіряємо, чи солдат реально підпорядковується цьому командиру (рекурсивна перевірка)
+	// Використовуємо твій існуючий метод CheckSubordination
+	isSubordinate, err := s.userRepo.CheckSubordination(ctx, nil, *commanderUnitID, req.UserID)
+	if err != nil {
+		return errors.New("помилка перевірки підпорядкування")
+	}
+	if !isSubordinate {
+		return errors.New("ви не можете видати майно цьому військовослужбовцю, він не у вашому підпорядкуванні")
+	}
+
+	// Викликаємо репозиторій
+	return s.resourceRepo.IssueToUser(ctx, s.dbPool, *commanderUnitID, req.ResourceID, req.UserID, req.Quantity, req.Notes)
+}
+
+func (s *InventoryService) CreateShipment(ctx context.Context, req models.CreateShipmentRequest) error {
+	// Передаємо весь об'єкт req напряму в репозиторій для виконання транзакції
+	return s.resourceRepo.CreateShipment(ctx, s.dbPool, req)
+}
+
+func (s *InventoryService) GetByWarehouse(ctx context.Context, warehouseID string) ([]models.InventoryItem, error) {
+	if warehouseID == "" {
+		return nil, errors.New("не вказано ID складу")
+	}
+	return s.resourceRepo.GetByWarehouse(ctx, s.dbPool, warehouseID)
+}
+
+func (s *InventoryService) ListShipments(ctx context.Context) ([]repositories.ShipmentRecord, error) {
+	return s.resourceRepo.ListShipments(ctx, s.dbPool)
+}
+
+func (s *InventoryService) ReceiveShipment(ctx context.Context, shipmentID string) error {
+	return s.resourceRepo.ReceiveShipment(ctx, s.dbPool, shipmentID)
 }

@@ -1,0 +1,227 @@
+.custom-map-marker {
+  background: transparent;
+  border: none;
+}
+
+/* ====================================================
+   ОСНОВНИЙ ЛЕЙАУТ СТОРІНКИ СКЛАДІВ / ІНВЕНТАРЮ
+   ==================================================== */
+.inventory-page {
+  padding-bottom: 40px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.page-header h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+/* ====================================================
+   ВКЛАДКИ (TABS)
+   ==================================================== */
+.erp-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 1px;
+}
+
+.tab-btn {
+  background: transparent;
+  border: none;
+  padding: 12px 24px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -3px;
+  transition: all 0.2s ease;
+}
+
+.tab-btn:hover {
+  color: #334155;
+  background: #f8fafc;
+  border-radius: 6px 6px 0 0;
+}
+
+.tab-btn.active {
+  color: #2563eb;
+  border-bottom: 3px solid #2563eb;
+}
+
+/* ====================================================
+   ФОРМИ ТА МОДАЛКИ
+   ==================================================== */
+.form-row-2 {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+  flex: 1;
+}
+
+.erp-input {
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.erp-input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.modal-title-blue {
+  color: #2563eb;
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+.mb-4 {
+  margin-bottom: 20px;
+}
+
+.cancel-margin {
+  margin-right: 12px;
+}
+
+/* ====================================================
+   ІНТЕРАКТИВНА КАРТА ТА МАРКЕРИ (LEAFLET)
+   ==================================================== */
+.map-wrapper {
+  padding: 0;
+  overflow: hidden;
+  height: 650px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: white;
+}
+
+.leaflet-map {
+  height: 100%;
+  width: 100%;
+  z-index: 0;
+}
+
+/* Прибираємо стандартний білий квадрат навколо емодзі-маркерів */
+.custom-map-marker {
+  background: transparent;
+  border: none;
+}
+
+/* Стилізація контенту Popup вікна на карті */
+.map-popup-content {
+  font-family: 'Inter', system-ui, sans-serif;
+  padding: 6px 2px; /* Додаємо трохи загального "повітря" */
+}
+
+.map-popup-content h4 {
+  margin: 0 0 6px 0;
+  font-size: 16px;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.popup-unit {
+  font-size: 13px;
+  color: #64748b;
+  margin-bottom: 14px;
+}
+
+.popup-badges {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px; /* Збільшуємо відступ від бейджів до кнопок */
+}
+
+.badge-gray, .badge-green {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.badge-gray {
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #e2e8f0; /* Легкий контур для краси */
+}
+
+.badge-green {
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid #bbf7d0; /* Легкий контур для краси */
+}
+
+.popup-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px; /* Збільшуємо відстань між самими кнопками */
+}
+
+.popup-actions .btn-sm {
+  width: 100%;
+  padding: 10px !important; /* Робимо кнопки вищими для зручного кліку */
+  font-size: 13px !important;
+  font-weight: 600;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.popup-hint {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 18px;
+  padding-top: 12px;
+  text-align: center;
+  border-top: 1px dashed #cbd5e1; /* Візуально відділяємо підказку від кнопок */
+}
+/* ====================================================
+   АНІМАЦІЯ ЛІНІЙ ІЄРАРХІЇ НА КАРТІ (ПОСИЛЕНИЙ ВАРІАНТ)
+   ==================================================== */
+path.animated-hierarchy-line {
+  stroke-dasharray: 12, 12 !important;
+  animation: dash-flow 1.5s linear infinite !important;
+  opacity: 0.65;
+  transition: opacity 0.2s, stroke-width 0.2s;
+}
+
+path.animated-hierarchy-line:hover {
+  opacity: 1;
+  stroke-width: 6px !important;
+  cursor: pointer;
+}
+
+@keyframes dash-flow {
+  0% {
+    stroke-dashoffset: 24;
+  }
+  100% {
+    stroke-dashoffset: 0;
+  }
+}

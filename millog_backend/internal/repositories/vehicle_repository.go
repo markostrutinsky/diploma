@@ -17,9 +17,9 @@ func NewVehicleRepository() *VehicleRepository {
 func (r *VehicleRepository) Create(ctx context.Context, db DBExecutor, v *models.Vehicle) error {
 	query := `
         INSERT INTO vehicles (
-            brand, model, plate_number, status, driver_id, tank_capacity, fuel_norm
+            brand, model, plate_number, type, capacity_kg, status, driver_id, tank_capacity, fuel_norm
         ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7
+            $1, $2, $3, $4, $5, $6, $7, $8, $9
         ) RETURNING id, maintenance_interval_km, last_maintenance_odometer, created_at, updated_at
     `
 
@@ -27,6 +27,8 @@ func (r *VehicleRepository) Create(ctx context.Context, db DBExecutor, v *models
 		v.Brand,
 		v.Model,
 		v.PlateNumber,
+		v.Type,
+		v.CapacityKg,
 		v.Status,
 		v.DriverID,
 		v.TankCapacity,
@@ -41,10 +43,9 @@ func (r *VehicleRepository) Create(ctx context.Context, db DBExecutor, v *models
 }
 
 func (r *VehicleRepository) GetAll(ctx context.Context, db DBExecutor) ([]models.Vehicle, error) {
-	// Додано підзапит для current_odometer та нові поля для ТО
 	query := `
         SELECT 
-            v.id, v.brand, v.model, v.plate_number, v.status, v.driver_id, v.tank_capacity, v.fuel_norm, 
+            v.id, v.brand, v.model, v.plate_number, v.type, v.capacity_kg, v.status, v.driver_id, u.full_name as driver_name, v.tank_capacity, v.fuel_norm, 
             v.maintenance_interval_km, v.last_maintenance_odometer, v.created_at, v.updated_at,
             COALESCE((
                 SELECT odometer_km FROM fuel_records 
@@ -52,6 +53,7 @@ func (r *VehicleRepository) GetAll(ctx context.Context, db DBExecutor) ([]models
                 ORDER BY created_at DESC LIMIT 1
             ), 0) AS current_odometer
         FROM vehicles v
+        LEFT JOIN users u ON v.driver_id = u.id
         ORDER BY v.created_at DESC
     `
 
@@ -65,19 +67,9 @@ func (r *VehicleRepository) GetAll(ctx context.Context, db DBExecutor) ([]models
 	for rows.Next() {
 		var v models.Vehicle
 		err := rows.Scan(
-			&v.ID,
-			&v.Brand,
-			&v.Model,
-			&v.PlateNumber,
-			&v.Status,
-			&v.DriverID,
-			&v.TankCapacity,
-			&v.FuelNorm,
-			&v.MaintenanceIntervalKm,
-			&v.LastMaintenanceOdometer,
-			&v.CreatedAt,
-			&v.UpdatedAt,
-			&v.CurrentOdometer,
+			&v.ID, &v.Brand, &v.Model, &v.PlateNumber, &v.Type, &v.CapacityKg, &v.Status, &v.DriverID, &v.DriverName,
+			&v.TankCapacity, &v.FuelNorm, &v.MaintenanceIntervalKm, &v.LastMaintenanceOdometer,
+			&v.CreatedAt, &v.UpdatedAt, &v.CurrentOdometer,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("помилка сканування рядка авто: %w", err)
@@ -87,7 +79,6 @@ func (r *VehicleRepository) GetAll(ctx context.Context, db DBExecutor) ([]models
 			v.CurrentOdometer = v.LastMaintenanceOdometer
 		}
 
-		// РОЗРАХУНОК СТАТУСУ ТО
 		distanceSinceMaintenance := v.CurrentOdometer - v.LastMaintenanceOdometer
 		v.KmToNextMaintenance = v.MaintenanceIntervalKm - distanceSinceMaintenance
 
@@ -102,21 +93,13 @@ func (r *VehicleRepository) GetAll(ctx context.Context, db DBExecutor) ([]models
 		vehicles = append(vehicles, v)
 	}
 
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("помилка ітерації по авто: %w", err)
-	}
-
-	if vehicles == nil {
-		vehicles = []models.Vehicle{}
-	}
-
-	return vehicles, nil
+	return vehicles, rows.Err()
 }
 
 func (r *VehicleRepository) GetByID(ctx context.Context, id string, db DBExecutor) (*models.Vehicle, error) {
 	query := `
         SELECT 
-            v.id, v.brand, v.model, v.plate_number, v.status, v.driver_id, v.tank_capacity, v.fuel_norm, 
+            v.id, v.brand, v.model, v.plate_number, v.type, v.capacity_kg, v.status, v.driver_id, u.full_name as driver_name, v.tank_capacity, v.fuel_norm, 
             v.maintenance_interval_km, v.last_maintenance_odometer, v.created_at, v.updated_at,
             COALESCE((
                 SELECT odometer_km FROM fuel_records 
@@ -124,41 +107,26 @@ func (r *VehicleRepository) GetByID(ctx context.Context, id string, db DBExecuto
                 ORDER BY created_at DESC LIMIT 1
             ), 0) AS current_odometer
         FROM vehicles v
+        LEFT JOIN users u ON v.driver_id = u.id
         WHERE v.id = $1
     `
 
 	var v models.Vehicle
 	err := db.QueryRow(ctx, query, id).Scan(
-		&v.ID,
-		&v.Brand,
-		&v.Model,
-		&v.PlateNumber,
-		&v.Status,
-		&v.DriverID,
-		&v.TankCapacity,
-		&v.FuelNorm,
-		&v.MaintenanceIntervalKm,
-		&v.LastMaintenanceOdometer,
-		&v.CreatedAt,
-		&v.UpdatedAt,
-		&v.CurrentOdometer,
+		&v.ID, &v.Brand, &v.Model, &v.PlateNumber, &v.Type, &v.CapacityKg, &v.Status, &v.DriverID, &v.DriverName,
+		&v.TankCapacity, &v.FuelNorm, &v.MaintenanceIntervalKm, &v.LastMaintenanceOdometer,
+		&v.CreatedAt, &v.UpdatedAt, &v.CurrentOdometer,
 	)
 
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, fmt.Errorf("авто з ID %s не знайдено", id)
-		}
-		return nil, fmt.Errorf("помилка отримання авто: %w", err)
+		return nil, err
 	}
 
 	if v.CurrentOdometer < v.LastMaintenanceOdometer {
 		v.CurrentOdometer = v.LastMaintenanceOdometer
 	}
-
-	// РОЗРАХУНОК СТАТУСУ ТО
 	distanceSinceMaintenance := v.CurrentOdometer - v.LastMaintenanceOdometer
 	v.KmToNextMaintenance = v.MaintenanceIntervalKm - distanceSinceMaintenance
-
 	if v.KmToNextMaintenance < 0 {
 		v.MaintenanceStatus = "OVERDUE"
 	} else if v.KmToNextMaintenance <= 1000 {
@@ -170,7 +138,6 @@ func (r *VehicleRepository) GetByID(ctx context.Context, id string, db DBExecuto
 	return &v, nil
 }
 
-// ОНОВЛЕНО: Тепер приймає status та reason для відправки в ремонт або списання
 func (r *VehicleRepository) UpdateStatus(ctx context.Context, id string, status string, reason string, db DBExecutor) error {
 	query := `
         UPDATE vehicles 
@@ -190,9 +157,7 @@ func (r *VehicleRepository) UpdateStatus(ctx context.Context, id string, status 
 	return nil
 }
 
-// PerformMaintenance фіксує проведення ТО та зберігає акт робіт в історію
 func (r *VehicleRepository) PerformMaintenance(ctx context.Context, record *models.MaintenanceRecord, db DBExecutor) error {
-	// Починаємо транзакцію
 	b, ok := db.(interface {
 		Begin(context.Context) (pgx.Tx, error)
 	})
@@ -206,7 +171,6 @@ func (r *VehicleRepository) PerformMaintenance(ctx context.Context, record *mode
 	}
 	defer tx.Rollback(ctx)
 
-	// 1. Оновлюємо лічильник, статус авто ТА очищаємо причину поломки (status_reason = NULL)
 	updateQuery := `
         UPDATE vehicles 
         SET last_maintenance_odometer = $1, status = 'ACTIVE', status_reason = NULL, updated_at = CURRENT_TIMESTAMP
@@ -220,7 +184,6 @@ func (r *VehicleRepository) PerformMaintenance(ctx context.Context, record *mode
 		return fmt.Errorf("авто з ID %s не знайдено", record.VehicleID)
 	}
 
-	// 2. Зберігаємо історію робіт З ВАРТІСТЮ (cost_amount) ТА ВОДІЄМ (driver_id через підзапит)
 	insertQuery := `
         INSERT INTO maintenance_records (vehicle_id, odometer_km, description, performed_by, cost_amount, document_url, driver_id)
         VALUES ($1, $2, $3, $4, $5, $6, (SELECT driver_id FROM vehicles WHERE id = $1))
@@ -239,7 +202,6 @@ func (r *VehicleRepository) PerformMaintenance(ctx context.Context, record *mode
 		return fmt.Errorf("помилка збереження історії робіт: %w", err)
 	}
 
-	// 3. Фіксуємо транзакцію
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("помилка коміту транзакції ТО: %w", err)
 	}
@@ -247,9 +209,7 @@ func (r *VehicleRepository) PerformMaintenance(ctx context.Context, record *mode
 	return nil
 }
 
-// GetMaintenanceHistory повертає історію ремонтів конкретного авто
 func (r *VehicleRepository) GetMaintenanceHistory(ctx context.Context, vehicleID string, db DBExecutor) ([]*models.MaintenanceRecord, error) {
-	// ОНОВЛЕНО: Робимо JOIN з таблицею users, щоб дістати full_name водія
 	query := `
         SELECT m.id, m.vehicle_id, m.odometer_km, m.description, m.performed_by, m.cost_amount, COALESCE(m.document_url, ''), m.created_at, u.full_name
         FROM maintenance_records m
@@ -266,8 +226,6 @@ func (r *VehicleRepository) GetMaintenanceHistory(ctx context.Context, vehicleID
 	var records []*models.MaintenanceRecord
 	for rows.Next() {
 		var rec models.MaintenanceRecord
-
-		// ОНОВЛЕНО: Додали &rec.DriverName
 		err := rows.Scan(
 			&rec.ID,
 			&rec.VehicleID,
@@ -288,7 +246,6 @@ func (r *VehicleRepository) GetMaintenanceHistory(ctx context.Context, vehicleID
 	return records, nil
 }
 
-// ОНОВЛЕНИЙ МЕТОД: Тепер з транзакцією та записом в історію
 func (r *VehicleRepository) AssignDriver(ctx context.Context, vehicleID string, driverID *string, db DBExecutor) error {
 	tx, err := db.Begin(ctx)
 	if err != nil {
@@ -296,13 +253,11 @@ func (r *VehicleRepository) AssignDriver(ctx context.Context, vehicleID string, 
 	}
 	defer tx.Rollback(ctx)
 
-	// 1. Оновлюємо саму машину
 	_, err = tx.Exec(ctx, `UPDATE vehicles SET driver_id = $1 WHERE id = $2`, driverID, vehicleID)
 	if err != nil {
 		return err
 	}
 
-	// 2. Робимо запис в журнал історії
 	_, err = tx.Exec(ctx, `INSERT INTO vehicle_driver_history (vehicle_id, driver_id) VALUES ($1, $2)`, vehicleID, driverID)
 	if err != nil {
 		return err
@@ -311,7 +266,6 @@ func (r *VehicleRepository) AssignDriver(ctx context.Context, vehicleID string, 
 	return tx.Commit(ctx)
 }
 
-// НОВИЙ МЕТОД: Отримання історії екіпажів
 func (r *VehicleRepository) GetDriverHistory(ctx context.Context, vehicleID string, db DBExecutor) ([]models.VehicleDriverHistory, error) {
 	query := `
 		SELECT h.id, h.vehicle_id, h.driver_id, COALESCE(u.full_name, 'Без закріплення (Резерв)'), h.assigned_at

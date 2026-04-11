@@ -63,11 +63,17 @@ a:hover {
 .btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
 }
 
 .btn-primary {
   background: var(--accent);
   color: white;
+  display: flex;
+  align-items: center;
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -232,4 +238,16 @@ a:hover {
   color: var(--text-muted);
   font-size: 0.9375rem;
   margin: 0;
+}
+
+/* Жорстке центрування для всіх кнопок системи */
+button.btn, 
+button.btn-primary, 
+button.btn-secondary, 
+button.btn-danger,
+.login-card button {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
 }

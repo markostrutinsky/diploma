@@ -18,10 +18,26 @@
 .erp-header h2 { margin: 0 0 8px 0; font-size: 1.6rem; font-weight: 700; color: #0f172a; }
 .subtitle { margin: 0; color: #64748b; font-weight: 500; font-size: 0.95rem; }
 
+/* ACTION BAR ТА КНОПКИ */
+.action-bar { display: flex; gap: 24px; align-items: center; }
+.button-group { display: flex; gap: 12px; }
+
+.btn-primary {
+  background: #2563eb; color: white; border: none; padding: 10px 20px;
+  border-radius: 8px; font-weight: 600; cursor: pointer; transition: background 0.2s;
+  display: flex; align-items: center; gap: 6px; font-size: 0.95rem;
+}
+.btn-primary:hover { background: #1d4ed8; }
+
+.btn-secondary {
+  background: white; color: #475569; border: 1px solid #cbd5e1; padding: 10px 20px;
+  border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+  display: flex; align-items: center; gap: 6px; font-size: 0.95rem;
+}
+.btn-secondary:hover { background: #f8fafc; border-color: #94a3b8; color: #0f172a; }
+
 /* КАЛЕНДАРІ */
-.date-filter-group { display: flex; gap: 16px; align-items: center; }
-.date-input-wrapper { display: flex; align-items: center; gap: 8px; }
-.date-input-wrapper label { color: #475569; font-weight: 600; font-size: 0.9rem; }
+.date-filter-group { display: flex; gap: 12px; align-items: center; }
 .erp-date-input {
   padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1;
   background: white; font-weight: 500; font-family: inherit; color: #0f172a;
@@ -45,8 +61,22 @@
 .text-warning { color: #f59e0b; }
 .text-danger { color: #ef4444; }
 
+/* TABS */
+.erp-tabs {
+  display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 2px solid #e2e8f0; padding-bottom: 1px;
+}
+.tab-btn {
+  background: transparent; border: none; padding: 12px 24px; font-size: 1rem;
+  font-weight: 600; color: #64748b; cursor: pointer; border-bottom: 3px solid transparent;
+  margin-bottom: -3px; transition: all 0.2s ease;
+}
+.tab-btn:hover { color: #334155; background: #f8fafc; border-radius: 6px 6px 0 0; }
+.tab-btn.active { color: #2563eb; border-bottom: 3px solid #2563eb; background: linear-gradient(to top, #eff6ff 0%, transparent 100%); }
+
+.tab-content { min-height: 450px; }
+
 /* Grids */
-.grid-layout { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.grid-layout { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 24px; }
 .col-span-2 { grid-column: span 2; }
 .col-span-1 { grid-column: span 1; }
 .col-span-full { grid-column: 1 / -1; }
@@ -55,59 +85,26 @@
   .grid-layout { grid-template-columns: 1fr; }
   .col-span-2, .col-span-1 { grid-column: span 1; }
   .erp-header { flex-direction: column; align-items: flex-start; gap: 20px; }
-  .date-filter-group { flex-wrap: wrap; }
+  .action-bar { flex-direction: column; align-items: flex-start; width: 100%; }
 }
 
 /* МАГІЯ ВИРІВНЮВАННЯ ВІДЖЕТІВ */
 .erp-widget {
-  background: white; 
-  border-radius: 8px; 
-  padding: 24px;
-  border: 1px solid #e2e8f0; 
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-  display: flex; 
-  flex-direction: column;
-  height: 420px; /* ФІКСОВАНА ВИСОТА ДЛЯ ІДЕАЛЬНОЇ СИМЕТРІЇ */
+  background: white; border-radius: 8px; padding: 24px;
+  border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  display: flex; flex-direction: column; height: 420px;
 }
-
-.widget-header { 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-  margin-bottom: 20px;
-  flex-shrink: 0; /* Шапка не стискається */
-}
+.widget-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-shrink: 0; }
 .widget-header h3 { margin: 0; font-size: 1.1rem; font-weight: 700; color: #0f172a; }
 .info-badge { background: #f1f5f9; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; color: #64748b; }
 
-/* УНІВЕРСАЛЬНИЙ КОНТЕЙНЕР ДЛЯ СКРОЛУ ТА ГРАФІКІВ */
-.chart-container, .scroll-container {
-  flex: 1; /* Займає весь залишковий простір */
-  min-height: 0; /* Дозволяє контенту скролитися, а не вилазити за межі */
-  width: 100%;
-}
-
-.scroll-container {
-  overflow-y: auto;
-  padding-right: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-/* Кастомний скролбар */
+.chart-container, .scroll-container { flex: 1; min-height: 0; width: 100%; }
+.scroll-container { overflow-y: auto; padding-right: 8px; display: flex; flex-direction: column; gap: 16px; }
 .scroll-container::-webkit-scrollbar { width: 6px; }
 .scroll-container::-webkit-scrollbar-track { background: transparent; }
 .scroll-container::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
 
-/* Відцентрований порожній стан (Empty state) */
-.empty {
-  margin: auto; /* Центрує текст по вертикалі і горизонталі */
-  color: #94a3b8; 
-  font-style: italic; 
-  text-align: center;
-  padding: 20px;
-}
+.empty { margin: auto; color: #94a3b8; font-style: italic; text-align: center; padding: 20px; }
 
 /* Елементи списку боєготовності */
 .readiness-bar-item { display: flex; flex-direction: column; gap: 6px; }
@@ -118,19 +115,21 @@
 
 .progress-track { width: 100%; height: 8px; background: #f1f5f9; border-radius: 10px; overflow: hidden; }
 .progress-fill { height: 100%; border-radius: 10px; transition: width 0.5s ease; }
-
 .bg-green-500 { background-color: #10b981; }
 .bg-yellow-500 { background-color: #f59e0b; }
 .bg-red-500 { background-color: #ef4444; }
 .bg-orange-500 { background-color: #f59e0b; }
 
+/* Віджет SLA Волонтерів */
+.sla-card { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; padding: 20px; }
+.sla-big-number { font-size: 4rem; font-weight: 800; color: #10b981; line-height: 1; margin-bottom: 12px; }
+.sla-unit { font-size: 1.5rem; font-weight: 600; color: #64748b; }
+.sla-desc { color: #475569; font-size: 1rem; margin-bottom: 24px; font-weight: 500; }
+.sla-footer { background: #f1f5f9; padding: 10px 20px; border-radius: 8px; color: #0f172a; font-size: 0.95rem; width: 100%; }
+
 /* Predict List */
 .predict-list { gap: 12px; }
-.predict-item {
-  display: flex; justify-content: space-between; align-items: center; padding: 14px 16px;
-  background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 6px;
-  flex-shrink: 0;
-}
+.predict-item { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 6px; flex-shrink: 0; }
 .predict-info { display: flex; flex-direction: column; gap: 4px; }
 .predict-info strong { font-size: 1rem; color: #0f172a; }
 .predict-info span { color: #64748b; font-size: 0.85rem; }
@@ -150,82 +149,212 @@
 .fraud-stats { display: flex; flex-direction: column; gap: 8px; background: #f8fafc; padding: 10px; border-radius: 6px; }
 .stat-line { display: flex; justify-content: space-between; font-size: 0.85rem; color: #475569; }
 
-/* Вкладки (TABS) */
-.erp-tabs {
+/* =========================================================
+   СТИЛІ ДЛЯ ОФІЦІЙНОГО ДОКУМЕНТА (PDF А4) 
+   ========================================================= */
+.official-report-template {
+  width: 210mm; /* Точний розмір А4 */
+  background: white;
+  color: black;
+  font-family: 'Times New Roman', Times, serif;
+  padding: 20mm; /* Відступи по краях документа */
+  box-sizing: border-box;
+}
+
+.doc-header {
   display: flex;
-  gap: 8px;
-  margin-bottom: 24px;
-  border-bottom: 2px solid #e2e8f0;
-  padding-bottom: 1px;
+  justify-content: space-between;
+  margin-bottom: 30px;
+  font-size: 11pt;
+  line-height: 1.5;
 }
 
-.tab-btn {
-  background: transparent;
-  border: none;
-  padding: 12px 24px;
-  font-size: 1rem;
-  font-weight: 600;
-  color: #64748b;
-  cursor: pointer;
-  border-bottom: 3px solid transparent;
-  margin-bottom: -3px; /* Щоб перекривати лінію контейнера */
-  transition: all 0.2s ease;
+.doc-header-left {
+  text-align: left;
 }
 
-.tab-btn:hover {
-  color: #334155;
-  background: #f8fafc;
-  border-radius: 6px 6px 0 0;
+.doc-header-right {
+  text-align: left;
+  width: 35%;
 }
 
-.tab-btn.active {
-  color: #2563eb;
-  border-bottom: 3px solid #2563eb;
-  background: #f0fdf4; /* Легкий відтінок для активної вкладки */
-  background: linear-gradient(to top, #eff6ff 0%, transparent 100%);
+.doc-title {
+  text-align: center;
+  font-size: 16pt;
+  font-weight: bold;
+  margin: 40px 0 20px 0;
+  line-height: 1.3;
 }
 
-.tab-content {
-  min-height: 500px;
+.doc-text {
+  font-size: 12pt;
+  line-height: 1.5;
+  text-indent: 1.25cm;
+  margin-bottom: 20px;
 }
 
-/* Віджет SLA Волонтерів */
-.sla-card {
+.doc-section-title {
+  font-size: 14pt;
+  font-weight: bold;
+  margin: 30px 0 10px 0;
+}
+
+.doc-list {
+  font-size: 12pt;
+  line-height: 1.8;
+  margin-bottom: 20px;
+  padding-left: 1.25cm;
+}
+
+/* Строга чорно-біла таблиця */
+.doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+  font-size: 11pt;
+}
+
+.doc-table th, .doc-table td {
+  border: 1px solid black;
+  padding: 8px;
+  text-align: left;
+}
+
+.doc-table th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+  text-align: center;
+}
+
+.doc-footer {
+  margin-top: 50px;
+  font-size: 12pt;
+}
+
+.doc-signature {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 30px;
+}
+
+/* =========================================
+   СТИЛІ ДЛЯ МОДАЛЬНОГО ВІКНА SMART ПОПОВНЕННЯ
+   ========================================= */
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(15, 23, 42, 0.6); /* Темний напівпрозорий фон */
+  backdrop-filter: blur(2px); /* Легке розмиття заднього фону */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 85vh;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
-  justify-content: center;
-  height: 100%;
-  text-align: center;
-  padding: 20px;
 }
 
-.sla-big-number {
-  font-size: 4rem;
-  font-weight: 800;
-  color: #10b981;
-  line-height: 1;
-  margin-bottom: 12px;
-}
-
-.sla-unit {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #64748b;
-}
-
-.sla-desc {
-  color: #475569;
-  font-size: 1rem;
-  margin-bottom: 24px;
-  font-weight: 500;
-}
-
-.sla-footer {
-  background: #f1f5f9;
-  padding: 10px 20px;
-  border-radius: 8px;
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
   color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #64748b;
+  line-height: 1;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.close-btn:hover {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+.modal-body {
+  padding: 24px;
+  overflow-y: auto; /* Щоб великий список можна було скролити */
+}
+
+.modal-desc {
+  color: #475569;
+  margin-top: 0;
+  margin-bottom: 20px;
   font-size: 0.95rem;
+}
+
+.modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  background-color: #f8fafc;
+  border-radius: 0 0 12px 12px;
+}
+
+/* СТИЛІ ТАБЛИЦІ В МОДАЛЦІ */
+.deficit-table {
   width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.deficit-table th, .deficit-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+
+.deficit-table th {
+  background-color: #f1f5f9;
+  font-weight: 600;
+  color: #475569;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+
+.source-select {
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  width: 100%;
+  font-family: inherit;
+  font-size: 0.9rem;
+  background-color: white;
+  cursor: pointer;
+}
+
+.source-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }

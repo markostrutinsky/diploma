@@ -67,4 +67,39 @@
 .login-card button {
   width: 100%;
   padding: 0.75rem;
+  text-align: center;
+}
+
+/* --- СТИЛІ ДЛЯ ВІДНОВЛЕННЯ ПАРОЛЯ --- */
+
+.forgot-password-container {
+  text-align: right;
+  margin-bottom: 1.25rem;
+}
+
+.forgot-password-link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.875rem;
+  padding: 0;
+  font-weight: 500;
+  width: auto !important; /* <--- ДОДАЛИ ЦЕ */
+  display: inline-block;  /* <--- ДОДАЛИ ЦЕ */
+}
+
+.forgot-password-link:hover {
+  text-decoration: underline;
+}
+
+.login-card .btn-secondary {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: inherit;
+  margin-top: 0.75rem; /* Відступ між основною кнопкою та кнопкою повернення */
+}
+
+.login-card .btn-secondary:hover {
+  background: rgba(0, 0, 0, 0.03); /* Легке затемнення при наведенні */
 }

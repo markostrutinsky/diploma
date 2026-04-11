@@ -23,11 +23,20 @@ func (s *VehicleService) CreateVehicle(ctx context.Context, v *models.Vehicle) e
 	v.PlateNumber = strings.ToUpper(strings.TrimSpace(v.PlateNumber))
 	v.Brand = strings.TrimSpace(v.Brand)
 
+	// ВИПРАВЛЕНО: Просто працюємо з рядком (string), без кастомних типів
+	v.Type = strings.ToUpper(strings.TrimSpace(v.Type))
+
 	if v.Brand == "" {
 		return errors.New("марка автомобіля є обов'язковою")
 	}
 	if v.PlateNumber == "" {
 		return errors.New("номерний знак є обов'язковим")
+	}
+	if v.Type == "" {
+		return errors.New("тип автомобіля (PICKUP, VAN, TRUCK) є обов'язковим")
+	}
+	if v.CapacityKg <= 0 {
+		return errors.New("вантажопідйомність повинна бути більшою за нуль")
 	}
 	if v.TankCapacity <= 0 {
 		return errors.New("об'єм бака повинен бути більшим за нуль")

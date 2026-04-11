@@ -1,0 +1,297 @@
+.profile-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.profile-header {
+  margin-bottom: 24px;
+}
+
+.profile-header h1 {
+  margin: 0 0 4px 0;
+  font-size: 1.8rem;
+  color: #0f172a;
+}
+
+.profile-header .subtitle {
+  margin: 0;
+  color: #64748b;
+  font-size: 1rem;
+}
+
+.profile-layout {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 30px;
+  align-items: start;
+}
+
+@media (max-width: 992px) {
+  .profile-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- КАРТКА ПРОФІЛЮ (Зліва) --- */
+.profile-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 32px 24px;
+  text-align: center;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+}
+
+.avatar-circle {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  color: white;
+  font-size: 2.2rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px auto;
+  box-shadow: 0 8px 16px rgba(37, 99, 235, 0.2);
+}
+
+.profile-name {
+  margin: 0 0 12px 0;
+  font-size: 1.4rem;
+  color: #0f172a;
+  line-height: 1.3;
+}
+
+.profile-badges {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 28px;
+}
+
+.profile-role-badge {
+  display: inline-block;
+  background: #f1f5f9;
+  color: #334155;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-success { background: #dcfce7; color: #16a34a; }
+.status-warning { background: #fef3c7; color: #d97706; }
+.status-danger { background: #fee2e2; color: #dc2626; }
+
+.profile-details {
+  text-align: left;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-label {
+  font-size: 0.75rem;
+  color: #64748b;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.detail-value {
+  font-size: 0.95rem;
+  color: #0f172a;
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.font-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: #f8fafc;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+}
+
+/* --- ПРАВА ЧАСТИНА (Вкладки) --- */
+.profile-tabs {
+  display: flex;
+  gap: 12px;
+  border-bottom: 2px solid #e2e8f0;
+  margin-bottom: 24px;
+  flex-wrap: wrap; 
+  row-gap: 0;
+}
+
+.ptab-btn {
+  background: transparent;
+  border: none;
+  padding: 12px 16px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.ptab-btn:hover { color: #334155; }
+.ptab-btn.active {
+  color: #2563eb;
+  border-bottom-color: #2563eb;
+}
+
+/* --- Вкладка: Налаштування та Повноваження --- */
+.settings-panel, .permissions-panel {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+}
+
+.settings-panel h3, .permissions-panel h3 {
+  margin-top: 0;
+  font-size: 1.25rem;
+  color: #0f172a;
+}
+
+.mb-4 { margin-bottom: 1.5rem; }
+
+/* Список повноважень */
+.permissions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.perm-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.perm-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.perm-text strong {
+  display: block;
+  font-size: 1.05rem;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.perm-text p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+/* --- СІТКА ЕКІПІРУВАННЯ (Без змін) --- */
+.equipment-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+.equipment-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; transition: 0.2s; }
+.equipment-card:hover { transform: translateY(-4px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border-color: #cbd5e1; }
+.card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; font-size: 0.85rem; font-weight: 600; }
+.status-indicator { color: #10b981; background: #dcfce7; padding: 4px 10px; border-radius: 20px; }
+.issue-date { color: #94a3b8; }
+.item-name { margin: 0 0 16px 0; font-size: 1.1rem; color: #1e293b; line-height: 1.4; }
+.item-quantity { margin-top: auto; margin-bottom: 24px; display: flex; align-items: baseline; gap: 4px; }
+.qty-number { font-size: 2.5rem; font-weight: 800; color: #2563eb; line-height: 1; }
+.qty-unit { font-size: 1.1rem; color: #64748b; font-weight: 500; }
+.btn-report { width: 100%; background: #fff5f5; color: #e11d48; border: 1px solid #fecdd3; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+.btn-report:hover { background: #ffe4e6; border-color: #fda4af; }
+.empty-state-card { text-align: center; padding: 60px 20px; background: #ffffff; border-radius: 16px; border: 2px dashed #cbd5e1; }
+.empty-icon { font-size: 4rem; display: block; margin-bottom: 16px; }
+.empty-state-card h3 { color: #334155; margin: 0 0 8px 0; }
+.empty-state-card p { color: #64748b; margin: 0; }
+
+/* --- ФОРМА РЕДАГУВАННЯ ПРОФІЛЮ --- */
+.profile-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.form-row {
+  display: flex;
+  gap: 24px;
+}
+
+@media (max-width: 768px) {
+  .form-row {
+    flex-direction: column;
+    gap: 20px;
+  }
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 8px;
+}
+
+.form-group label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.erp-input {
+  padding: 12px 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 1rem;
+  color: #1e293b;
+  transition: all 0.2s ease;
+  background-color: #f8fafc;
+}
+
+.erp-input:focus {
+  outline: none;
+  border-color: #2563eb;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.erp-input::placeholder {
+  color: #94a3b8;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+}

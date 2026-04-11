@@ -16,10 +16,11 @@ func NewAnalyticsService(repo *repositories.AnalyticsRepository, db repositories
 	return &AnalyticsService{repo: repo, db: db}
 }
 
-func (s *AnalyticsService) GetDashboardAnalytics(ctx context.Context, start, end string) (*models.DashboardAnalytics, error) {
-	return s.repo.GetDashboardStats(ctx, s.db, start, end)
+func (s *AnalyticsService) GetDashboardAnalytics(ctx context.Context, start, end, unitID string) (*models.DashboardAnalytics, error) {
+	return s.repo.GetDashboardStats(ctx, s.db, start, end, unitID)
 }
 
-func (s *AnalyticsService) RunAutoReplenish(ctx context.Context) (int, error) {
-	return s.repo.CreateAutoReplenishRequests(ctx, s.db)
+// НОВА ФУНКЦІЯ: Приймає налаштування замовлення з фронтенду та ID користувача
+func (s *AnalyticsService) RunSmartReplenish(ctx context.Context, req models.SmartReplenishRequest, userID string) (int, error) {
+	return s.repo.ProcessSmartReplenish(ctx, s.db, req, userID)
 }

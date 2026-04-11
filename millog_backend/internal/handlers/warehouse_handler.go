@@ -81,3 +81,27 @@ func (h *WarehouseHandler) List(c *gin.Context) {
 
 	c.JSON(http.StatusOK, list)
 }
+
+// Додай цей метод до WarehouseHandler
+func (h *WarehouseHandler) UpdateLocation(c *gin.Context) {
+	warehouseID := c.Param("id")
+
+	// Структура для парсингу JSON
+	var req struct {
+		Latitude  float64 `json:"latitude" binding:"required"`
+		Longitude float64 `json:"longitude" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Невірний формат координат"})
+		return
+	}
+
+	err := h.service.UpdateLocation(c.Request.Context(), warehouseID, req.Latitude, req.Longitude)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка оновлення дислокації: " + err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Дислокацію успішно оновлено"})
+}

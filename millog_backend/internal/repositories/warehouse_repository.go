@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"errors"
 	"millog_backend/internal/models"
 )
 
@@ -82,4 +83,24 @@ func (r *WarehouseRepository) ListByUnit(ctx context.Context, db DBExecutor, uni
 	}
 
 	return list, nil
+}
+
+// Додай цей метод до WarehouseRepository
+func (r *WarehouseRepository) UpdateLocation(ctx context.Context, db DBExecutor, warehouseID string, lat, lng float64) error {
+	query := `
+		UPDATE warehouses 
+		SET latitude = $1, longitude = $2, updated_at = CURRENT_TIMESTAMP 
+		WHERE id = $3
+	`
+
+	result, err := db.Exec(ctx, query, lat, lng, warehouseID)
+	if err != nil {
+		return err
+	}
+
+	if result.RowsAffected() == 0 {
+		return errors.New("склад не знайдено")
+	}
+
+	return nil
 }

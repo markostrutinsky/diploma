@@ -219,6 +219,84 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 
 		// 23. Додаємо поле для відповідального користувача за ресурс
 		`ALTER TABLE resources ADD COLUMN IF NOT EXISTS assigned_to_user_id UUID REFERENCES users(id) ON DELETE SET NULL;`,
+
+		// 24. Таблиця для відстеження видачі ресурсів
+		`CREATE TABLE IF NOT EXISTS resource_assignments (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            resource_id UUID NOT NULL REFERENCES resources(id) ON DELETE CASCADE,
+            user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            quantity INT NOT NULL DEFAULT 1,
+            status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE', -- Статуси: ACTIVE (на руках), RETURNED (здано), LOST (втрачено), WRITTEN_OFF (списано)
+            issued_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            returned_at TIMESTAMP,
+            notes TEXT
+        );`,
+
+		`CREATE INDEX IF NOT EXISTS idx_resource_assignments_user ON resource_assignments(user_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_resource_assignments_resource ON resource_assignments(resource_id);`,
+
+		`ALTER TABLE resources DROP COLUMN IF EXISTS assigned_to_user_name;`,
+		`ALTER TABLE resources DROP COLUMN IF EXISTS assigned_to_user_id;`,
+
+		// ==========================================
+		// ВАНТАЖОПЕРЕВЕЗЕННЯ ТА КОНТРОЛЬ ВАГИ
+		// ==========================================
+
+		// 25. Тип та вантажопідйомність авто
+		`ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS type VARCHAR(50) DEFAULT 'VAN';`,
+		`ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS capacity_kg DECIMAL(10,2) NOT NULL DEFAULT 1500.00;`,
+
+		// 26. Вага ресурсу/товару (САМЕ ЦЬОГО НЕ ВИСТАЧАЛО!)
+		`ALTER TABLE resources ADD COLUMN IF NOT EXISTS weight_kg DECIMAL(10,2) NOT NULL DEFAULT 1.00;`,
+
+		// 27. Рейси (Накладні / Відправки)
+		`CREATE TABLE IF NOT EXISTS shipments (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			from_warehouse_id UUID NOT NULL REFERENCES warehouses(id) ON DELETE CASCADE,
+			to_warehouse_id UUID NOT NULL REFERENCES warehouses(id) ON DELETE CASCADE,
+			vehicle_id UUID NOT NULL REFERENCES vehicles(id) ON DELETE RESTRICT,
+			priority VARCHAR(20) NOT NULL DEFAULT 'NORMAL',
+			status VARCHAR(30) NOT NULL DEFAULT 'DISPATCHED', -- DISPATCHED, DELIVERED, CANCELLED
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+		);`,
+
+		// 28. Вміст рейсу (що саме везуть)
+		`CREATE TABLE IF NOT EXISTS shipment_items (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			shipment_id UUID NOT NULL REFERENCES shipments(id) ON DELETE CASCADE,
+			resource_id UUID NOT NULL REFERENCES resources(id) ON DELETE RESTRICT,
+			quantity INT NOT NULL CHECK (quantity > 0)
+		);`,
+
+		`CREATE INDEX IF NOT EXISTS idx_shipments_from ON shipments(from_warehouse_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_shipments_to ON shipments(to_warehouse_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_shipment_items_shipment ON shipment_items(shipment_id);`,
+
+		`CREATE TABLE IF NOT EXISTS shipments (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            from_warehouse_id UUID REFERENCES warehouses(id) ON DELETE CASCADE,
+            to_warehouse_id UUID REFERENCES warehouses(id) ON DELETE CASCADE,
+            vehicle_id UUID REFERENCES vehicles(id) ON DELETE SET NULL,
+            priority VARCHAR(50) DEFAULT 'NORMAL', -- NORMAL або URGENT
+            status VARCHAR(50) DEFAULT 'DISPATCHED', -- DISPATCHED або DELIVERED
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );`,
+
+		`CREATE TABLE IF NOT EXISTS shipment_items (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            shipment_id UUID REFERENCES shipments(id) ON DELETE CASCADE,
+            resource_id UUID REFERENCES resources(id) ON DELETE CASCADE,
+            quantity INT NOT NULL CHECK (quantity > 0)
+        );`,
+
+		`CREATE INDEX IF NOT EXISTS idx_shipments_from ON shipments(from_warehouse_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_shipments_to ON shipments(to_warehouse_id);`,
+
+		`ALTER TABLE shipment_items ADD COLUMN IF NOT EXISTS request_id UUID REFERENCES supply_requests(id) ON DELETE SET NULL;`,
+		`ALTER TABLE supply_requests ADD COLUMN IF NOT EXISTS target_warehouse_id UUID REFERENCES warehouses(id) ON DELETE SET NULL;`,
+
+		`ALTER TABLE shipments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;`,
 	}
 
 	for i, m := range migrations {

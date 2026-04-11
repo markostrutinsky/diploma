@@ -40,14 +40,17 @@ func NewRequestService(reqRepo *repositories.SupplyRequestRepository, resRepo *r
 
 func (s *RequestService) Create(ctx context.Context, userID string, req *models.CreateSupplyRequest) (*models.SupplyRequest, error) {
 	sr := &models.SupplyRequest{
-		CreatedBy:  userID,
-		ResourceID: req.ResourceID,
-		Quantity:   req.Quantity,
-		Status:     models.RequestPending,
+		CreatedBy:         userID,
+		ResourceID:        req.ResourceID,
+		Quantity:          req.Quantity,
+		Status:            models.RequestPending,
+		TargetWarehouseID: req.TargetWarehouseID,
 	}
+
 	if err := s.requestRepo.Create(ctx, s.dbPool, sr); err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
+
 	return sr, nil
 }
 

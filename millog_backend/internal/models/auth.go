@@ -162,6 +162,18 @@ type SetupPasswordRequest struct {
 	Password string `json:"password" binding:"required,min=8"`
 }
 
+type UpdatePasswordRequest struct {
+	OldPassword string `json:"old_password" binding:"required"`
+	NewPassword string `json:"new_password" binding:"required,min=8"`
+}
+
+type UpdateProfileRequest struct {
+	FullName *string `json:"full_name"`
+	Phone    *string `json:"phone"`
+	Username *string `json:"username"`
+	Email    *string `json:"email"`
+}
+
 func (r UserRole) CanCreate(targetRole UserRole) bool {
 	if r == RoleAdmin {
 		return true

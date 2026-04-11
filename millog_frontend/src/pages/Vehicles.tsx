@@ -6,7 +6,7 @@ import './Vehicles.css'
 export default function Vehicles() {
   const { user } = useAuth()
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
-  const [usersList, setUsersList] = useState<SystemUser[]>([]) // НОВЕ: Стан для списку людей
+  const [usersList, setUsersList] = useState<SystemUser[]>([])
   const [loading, setLoading] = useState(true)
 
   const [viewTab, setViewTab] = useState<'ACTIVE' | 'ARCHIVE'>('ACTIVE')
@@ -46,14 +46,16 @@ export default function Vehicles() {
   
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  // Стан для зміни водія
+  
   const [driverModalVehicle, setDriverModalVehicle] = useState<Vehicle | null>(null)
   const [driverForm, setDriverForm] = useState({ driver_id: '' })
-  // ОНОВЛЕНО: Додано поле driver_id
+  
   const [newVehicle, setNewVehicle] = useState({
     brand: '',
     model: '',
     plate_number: '',
+    type: 'VAN',           
+    capacity_kg: 1500,     
     tank_capacity: 0,
     fuel_norm: 0,
     driver_id: ''
@@ -67,7 +69,6 @@ export default function Vehicles() {
 
   const canManageVehicles = ['ADMIN', 'BRIGADE_CMDR', 'BRIGADE_LOGIST', 'BATTALION_LOGIST', 'COMPANY_SERGEANT'].includes(user?.role || '')
 
-  // ОНОВЛЕНО: Завантажуємо і машини, і користувачів одночасно
   const loadData = () => {
     setLoading(true)
     Promise.all([
@@ -89,14 +90,13 @@ export default function Vehicles() {
     setSuccessMessage(null)
     
     try {
-      // Відправляємо undefined, якщо водія не вибрано (щоб БД не сварилась на порожній рядок)
       const payload = { 
         ...newVehicle, 
         driver_id: newVehicle.driver_id || undefined 
       }
-      await api.vehicles.create(payload)
+      await api.vehicles.create(payload as any) 
       setSuccessMessage('Автомобіль успішно додано!')
-      setNewVehicle({ brand: '', model: '', plate_number: '', tank_capacity: 0, fuel_norm: 0, driver_id: '' })
+      setNewVehicle({ brand: '', model: '', plate_number: '', type: 'VAN', capacity_kg: 1500, tank_capacity: 0, fuel_norm: 0, driver_id: '' })
       loadData()
       
       setTimeout(() => {
@@ -191,7 +191,7 @@ export default function Vehicles() {
 
     try {
       await api.vehicles.updateStatus(statusModalVehicle.id, {
-        status: statusForm.status,
+        status: statusForm.status as any,
         reason: statusForm.reason
       })
       setSuccessMessage('Статус машини оновлено!')
@@ -212,9 +212,7 @@ export default function Vehicles() {
     setErrorMessage(null); setSuccessMessage(null)
 
     try {
-      // Якщо рядок порожній (вибрано "-- Без закріплення --"), відправляємо null
       const driverIdToSubmit = driverForm.driver_id === '' ? null : driverForm.driver_id
-      
       await api.vehicles.assignDriver(driverModalVehicle.id, driverIdToSubmit)
       setSuccessMessage('Екіпаж успішно оновлено!')
       loadData()
@@ -234,13 +232,13 @@ export default function Vehicles() {
     setHistoryLoading(true)
     setFuelRecords([])
     setMaintenanceRecords([])
-    setDriverRecords([]) // Очищаємо перед новим завантаженням
+    setDriverRecords([])
     
     try {
       const [fRecords, mRecords, dRecords] = await Promise.all([
         api.vehicles.getFuelHistory(vehicle.id).catch(() => []),
         api.vehicles.getMaintenanceHistory(vehicle.id).catch(() => []),
-        api.vehicles.getDriverHistory(vehicle.id).catch(() => []) // НОВИЙ ЗАПИТ
+        api.vehicles.getDriverHistory(vehicle.id).catch(() => [])
       ])
       setFuelRecords(fRecords || [])
       setMaintenanceRecords(mRecords || [])
@@ -270,7 +268,6 @@ export default function Vehicles() {
     setErrorMessage(null)
   }
 
-  // НОВЕ: Допоміжна функція для відображення водія
   const getDriverName = (driverId?: string) => {
     if (!driverId) return <span className="text-muted unassigned-text-italic">Не призначено</span>;
     const driver = usersList.find(u => u.id === driverId);
@@ -347,7 +344,7 @@ export default function Vehicles() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Номерний знак</label>
+                  <label>Номерний знак <span className="required">*</span></label>
                   <input
                     value={newVehicle.plate_number}
                     onChange={(e) => setNewVehicle({ ...newVehicle, plate_number: e.target.value })}
@@ -355,9 +352,35 @@ export default function Vehicles() {
                   />
                 </div>
               </div>
+
               <div className="form-row-2">
                 <div className="form-group">
-                  <label>Об'єм бака (л)</label>
+                  <label>Тип кузова <span className="required">*</span></label>
+                  <select 
+                    value={newVehicle.type} 
+                    onChange={(e) => setNewVehicle({...newVehicle, type: e.target.value})}
+                    className="fuel-type-select select-normal-weight"
+                  >
+                    <option value="PICKUP">🛻 Пікап / Джип</option>
+                    <option value="VAN">🚐 Мікроавтобус / Фургон</option>
+                    <option value="TRUCK">🚛 Вантажівка</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Вантажопідйомність (кг) <span className="required">*</span></label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={newVehicle.capacity_kg || ''}
+                    onChange={(e) => setNewVehicle({ ...newVehicle, capacity_kg: parseFloat(e.target.value) })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="form-row-2">
+                <div className="form-group">
+                  <label>Об'єм бака (л) <span className="required">*</span></label>
                   <input
                     type="number"
                     min="1"
@@ -367,7 +390,7 @@ export default function Vehicles() {
                   />
                 </div>
                 <div className="form-group">
-                  <label>Норма (л/100км)</label>
+                  <label>Норма (л/100км) <span className="required">*</span></label>
                   <input
                     type="number"
                     min="1"
@@ -379,7 +402,6 @@ export default function Vehicles() {
                 </div>
               </div>
 
-              {/* НОВЕ ПОЛЕ: Вибір Водія */}
               <div className="form-group">
                 <label>Закріплений водій (Екіпаж)</label>
                 <select 
@@ -542,12 +564,16 @@ export default function Vehicles() {
                   </label>
                   <input
                     type="number"
-                    min="0"
-                    placeholder="Напр. 150500"
+                    min={(fuelModalVehicle as any).current_odometer || 0}
+                    placeholder={`Напр. ${(fuelModalVehicle as any).current_odometer ? (fuelModalVehicle as any).current_odometer + 150 : 150500}`}
                     value={fuelForm.odometer_km}
                     onChange={(e) => setFuelForm({ ...fuelForm, odometer_km: e.target.value })}
                     required={fuelForm.record_type === 'EXPENSE'}
                   />
+                  {/* 🔥 ДОДАНО: Підказка акуратно під полем вводу */}
+                  <span style={{ display: 'block', fontSize: '11px', color: '#64748b', marginTop: '6px' }}>
+                    Останній запис: <strong>{(fuelModalVehicle as any).current_odometer || 0}</strong> км
+                  </span>
                 </div>
               </div>
 
@@ -571,7 +597,7 @@ export default function Vehicles() {
         </div>
       )}
 
-      {/* ОНОВЛЕНА МОДАЛКА ТО / ЗАВЕРШЕННЯ РЕМОНТУ (З файлом) */}
+      {/* МОДАЛКА ТО */}
       {maintenanceModalVehicle && (
         <div className="modal-overlay" onClick={closeMaintenanceForm}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -616,7 +642,6 @@ export default function Vehicles() {
                 />
               </div>
 
-              {/* ОНОВЛЕНО: Два поля в одному рядку - Гроші та Файл */}
               <div className="form-row-2 form-row-bottom-align">
                 <div className="form-group form-group-no-margin">
                   <label>Загальна вартість (Грн)</label>
@@ -680,13 +705,16 @@ export default function Vehicles() {
                 <span className="v-card-value plate-badge">{historyVehicle.plate_number}</span>
               </div>
               <div className="v-card">
-                <span className="v-card-label">Норма витрати</span>
-                <span className="v-card-value">{historyVehicle.fuel_norm} <small>л/100км</small></span>
+                <span className="v-card-label">Тип і Вантаж</span>
+                <span className="v-card-value">
+                  {historyVehicle.type === 'PICKUP' ? '🛻 Пікап' : historyVehicle.type === 'VAN' ? '🚐 Фургон' : '🚛 Вантажівка'}
+                  <small>({historyVehicle.capacity_kg} кг)</small>
+                </span>
               </div>
               <div className="v-card">
                 <span className="v-card-label">Статус</span>
                 <span className={`badge ${historyVehicle.status === 'ACTIVE' ? 'badge-success' : historyVehicle.status === 'IN_REPAIR' ? 'badge-warning' : 'badge-critical'}`}>
-                  {historyVehicle.status === 'ACTIVE' ? 'В строю' : historyVehicle.status === 'IN_REPAIR' ? 'В ремонті' : 'Списане'}
+                  {historyVehicle.status === 'ACTIVE' ? 'В строю' : historyVehicle.status === 'IN_REPAIR' ? 'В ремонті' : historyVehicle.status === 'ON_MISSION' ? 'У рейсі' : 'Списане'}
                 </span>
               </div>
               
@@ -767,7 +795,7 @@ export default function Vehicles() {
                       <thead>
                         <tr>
                           <th>Дата ТО</th>
-                          <th>Екіпаж</th> {/* НОВИЙ ЗАГОЛОВОК */}
+                          <th>Екіпаж</th>
                           <th>Одометр</th>
                           <th>Опис виконаних робіт</th>
                           <th>Виконавець</th>
@@ -808,7 +836,7 @@ export default function Vehicles() {
                     </table>
                   )
                 )}
-                {/* НОВА ТАБЛИЦЯ ІСТОРІЇ ЕКІПАЖІВ */}
+
                 {historyTab === 'DRIVERS' && (
                   driverRecords.length === 0 ? (
                     <p className="history-empty">Історія екіпажів порожня.</p>
@@ -878,7 +906,8 @@ export default function Vehicles() {
               <tr>
                 <th>Марка / Модель</th>
                 <th>Номерний знак</th>
-                <th>Екіпаж / Водій</th> {/* НОВА КОЛОНКА */}
+                <th>Тип та Вантаж</th>
+                <th>Екіпаж / Водій</th>
                 <th>Бак (Норма)</th>
                 <th>Статус</th>
                 {viewTab === 'ACTIVE' && <th>До ТО</th>}
@@ -894,14 +923,20 @@ export default function Vehicles() {
                     </td>
                     <td><span className="plate-badge">{v.plate_number}</span></td>
                     
-                    {/* НОВЕ: Виводимо водія */}
+                    <td>
+                      <div>
+                        {v.type === 'PICKUP' ? '🛻 Пікап' : v.type === 'VAN' ? '🚐 Фургон' : v.type === 'TRUCK' ? '🚛 Вантажівка' : '🚗 Авто'}
+                      </div>
+                      <div className="norm-text" style={{ marginLeft: 0 }}>Макс: {v.capacity_kg} кг</div>
+                    </td>
+
                     <td>{getDriverName(v.driver_id)}</td>
 
                     <td>{v.tank_capacity} л <span className="norm-text">({v.fuel_norm} л/100км)</span></td>
                     
                     <td>
-                      <span className={`badge ${v.status === 'ACTIVE' ? 'badge-success' : v.status === 'IN_REPAIR' ? 'badge-warning' : 'badge-critical'}`}>
-                        {v.status === 'ACTIVE' ? 'В строю' : v.status === 'IN_REPAIR' ? 'В ремонті' : 'Списане'}
+                      <span className={`badge ${v.status === 'ACTIVE' ? 'badge-success' : v.status === 'IN_REPAIR' ? 'badge-warning' : v.status === 'ON_MISSION' ? 'badge-primary' : 'badge-critical'}`}>
+                        {v.status === 'ACTIVE' ? 'В строю' : v.status === 'IN_REPAIR' ? 'В ремонті' : v.status === 'ON_MISSION' ? 'У рейсі' : 'Списане'}
                       </span>
                     </td>
                     
@@ -925,13 +960,12 @@ export default function Vehicles() {
                               className="btn btn-secondary btn-sm btn-fuel-action" 
                               onClick={() => {
                                 setDriverModalVehicle(v)
-                                setDriverForm({ driver_id: v.driver_id || '' }) // Підставляємо поточного водія
+                                setDriverForm({ driver_id: v.driver_id || '' })
                                 setErrorMessage(null); setSuccessMessage(null)
                               }}
                             >
                               👤 Водій
                             </button>
-                            {/* ПАЛЬНЕ: Доступно ТІЛЬКИ якщо машина В СТРОЮ */}
                             {v.status === 'ACTIVE' && (
                               <button 
                                 className="btn btn-secondary btn-sm btn-fuel-action" 
@@ -945,7 +979,6 @@ export default function Vehicles() {
                               </button>
                             )}
 
-                            {/* РОЗУМНА КНОПКА ТО/РЕМОНТУ */}
                             {v.status === 'IN_REPAIR' ? (
                               <button 
                                 className="btn btn-finish-repair btn-sm btn-fuel-action" 

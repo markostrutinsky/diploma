@@ -2,8 +2,13 @@ package repositories
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"strings"
 
 	"millog_backend/internal/models"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type UserRepository struct {
@@ -232,4 +237,55 @@ func (r *UserRepository) UnblockUser(ctx context.Context, db DBExecutor, userID 
 	`
 	_, err := db.Exec(ctx, query, models.StatusActive, userID)
 	return err
+}
+
+func (r *UserRepository) UpdateProfile(ctx context.Context, db *pgxpool.Pool, userID string, req models.UpdateProfileRequest) error {
+	query := "UPDATE users SET updated_at = CURRENT_TIMESTAMP"
+	args := []interface{}{}
+	argID := 1
+
+	if req.FullName != nil {
+		query += fmt.Sprintf(", full_name = $%d", argID)
+		args = append(args, *req.FullName)
+		argID++
+	}
+	if req.Phone != nil {
+		query += fmt.Sprintf(", phone = $%d", argID)
+		args = append(args, *req.Phone)
+		argID++
+	}
+	if req.Username != nil {
+		query += fmt.Sprintf(", username = $%d", argID)
+		args = append(args, *req.Username)
+		argID++
+	}
+	if req.Email != nil {
+		query += fmt.Sprintf(", email = $%d", argID)
+		args = append(args, *req.Email)
+		argID++
+	}
+
+	if len(args) == 0 {
+		return nil
+	}
+
+	query += fmt.Sprintf(" WHERE id = $%d", argID)
+	args = append(args, userID)
+
+	result, err := db.Exec(ctx, query, args...)
+	if err != nil {
+		if strings.Contains(err.Error(), "users_username_key") {
+			return errors.New("Цей логін вже зайнятий іншим користувачем")
+		}
+		if strings.Contains(err.Error(), "users_email_key") {
+			return errors.New("Ця пошта вже використовується")
+		}
+		return fmt.Errorf("помилка оновлення профілю: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return errors.New("користувача не знайдено")
+	}
+
+	return nil
 }

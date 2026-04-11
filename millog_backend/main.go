@@ -94,7 +94,7 @@ func main() {
 	warehouseRepo := repositories.NewWarehouseRepository()
 	analyticsRepo := repositories.NewAnalyticsRepository()
 
-	invService := services.NewInventoryService(catRepo, resRepo, dbPool)
+	invService := services.NewInventoryService(catRepo, resRepo, userRepo, dbPool)
 	reqService := services.NewRequestService(reqRepo, resRepo, userRepo, dbPool)
 	unitService := services.NewUnitService(unitRepo, userRepo, dbPool)
 	volReqService := services.NewVolunteerRequestService(volReqRepo, dbPool)
@@ -130,6 +130,7 @@ func main() {
 			auth.POST("/refresh", authHandler.Refresh)
 			auth.POST("/register", authHandler.RegisterVolunteer)
 			auth.POST("/setup-password", authHandler.SetupPassword)
+			auth.POST("/forgot-password", authHandler.RequestPasswordReset)
 			auth.GET("/me", middleware.AuthMiddleware(jwtSecret, dbPool), authHandler.Me)
 		}
 
@@ -141,6 +142,8 @@ func main() {
 			users.PUT("/:id/role", authHandler.UpdateRoleAndUnit)
 			users.PUT("/:id/block", authHandler.BlockUser)
 			users.PUT("/:id/unblock", authHandler.UnblockUser)
+			users.PATCH("/profile", authHandler.UpdateMyProfile)
+			users.PATCH("/password", authHandler.UpdateMyPassword)
 		}
 
 		api.POST("/bootstrap", authHandler.BootstrapAdmin)
@@ -175,6 +178,12 @@ func main() {
 			inv.POST("/resources/:id/transfer", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.Transfer)
 			inv.DELETE("/resources/:id", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.Delete)
 			inv.POST("/resources/:id/assign", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.Assign)
+			inv.GET("/my-equipment", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.GetMyEquipment)
+			inv.POST("/issue", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.IssueResource)
+			inv.POST("/shipments", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.CreateShipment)
+			inv.GET("/warehouse/:id", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.GetByWarehouse)
+			inv.POST("/shipments/:id/receive", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.ReceiveShipment)
+			inv.GET("/shipments", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.ListShipments)
 		}
 
 		// Supply requests: commanders + logists + sergeant create; commanders + logists approve
@@ -229,6 +238,7 @@ func main() {
 		{
 			warehouseGroup.GET("", warehouseHandler.List)
 			warehouseGroup.POST("", warehouseHandler.Create)
+			warehouseGroup.PATCH("/:id/location", warehouseHandler.UpdateLocation)
 		}
 
 		analyticsGroup := api.Group("/analytics")

@@ -15,17 +15,21 @@ func NewSupplyRequestRepository() *SupplyRequestRepository {
 }
 
 func (r *SupplyRequestRepository) Create(ctx context.Context, db DBExecutor, req *models.SupplyRequest) error {
-	query := `INSERT INTO supply_requests (created_by, resource_id, quantity, status)
-	VALUES ($1, $2, $3, $4) RETURNING id, created_at, updated_at`
-	return db.QueryRow(ctx, query, req.CreatedBy, req.ResourceID, req.Quantity, req.Status).Scan(&req.ID, &req.CreatedAt, &req.UpdatedAt)
+	// ДОДАНО: target_warehouse_id у запит
+	query := `INSERT INTO supply_requests (created_by, resource_id, quantity, status, target_warehouse_id)
+	VALUES ($1, $2, $3, $4, $5) RETURNING id, created_at, updated_at`
+
+	return db.QueryRow(ctx, query, req.CreatedBy, req.ResourceID, req.Quantity, req.Status, req.TargetWarehouseID).Scan(&req.ID, &req.CreatedAt, &req.UpdatedAt)
 }
 
 func (r *SupplyRequestRepository) GetByID(ctx context.Context, db DBExecutor, id string) (*models.SupplyRequest, error) {
-	query := `SELECT id, created_by, resource_id, quantity, status, approved_by, approved_at, comment, created_at, updated_at
+	// ДОДАНО: target_warehouse_id у SELECT
+	query := `SELECT id, created_by, resource_id, quantity, status, target_warehouse_id, approved_by, approved_at, comment, created_at, updated_at
 	FROM supply_requests WHERE id = $1`
+
 	var req models.SupplyRequest
 	err := db.QueryRow(ctx, query, id).Scan(
-		&req.ID, &req.CreatedBy, &req.ResourceID, &req.Quantity, &req.Status,
+		&req.ID, &req.CreatedBy, &req.ResourceID, &req.Quantity, &req.Status, &req.TargetWarehouseID,
 		&req.ApprovedBy, &req.ApprovedAt, &req.Comment, &req.CreatedAt, &req.UpdatedAt,
 	)
 	if err != nil {
@@ -39,7 +43,8 @@ func (r *SupplyRequestRepository) List(ctx context.Context, db DBExecutor, userR
 	var err error
 
 	if userRole == "ADMIN" || userRole == "VOLUNTEER" {
-		query := `SELECT id, created_by, resource_id, quantity, status, approved_by, approved_at, comment, created_at, updated_at
+		// ДОДАНО: target_warehouse_id у SELECT
+		query := `SELECT id, created_by, resource_id, quantity, status, target_warehouse_id, approved_by, approved_at, comment, created_at, updated_at
 				  FROM supply_requests ORDER BY created_at DESC`
 		rows, err = db.Query(ctx, query)
 	} else {
@@ -47,16 +52,15 @@ func (r *SupplyRequestRepository) List(ctx context.Context, db DBExecutor, userR
 			return []models.SupplyRequest{}, nil
 		}
 
+		// ДОДАНО: sr.target_warehouse_id у SELECT
 		query := `
 			WITH RECURSIVE unit_tree AS (
-				-- Беремо підрозділ поточного користувача
 				SELECT id FROM units WHERE id = $1
 				UNION
-				-- Шукаємо всі підрозділи, які йому підпорядковуються (через parent_id)
 				SELECT u.id FROM units u
 				INNER JOIN unit_tree ut ON u.parent_id = ut.id
 			)
-			SELECT sr.id, sr.created_by, sr.resource_id, sr.quantity, sr.status, sr.approved_by, sr.approved_at, sr.comment, sr.created_at, sr.updated_at
+			SELECT sr.id, sr.created_by, sr.resource_id, sr.quantity, sr.status, sr.target_warehouse_id, sr.approved_by, sr.approved_at, sr.comment, sr.created_at, sr.updated_at
 			FROM supply_requests sr
 			JOIN users u ON sr.created_by = u.id
 			WHERE u.unit_id IN (SELECT id FROM unit_tree)
@@ -73,7 +77,8 @@ func (r *SupplyRequestRepository) List(ctx context.Context, db DBExecutor, userR
 	var list []models.SupplyRequest
 	for rows.Next() {
 		var req models.SupplyRequest
-		if err := rows.Scan(&req.ID, &req.CreatedBy, &req.ResourceID, &req.Quantity, &req.Status,
+		// ДОДАНО: &req.TargetWarehouseID у Scan
+		if err := rows.Scan(&req.ID, &req.CreatedBy, &req.ResourceID, &req.Quantity, &req.Status, &req.TargetWarehouseID,
 			&req.ApprovedBy, &req.ApprovedAt, &req.Comment, &req.CreatedAt, &req.UpdatedAt); err != nil {
 			return nil, err
 		}
@@ -87,7 +92,16 @@ func (r *SupplyRequestRepository) Approve(ctx context.Context, db DBExecutor, id
 	if approved {
 		status = models.RequestApproved
 	}
+
+	var validApprovedBy interface{}
+	if approvedBy == "" {
+		validApprovedBy = nil
+	} else {
+		validApprovedBy = approvedBy
+	}
+
 	query := `UPDATE supply_requests SET status = $1, approved_by = $2, approved_at = CURRENT_TIMESTAMP, comment = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4`
-	_, err := db.Exec(ctx, query, status, approvedBy, comment, id)
+
+	_, err := db.Exec(ctx, query, status, validApprovedBy, comment, id)
 	return err
 }

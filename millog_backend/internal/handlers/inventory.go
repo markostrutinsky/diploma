@@ -200,3 +200,112 @@ func (h *InventoryHandler) Assign(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Майно успішно видано"})
 }
+
+func (h *InventoryHandler) GetMyEquipment(c *gin.Context) {
+	claimsVal, exists := c.Get("claims")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Не знайдено токен авторизації"})
+		return
+	}
+	claims := claimsVal.(*middleware.Claims)
+
+	// ФІКС: Беремо правильне поле з токена
+	userID := claims.UserID
+
+	items, err := h.invService.GetMyEquipment(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка отримання майна: " + err.Error()})
+		return
+	}
+
+	if items == nil {
+		items = []models.MyEquipmentItem{}
+	}
+
+	c.JSON(http.StatusOK, items)
+}
+
+// POST /api/inventory/issue
+func (h *InventoryHandler) IssueResource(c *gin.Context) {
+	var req models.IssueResourceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Невірний формат даних: " + err.Error()})
+		return
+	}
+
+	// Дістаємо дані командира з JWT токена
+	claimsVal, exists := c.Get("claims")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Не авторизовано"})
+		return
+	}
+	claims := claimsVal.(*middleware.Claims)
+
+	var unitID *int64
+	if claims.UnitID != 0 {
+		val := claims.UnitID
+		unitID = &val
+	}
+
+	// Виконуємо видачу
+	err := h.invService.IssueResource(c.Request.Context(), unitID, req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Майно успішно видано військовослужбовцю"})
+}
+
+// POST /api/shipments
+func (h *InventoryHandler) CreateShipment(c *gin.Context) {
+	var req models.CreateShipmentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Невірний формат даних: " + err.Error()})
+		return
+	}
+
+	err := h.invService.CreateShipment(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Рейс успішно сформовано, транспорт відправлено"})
+}
+
+func (h *InventoryHandler) GetByWarehouse(c *gin.Context) {
+	warehouseID := c.Param("id")
+
+	items, err := h.invService.GetByWarehouse(c.Request.Context(), warehouseID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Якщо товарів немає, віддаємо порожній масив замість null
+	if items == nil {
+		items = []models.InventoryItem{}
+	}
+
+	c.JSON(http.StatusOK, items)
+}
+
+func (h *InventoryHandler) ListShipments(c *gin.Context) {
+	list, err := h.invService.ListShipments(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, list)
+}
+
+func (h *InventoryHandler) ReceiveShipment(c *gin.Context) {
+	shipmentID := c.Param("id")
+	err := h.invService.ReceiveShipment(c.Request.Context(), shipmentID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Вантаж успішно прийнято на склад!"})
+}

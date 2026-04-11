@@ -260,3 +260,78 @@ func (h *AuthHandler) UnblockUser(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Користувача розблоковано та переведено в кадровий резерв"})
 }
+
+func (h *AuthHandler) UpdateMyProfile(c *gin.Context) {
+	claimsVal, exists := c.Get("claims")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Не знайдено токен авторизації"})
+		return
+	}
+	claims := claimsVal.(*middleware.Claims)
+	userID := claims.UserID
+
+	var req models.UpdateProfileRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Невірний формат даних: " + err.Error()})
+		return
+	}
+
+	err := h.authService.UpdateProfile(c.Request.Context(), userID, req)
+	if err != nil {
+		if strings.Contains(err.Error(), "зайнятий") || strings.Contains(err.Error(), "використовується") {
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Профіль успішно оновлено"})
+}
+
+func (h *AuthHandler) UpdateMyPassword(c *gin.Context) {
+	claimsVal, exists := c.Get("claims")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Не знайдено токен авторизації"})
+		return
+	}
+	claims := claimsVal.(*middleware.Claims)
+
+	var req models.UpdatePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Пароль має містити щонайменше 8 символів"})
+		return
+	}
+
+	err := h.authService.UpdateMyPassword(c.Request.Context(), claims.UserID, req.OldPassword, req.NewPassword)
+	if err != nil {
+		if err.Error() == "невірний поточний пароль" {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Пароль успішно змінено"})
+}
+
+func (h *AuthHandler) RequestPasswordReset(c *gin.Context) {
+	var req struct {
+		Email string `json:"email" binding:"required,email"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Введіть коректний email"})
+		return
+	}
+
+	// Викликаємо сервіс. Він завжди повертає nil (з міркувань безпеки)
+	_ = h.authService.RequestPasswordReset(c.Request.Context(), req.Email)
+
+	// Завжди повертаємо успіх
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Якщо цей email зареєстрований у системі, ми надіслали на нього інструкції з відновлення пароля.",
+	})
+}

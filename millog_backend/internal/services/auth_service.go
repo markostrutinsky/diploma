@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"millog_backend/internal/middleware"
 	"millog_backend/internal/models"
@@ -400,12 +401,9 @@ func (s *AuthService) GetUserByID(ctx context.Context, userID string) (*models.U
 }
 
 func (s *AuthService) GetVisibleUsers(ctx context.Context, requesterRole string, requesterUnitID *int64) ([]*models.User, error) {
-	// Передаємо s.dbPool (або s.db), як ти це робиш в інших методах
 	return s.userRepository.GetVisibleUsers(ctx, s.dbPool, requesterRole, requesterUnitID)
 }
 
-// Оновлюємо в auth_service.go
-// Фрагмент твого AuthService
 func (s *AuthService) UpdateRoleAndUnit(ctx context.Context, commanderID string, targetUserID string, newRole string, newUnitID *int64) error {
 
 	commander, err := s.userRepository.GetByID(ctx, s.dbPool, commanderID)
@@ -413,7 +411,6 @@ func (s *AuthService) UpdateRoleAndUnit(ctx context.Context, commanderID string,
 		return fmt.Errorf("помилка авторизації командира")
 	}
 
-	// 1. ПЕРЕВІРКА РОЛІ (через твою ApprovalMatrix)
 	if !s.isRoleChangePermitted(string(commander.Role), newRole) {
 		return fmt.Errorf("субординація: ви не маєте прав призначати на посаду %s", newRole)
 	}
@@ -444,33 +441,25 @@ func (s *AuthService) UpdateRoleAndUnit(ctx context.Context, commanderID string,
 	return s.userRepository.UpdateRoleAndUnit(ctx, s.dbPool, targetUserID, newRole, newUnitID)
 }
 
-// Допоміжна функція-валідатор ролей у тому ж файлі auth_service.go
-// Допоміжна функція-валідатор ролей (використовує твою ApprovalMatrix)
 func (s *AuthService) isRoleChangePermitted(commanderRole string, targetRole string) bool {
-	// 1. Адмін може все (хоча він і є в матриці, це хороший "швидкий пропуск")
 	if commanderRole == string(models.RoleAdmin) {
 		return true
 	}
 
-	// 2. Дістаємо список тих, хто має право призначати на targetRole
 	allowedCommanders, exists := models.ApprovalMatrix[models.UserRole(targetRole)]
 	if !exists {
-		// Якщо посади немає в матриці (або це якась невідома роль) — забороняємо
 		return false
 	}
 
-	// 3. Перевіряємо, чи є роль нашого командира в цьому списку
 	for _, allowedRole := range allowedCommanders {
 		if commanderRole == string(allowedRole) {
-			return true // Знайшли! Командир має право
+			return true
 		}
 	}
 
-	// Якщо цикл закінчився і ми не знайшли ролі командира — забороняємо
 	return false
 }
 
-// BlockUser передає команду на блокування в репозиторій
 func (s *AuthService) BlockUser(ctx context.Context, userID string) error {
 	return s.userRepository.BlockUser(ctx, s.dbPool, userID)
 }
@@ -479,7 +468,104 @@ func (s *AuthService) CheckSubordination(ctx context.Context, commanderUnitID in
 	return s.userRepository.CheckSubordination(ctx, s.dbPool, commanderUnitID, targetUserID)
 }
 
-// UnblockUser передає команду на розблокування в репозиторій
 func (s *AuthService) UnblockUser(ctx context.Context, userID string) error {
 	return s.userRepository.UnblockUser(ctx, s.dbPool, userID)
+}
+
+func (s *AuthService) UpdateProfile(ctx context.Context, userID string, req models.UpdateProfileRequest) error {
+	if userID == "" {
+		return errors.New("не вказано ID користувача")
+	}
+
+	if req.FullName == nil && req.Phone == nil && req.Username == nil && req.Email == nil {
+		return errors.New("немає даних для оновлення")
+	}
+
+	err := s.userRepository.UpdateProfile(ctx, s.dbPool, userID, req)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *AuthService) UpdateMyPassword(ctx context.Context, userID, oldPassword, newPassword string) error {
+	// 1. Отримуємо користувача
+	user, err := s.userRepository.GetByID(ctx, s.dbPool, userID)
+	if err != nil {
+		return errors.New("користувача не знайдено")
+	}
+
+	if user.PasswordHash == nil || *user.PasswordHash == "" {
+		return errors.New("у вас ще не встановлено пароль")
+	}
+
+	// 2. Перевіряємо старий пароль
+	if err := bcrypt.CompareHashAndPassword([]byte(*user.PasswordHash), []byte(oldPassword)); err != nil {
+		return errors.New("невірний поточний пароль")
+	}
+
+	// 3. Хешуємо новий пароль
+	hash, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("помилка хешування: %w", err)
+	}
+
+	// 4. Зберігаємо (використовуємо твій існуючий метод UpdatePassword)
+	if err := s.userRepository.UpdatePassword(ctx, s.dbPool, userID, string(hash)); err != nil {
+		return fmt.Errorf("помилка збереження пароля: %w", err)
+	}
+
+	go func(email string) {
+		_ = s.emailService.SendPasswordChangedAlert(email)
+	}(user.Email)
+
+	return nil
+}
+
+func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) error {
+	// 1. Шукаємо користувача
+	user, err := s.userRepository.GetByEmail(ctx, s.dbPool, email)
+	if err != nil {
+		// БЕЗПЕКА: Якщо email не знайдено, ми не повертаємо помилку!
+		// Інакше хакери зможуть перебирати пошти і дізнаватися, хто зареєстрований.
+		return nil
+	}
+
+	// Якщо юзер заблокований - нічого не робимо
+	if user.Status == models.StatusBlocked {
+		return nil
+	}
+
+	// 2. Генеруємо токен (перевикористовуємо твою інфраструктуру інвайтів)
+	rawToken, err := tokens.GenerateInviteToken(32)
+	if err != nil {
+		return fmt.Errorf("failed to generate reset token: %w", err)
+	}
+	tokenHash := tokens.HashToken(rawToken)
+
+	resetToken := &models.InviteToken{
+		UserID:    user.ID,
+		TokenHash: tokenHash,
+		ExpiresAt: time.Now().Add(1 * time.Hour), // Лінк на скидання діє лише 1 годину!
+		CreatedAt: time.Now(),
+	}
+
+	if err := s.inviteTokenRepository.CreateInviteToken(ctx, s.dbPool, resetToken); err != nil {
+		return fmt.Errorf("failed to save reset token: %w", err)
+	}
+
+	// 3. Формуємо лінк. Ми геніально перевикористовуємо фронтенд-сторінку setup-password!
+	baseURL := os.Getenv("FRONTEND_URL")
+	if baseURL == "" {
+		baseURL = "http://localhost"
+	}
+	resetLink := fmt.Sprintf("%s/setup-password?token=%s", strings.TrimSuffix(baseURL, "/"), rawToken)
+
+	// 4. Відправляємо лист у фоні
+	go func(userEmail, link string) {
+		_ = s.emailService.SendPasswordResetEmail(userEmail, link)
+	}(user.Email, resetLink)
+
+	return nil
 }
