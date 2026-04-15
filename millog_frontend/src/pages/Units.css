@@ -47,3 +47,94 @@
   padding: 4px 8px;
   font-size: 12px;
 }
+
+/* Контейнер для кнопок дій */
+.unit-actions-container {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+/* Базовий стиль кнопки-дії */
+.btn-unit-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+/* Кнопка редагування (Синя) */
+.btn-unit-edit {
+  background-color: #eff6ff;
+  color: #2563eb;
+  border-color: #dbeafe;
+}
+
+.btn-unit-edit:hover {
+  background-color: #dbeafe;
+  border-color: #bfdbfe;
+}
+
+/* Кнопка видалення (Червона) */
+.btn-unit-delete {
+  background-color: #fff1f2;
+  color: #e11d48;
+  border-color: #ffe4e6;
+}
+
+.btn-unit-delete:hover {
+  background-color: #ffe4e6;
+  border-color: #fecdd3;
+}
+
+/* Стиль для секції командира */
+.unit-cmdr-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cmdr-name-text {
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.btn-cmdr-change {
+  background-color: #f8fafc;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.btn-cmdr-change:hover {
+  background-color: #f1f5f9;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+/* Велика кнопка призначити */
+.btn-cmdr-assign {
+  background-color: #f0fdf4;
+  color: #166534;
+  border: 1px dashed #bbf7d0;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.btn-cmdr-assign:hover {
+  background-color: #dcfce7;
+  border-style: solid;
+}

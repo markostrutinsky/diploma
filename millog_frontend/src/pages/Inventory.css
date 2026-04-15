@@ -343,3 +343,72 @@
   font-size: 12px;
   color: #94a3b8;
 }
+
+/* =========================================
+   СТИЛІ ДЛЯ СПИСКУ КАТЕГОРІЙ (Hover Actions)
+   ========================================= */
+.category-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center; /* Вирівнюємо іконки по центру тексту */
+  padding: 12px 16px; /* 👈 Збільшили внутрішні відступи для "повітря" */
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  gap: 12px; /* 👈 Гарантований відступ між текстом і кнопками */
+  min-height: 48px; /* Робимо всі пункти однакової мінімальної висоти */
+}
+
+/* Огортаємо текст, щоб він правильно поводився при перенесенні */
+.category-name-text {
+  flex: 1; /* 👈 Займає весь доступний простір, відштовхуючи іконки */
+  line-height: 1.4;
+  word-break: break-word; /* Гарно переносить довгі слова */
+}
+
+/* Контейнер для кнопок */
+.category-actions {
+  display: flex;
+  gap: 6px; /* Відстань між самими іконками */
+  opacity: 0; 
+  transition: opacity 0.2s ease;
+  flex-shrink: 0; /* 👈 Забороняємо браузеру стискати кнопки, якщо текст довгий */
+}
+
+.category-item:hover .category-actions,
+.category-item.active-category .category-actions {
+  opacity: 1;
+}
+
+/* Стиль самих іконок-кнопок */
+.btn-icon-small {
+  background: transparent;
+  border: none;
+  color: #94a3b8; 
+  cursor: pointer;
+  padding: 8px; /* 👈 Збільшили зону кліку, щоб було зручніше натискати */
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.btn-icon-small:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.btn-icon-small.delete:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.content-grid {
+  display: grid;
+  /* Перше значення (300px) - це ширина лівої картки з категоріями. 
+     Друге (1fr) - таблиця займає весь інший вільний простір. */
+  grid-template-columns: 300px 1fr; 
+  gap: 24px;
+  align-items: start;
+}

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"millog_backend/internal/middleware"
 	"millog_backend/internal/models"
 	"millog_backend/internal/services"
@@ -12,11 +13,12 @@ import (
 )
 
 type UnitHandler struct {
-	svc *services.UnitService
+	svc          *services.UnitService
+	auditService *services.AuditService
 }
 
-func NewUnitHandler(svc *services.UnitService) *UnitHandler {
-	return &UnitHandler{svc: svc}
+func NewUnitHandler(svc *services.UnitService, auditService *services.AuditService) *UnitHandler {
+	return &UnitHandler{svc: svc, auditService: auditService}
 }
 
 func (h *UnitHandler) Create(c *gin.Context) {
@@ -136,7 +138,6 @@ func (h *UnitHandler) GetMyHierarchyForRole(c *gin.Context) {
 	}
 	claims := claimsVal.(*middleware.Claims)
 
-	// Якщо у командира (наприклад, він сам у резерві) немає підрозділу, він не може нікого призначати
 	if claims.UnitID == 0 {
 		c.JSON(http.StatusOK, []models.Unit{})
 		return
@@ -149,4 +150,49 @@ func (h *UnitHandler) GetMyHierarchyForRole(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, units)
+}
+
+// UpdateUnit оновлює дані підрозділу
+func (h *UnitHandler) UpdateUnit(c *gin.Context) {
+	unitID := c.Param("id")
+	userID := c.GetString("user_id")
+
+	var req struct {
+		Name string `json:"name" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Неправильні дані запиту"})
+		return
+	}
+
+	err := h.svc.UpdateUnit(c.Request.Context(), unitID, req.Name)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка оновлення підрозділу"})
+		return
+	}
+
+	go func(uID, unID, name string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "UPDATE", "UNIT", unID, "Оновлено назву підрозділу на: "+name)
+	}(userID, unitID, req.Name)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Підрозділ оновлено"})
+}
+
+// DeleteUnit видаляє підрозділ
+func (h *UnitHandler) DeleteUnit(c *gin.Context) {
+	unitID := c.Param("id")
+	userID := c.GetString("user_id")
+
+	err := h.svc.DeleteUnit(c.Request.Context(), unitID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Неможливо видалити: до підрозділу прив'язані люди або майно"})
+		return
+	}
+
+	go func(uID, unID string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "DELETE", "UNIT", unID, "Видалено підрозділ (організаційно-штатна структура)")
+	}(userID, unitID)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Підрозділ ліквідовано"})
 }

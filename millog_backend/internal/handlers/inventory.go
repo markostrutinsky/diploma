@@ -360,3 +360,53 @@ func (h *InventoryHandler) DownloadResourceQR(c *gin.Context) {
 
 	c.Data(http.StatusOK, "image/png", pngBytes)
 }
+
+// UpdateCategory оновлює назву або опис категорії
+func (h *InventoryHandler) UpdateCategory(c *gin.Context) {
+	categoryID := c.Param("id")
+	userID := c.GetString("user_id")
+
+	var req struct {
+		Name        string `json:"name" binding:"required"`
+		Description string `json:"description"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Неправильні дані запиту"})
+		return
+	}
+
+	err := h.invService.UpdateCategory(c.Request.Context(), categoryID, req.Name, req.Description)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Не вдалося оновити категорію"})
+		return
+	}
+
+	go func(uID, cID, name string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "UPDATE", "CATEGORY", cID, "Оновлено назву/опис категорії: "+name)
+	}(userID, categoryID, req.Name)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Категорію успішно оновлено"})
+}
+
+// DeleteCategory видаляє категорію (якщо вона порожня)
+func (h *InventoryHandler) DeleteCategory(c *gin.Context) {
+	categoryID := c.Param("id")
+	userID := c.GetString("user_id")
+
+	err := h.invService.DeleteCategory(c.Request.Context(), categoryID)
+	if err != nil {
+		if err.Error() == "категорія не порожня" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Неможливо видалити: у цій категорії ще є майно"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка видалення категорії"})
+		return
+	}
+
+	go func(uID, cID string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "DELETE", "CATEGORY", cID, "Видалено категорію майна")
+	}(userID, categoryID)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Категорію видалено"})
+}

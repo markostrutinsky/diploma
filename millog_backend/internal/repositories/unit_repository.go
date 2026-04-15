@@ -251,3 +251,17 @@ func (r *UnitRepository) GetAvailableUnitsInHierarchy(ctx context.Context, db *p
 
 	return units, nil
 }
+
+// Update змінює назву підрозділу
+func (r *UnitRepository) Update(ctx context.Context, db *pgxpool.Pool, id string, name string) error {
+	query := `UPDATE units SET name = $1 WHERE id = $2`
+	_, err := db.Exec(ctx, query, name, id)
+	return err
+}
+
+// Delete повністю ліквідує підрозділ з таблиці
+func (r *UnitRepository) Delete(ctx context.Context, db *pgxpool.Pool, id string) error {
+	query := `DELETE FROM units WHERE id = $1`
+	_, err := db.Exec(ctx, query, id)
+	return err
+}

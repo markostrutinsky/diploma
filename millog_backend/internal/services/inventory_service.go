@@ -259,3 +259,25 @@ func (s *InventoryService) GenerateResourceQR(resourceID string) ([]byte, error)
 
 	return pngImage, nil
 }
+
+// UpdateCategory передає дані в репозиторій
+func (s *InventoryService) UpdateCategory(ctx context.Context, id, name, description string) error {
+	return s.categoryRepo.Update(ctx, s.dbPool, id, name, description)
+}
+
+// DeleteCategory перевіряє, чи порожня категорія, і лише тоді видаляє
+func (s *InventoryService) DeleteCategory(ctx context.Context, id string) error {
+	var count int
+	query := `SELECT count(*) FROM resources WHERE category_id = $1`
+
+	err := s.dbPool.QueryRow(ctx, query, id).Scan(&count)
+	if err != nil {
+		return err
+	}
+
+	if count > 0 {
+		return errors.New("категорія не порожня")
+	}
+
+	return s.categoryRepo.Delete(ctx, s.dbPool, id)
+}

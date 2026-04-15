@@ -104,11 +104,11 @@ func main() {
 	auditService := services.NewAuditService(auditRepo, dbPool)
 
 	invHandler := handlers.NewInventoryHandler(invService, auditService)
-	reqHandler := handlers.NewRequestHandler(reqService)
-	unitHandler := handlers.NewUnitHandler(unitService)
+	reqHandler := handlers.NewRequestHandler(reqService, auditService)
+	unitHandler := handlers.NewUnitHandler(unitService, auditService)
 	volReqHandler := handlers.NewVolunteerRequestHandler(volReqService)
 	analyticsHandler := handlers.NewAnalyticsHandler(analyticsService)
-	warehouseHandler := handlers.NewWarehouseHandler(warehouseService)
+	warehouseHandler := handlers.NewWarehouseHandler(warehouseService, auditService)
 
 	authService := services.NewAuthService(userRepo, unitRepo, tokenRepo, refreshTokenRepo, dbPool, emailService, jwtSecret)
 	authHandler := handlers.NewAuthHandler(authService)
@@ -116,7 +116,7 @@ func main() {
 	fuelHandler := handlers.NewFuelHandler(fuelService)
 
 	vehicleService := services.NewVehicleService(vehicleRepo, dbPool)
-	vehicleHandler := handlers.NewVehicleHandler(vehicleService)
+	vehicleHandler := handlers.NewVehicleHandler(vehicleService, auditService)
 	auditHandler := handlers.NewAuditHandler(auditService)
 
 	r := gin.Default()
@@ -167,6 +167,9 @@ func main() {
 			units.POST("", middleware.RequireAnyRole(models.UnitManagerRoles), unitHandler.Create)
 			units.POST("/:id/change-commander", middleware.RequireAnyRole(models.UnitManagerRoles), unitHandler.ChangeCommander)
 			units.GET("/my-hierarchy", unitHandler.GetMyHierarchyForRole)
+			//units.GET("/:id", unitHandler.GetByID) // Якщо в тебе ще немає отримання одного підрозділу
+			units.PATCH("/:id", middleware.RequireAnyRole(models.UnitManagerRoles), unitHandler.UpdateUnit)
+			units.DELETE("/:id", middleware.RequireAnyRole(models.UnitManagerRoles), unitHandler.DeleteUnit)
 		}
 
 		// Inventory: storekeepers + company sergeant
@@ -190,6 +193,8 @@ func main() {
 			inv.GET("/shipments", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.ListShipments)
 			inv.GET("/shipments/:id/pdf", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.DownloadShipmentPDF)
 			inv.GET("/resources/:id/qr", invHandler.DownloadResourceQR)
+			inv.PATCH("/categories/:id", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.UpdateCategory)
+			inv.DELETE("/categories/:id", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.DeleteCategory)
 		}
 
 		// Supply requests: commanders + logists + sergeant create; commanders + logists approve
@@ -199,6 +204,10 @@ func main() {
 			requests.POST("", middleware.RequireAnyRole(models.SupplyRequestCreatorRoles), reqHandler.Create)
 			requests.GET("", reqHandler.List)
 			requests.POST("/:id/approve", middleware.RequireAnyRole(models.SupplyRequestApproverRoles), reqHandler.Approve)
+			requests.POST("/:id/reject", middleware.RequireAnyRole(models.SupplyRequestApproverRoles), reqHandler.Reject) // 👈 НОВЕ (відмова логіста)
+			requests.POST("/:id/cancel", reqHandler.Cancel)
+			requests.GET("/:id", reqHandler.GetByID)
+
 		}
 
 		// Volunteer requests: military creates, volunteers take and complete
@@ -237,6 +246,9 @@ func main() {
 			vehicleGroup.GET("/:id/maintenance", vehicleHandler.GetMaintenanceHistory)
 			vehicleGroup.PATCH("/:id/driver", vehicleHandler.AssignDriver)
 			vehicleGroup.GET("/:id/drivers", vehicleHandler.GetDriverHistory)
+
+			vehicleGroup.PATCH("/:id", vehicleHandler.Update)
+			vehicleGroup.DELETE("/:id", vehicleHandler.Delete)
 		}
 
 		warehouseGroup := api.Group("/warehouses")
@@ -245,6 +257,8 @@ func main() {
 			warehouseGroup.GET("", warehouseHandler.List)
 			warehouseGroup.POST("", warehouseHandler.Create)
 			warehouseGroup.PATCH("/:id/location", warehouseHandler.UpdateLocation)
+			warehouseGroup.PATCH("/:id", warehouseHandler.UpdateWarehouse)
+			warehouseGroup.DELETE("/:id", warehouseHandler.Delete)
 		}
 
 		analyticsGroup := api.Group("/analytics")

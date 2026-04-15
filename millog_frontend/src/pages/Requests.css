@@ -492,3 +492,30 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* Додаткові стилі для відхилення та скасування */
+.btn-danger {
+  background-color: #ef4444;
+  color: #ffffff;
+  border: 1px solid #dc2626;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background-color: #dc2626;
+}
+
+.comment-box {
+  font-size: 11px;
+  margin-top: 6px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background-color: #f8fafc;
+  border-left: 2px solid #cbd5e1;
+  font-style: italic;
+}
+
+.comment-box.rejected {
+  background-color: #fef2f2;
+  border-left-color: #ef4444;
+  color: #b91c1c;
+}

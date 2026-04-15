@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { api, type Vehicle, type FuelRecordType, type FuelRecord, type MaintenanceRecord, type SystemUser, type DriverHistoryRecord} from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
+import toast, { Toaster } from 'react-hot-toast'
 import './Vehicles.css' 
 
 export default function Vehicles() {
@@ -44,9 +45,6 @@ export default function Vehicles() {
   const [historyLoading, setHistoryLoading] = useState(false)
   const [driverRecords, setDriverRecords] = useState<DriverHistoryRecord[]>([])
   
-  const [successMessage, setSuccessMessage] = useState<string | null>(null)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  
   const [driverModalVehicle, setDriverModalVehicle] = useState<Vehicle | null>(null)
   const [driverForm, setDriverForm] = useState({ driver_id: '' })
   
@@ -67,6 +65,12 @@ export default function Vehicles() {
     odometer_km: '',
   })
 
+  // Стейти: Редагування та видалення/списання
+  const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
+  const [vehicleToDelete, setVehicleToDelete] = useState<Vehicle | null>(null);
+  const [editForm, setEditForm] = useState({ brand: '', model: '', plate_number: '', capacity_kg: 0 });
+  const [isProcessing, setIsProcessing] = useState(false);
+
   const canManageVehicles = ['ADMIN', 'BRIGADE_CMDR', 'BRIGADE_LOGIST', 'BATTALION_LOGIST', 'COMPANY_SERGEANT'].includes(user?.role || '')
 
   const loadData = () => {
@@ -86,33 +90,28 @@ export default function Vehicles() {
 
   const handleCreateVehicle = async (e: React.FormEvent) => {
     e.preventDefault()
-    setErrorMessage(null)
-    setSuccessMessage(null)
-    
+    setIsProcessing(true)
     try {
       const payload = { 
         ...newVehicle, 
         driver_id: newVehicle.driver_id || undefined 
       }
       await api.vehicles.create(payload as any) 
-      setSuccessMessage('Автомобіль успішно додано!')
+      toast.success('Автомобіль успішно додано!')
       setNewVehicle({ brand: '', model: '', plate_number: '', type: 'VAN', capacity_kg: 1500, tank_capacity: 0, fuel_norm: 0, driver_id: '' })
       loadData()
-      
-      setTimeout(() => {
-        setShowVehicleForm(false)
-        setSuccessMessage(null)
-      }, 1500)
+      setShowVehicleForm(false)
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Помилка створення авто')
+      toast.error(err instanceof Error ? err.message : 'Помилка створення авто')
+    } finally {
+      setIsProcessing(false)
     }
   }
 
   const handleAddFuel = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!fuelModalVehicle) return
-    setErrorMessage(null)
-    setSuccessMessage(null)
+    setIsProcessing(true)
 
     try {
       const dataToSubmit = {
@@ -129,31 +128,28 @@ export default function Vehicles() {
         setAnomalyAlert(record)
         loadData()
       } else {
-        setSuccessMessage('Запис успішно додано!')
+        toast.success('Запис про пальне успішно додано!')
         setFuelForm({ record_type: 'EXPENSE', liters: 0, odometer_km: '' })
         loadData()
-        setTimeout(() => {
-          setFuelModalVehicle(null)
-          setSuccessMessage(null)
-        }, 1500)
+        setFuelModalVehicle(null)
       }
-      
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Помилка збереження пального')
+      toast.error(err instanceof Error ? err.message : 'Помилка збереження пального')
+    } finally {
+      setIsProcessing(false)
     }
   }
 
   const handlePerformMaintenance = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!maintenanceModalVehicle) return
-    setErrorMessage(null)
-    setSuccessMessage(null)
-
+    
     if (!maintenanceForm.document) {
-      setErrorMessage('Помилка: Необхідно завантажити скан Акту (PDF або Фото)!')
+      toast.error('Помилка: Необхідно завантажити скан Акту (PDF або Фото)!')
       return
     }
 
+    setIsProcessing(true)
     try {
       const formData = new FormData()
       formData.append('current_odometer', maintenanceForm.odometer_km.toString())
@@ -171,58 +167,51 @@ export default function Vehicles() {
         ? 'Ремонт завершено! Машина знову в строю.' 
         : 'Акт ТО успішно зафіксовано!'
       
-      setSuccessMessage(msg)
+      toast.success(msg)
       loadData()
-      
-      setTimeout(() => {
-        setMaintenanceModalVehicle(null)
-        setSuccessMessage(null)
-      }, 1500)
+      setMaintenanceModalVehicle(null)
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Помилка фіксації акту')
+      toast.error(err instanceof Error ? err.message : 'Помилка фіксації акту')
+    } finally {
+      setIsProcessing(false)
     }
   }
 
   const handleUpdateStatus = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!statusModalVehicle) return
-    setErrorMessage(null)
-    setSuccessMessage(null)
+    setIsProcessing(true)
 
     try {
       await api.vehicles.updateStatus(statusModalVehicle.id, {
         status: statusForm.status as any,
         reason: statusForm.reason
       })
-      setSuccessMessage('Статус машини оновлено!')
+      toast.success('Статус машини оновлено!')
       loadData()
-      
-      setTimeout(() => {
-        setStatusModalVehicle(null)
-        setSuccessMessage(null)
-      }, 1500)
+      setStatusModalVehicle(null)
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Помилка оновлення статусу')
+      toast.error(err instanceof Error ? err.message : 'Помилка оновлення статусу')
+    } finally {
+      setIsProcessing(false)
     }
   }
 
   const handleAssignDriver = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!driverModalVehicle) return
-    setErrorMessage(null); setSuccessMessage(null)
+    setIsProcessing(true)
 
     try {
       const driverIdToSubmit = driverForm.driver_id === '' ? null : driverForm.driver_id
       await api.vehicles.assignDriver(driverModalVehicle.id, driverIdToSubmit)
-      setSuccessMessage('Екіпаж успішно оновлено!')
+      toast.success('Екіпаж успішно оновлено!')
       loadData()
-      
-      setTimeout(() => {
-        setDriverModalVehicle(null)
-        setSuccessMessage(null)
-      }, 1500)
+      setDriverModalVehicle(null)
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Помилка оновлення водія')
+      toast.error(err instanceof Error ? err.message : 'Помилка оновлення водія')
+    } finally {
+      setIsProcessing(false)
     }
   }
 
@@ -244,29 +233,52 @@ export default function Vehicles() {
       setMaintenanceRecords(mRecords || [])
       setDriverRecords(dRecords || [])
     } catch (err) {
-      setErrorMessage('Не вдалося завантажити історію')
+      toast.error('Не вдалося завантажити історію')
     } finally {
       setHistoryLoading(false)
     }
   }
 
-  const closeVehicleForm = () => {
-    setShowVehicleForm(false)
-    setSuccessMessage(null)
-    setErrorMessage(null)
-  }
+  const handleOpenEdit = (v: Vehicle) => {
+    setEditingVehicle(v);
+    setEditForm({
+      brand: v.brand,
+      model: v.model || '',
+      plate_number: v.plate_number,
+      capacity_kg: v.capacity_kg
+    });
+  };
 
-  const closeFuelForm = () => {
-    setFuelModalVehicle(null)
-    setSuccessMessage(null)
-    setErrorMessage(null)
-  }
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingVehicle) return;
+    setIsProcessing(true);
+    try {
+      await api.vehicles.update(editingVehicle.id, editForm as Partial<Vehicle>);
+      toast.success('Дані автомобіля оновлено!');
+      setEditingVehicle(null);
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Помилка оновлення автомобіля');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
-  const closeMaintenanceForm = () => {
-    setMaintenanceModalVehicle(null)
-    setSuccessMessage(null)
-    setErrorMessage(null)
-  }
+  const handleDelete = async () => {
+    if (!vehicleToDelete) return;
+    setIsProcessing(true);
+    try {
+      await api.vehicles.delete(vehicleToDelete.id);
+      toast.success('Автомобіль списано!');
+      setVehicleToDelete(null);
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Неможливо списати (можливо, авто виконує рейс)');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const getDriverName = (driverId?: string) => {
     if (!driverId) return <span className="text-muted unassigned-text-italic">Не призначено</span>;
@@ -290,6 +302,7 @@ export default function Vehicles() {
 
   return (
     <div className="inventory-page">
+      <Toaster position="top-right" />
       <div className="page-header">
         <h1>Автопарк та ГСМ</h1>
         <div className="page-actions">
@@ -323,7 +336,7 @@ export default function Vehicles() {
 
       {/* МОДАЛКА НОВОГО АВТО */}
       {showVehicleForm && canManageVehicles && (
-        <div className="modal-overlay" onClick={closeVehicleForm}>
+        <div className="modal-overlay" onClick={() => setShowVehicleForm(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>Новий транспорт</h3>
             <form onSubmit={handleCreateVehicle}>
@@ -418,14 +431,11 @@ export default function Vehicles() {
                 </select>
               </div>
 
-              {successMessage && <p className="success-text">✅ {successMessage}</p>}
-              {errorMessage && <p className="error-text">❌ {errorMessage}</p>}
-
               <div className="modal-actions">
-                <button type="button" className="btn btn-secondary cancel-margin" onClick={closeVehicleForm}>
+                <button type="button" className="btn btn-secondary cancel-margin" onClick={() => setShowVehicleForm(false)} disabled={isProcessing}>
                   Скасувати
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={!!successMessage}>
+                <button type="submit" className="btn btn-primary" disabled={isProcessing}>
                   Створити
                 </button>
               </div>
@@ -434,9 +444,57 @@ export default function Vehicles() {
         </div>
       )}
 
+      {/* МОДАЛКА РЕДАГУВАННЯ АВТО */}
+      {editingVehicle && canManageVehicles && (
+        <div className="modal-overlay" onClick={() => !isProcessing && setEditingVehicle(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Редагувати параметри авто</h3>
+            <form onSubmit={handleEditSubmit}>
+              <div className="form-group">
+                <label>Державний номер</label>
+                <input className="erp-input" value={editForm.plate_number} onChange={(e) => setEditForm({ ...editForm, plate_number: e.target.value })} required disabled={isProcessing} />
+              </div>
+              <div className="form-row-2">
+                <div className="form-group flex-1">
+                  <label>Марка</label>
+                  <input className="erp-input" value={editForm.brand} onChange={(e) => setEditForm({ ...editForm, brand: e.target.value })} required disabled={isProcessing} />
+                </div>
+                <div className="form-group flex-1">
+                  <label>Модель</label>
+                  <input className="erp-input" value={editForm.model} onChange={(e) => setEditForm({ ...editForm, model: e.target.value })} disabled={isProcessing} />
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Вантажопідйомність (кг)</label>
+                <input className="erp-input" type="number" min="1" value={editForm.capacity_kg} onChange={(e) => setEditForm({ ...editForm, capacity_kg: Number(e.target.value) })} required disabled={isProcessing} />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-secondary" onClick={() => setEditingVehicle(null)} disabled={isProcessing}>Скасувати</button>
+                <button type="submit" className="btn btn-primary" disabled={isProcessing}>{isProcessing ? 'Збереження...' : 'Зберегти'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* МОДАЛКА ПІДТВЕРДЖЕННЯ СПИСАННЯ АВТО */}
+      {vehicleToDelete && canManageVehicles && (
+        <div className="modal-overlay" onClick={() => !isProcessing && setVehicleToDelete(null)}>
+          <div className="modal confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ color: '#ef4444' }}>⚠️ Списання автомобіля</h3>
+            <p>Ви впевнені, що хочете остаточно списати авто <strong>{vehicleToDelete.brand} ({vehicleToDelete.plate_number})</strong>?</p>
+            <p style={{ fontSize: '12px', color: '#64748b' }}>Це видалить його зі списку доступних машин для формування логістичних рейсів.</p>
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => setVehicleToDelete(null)} disabled={isProcessing}>Скасувати</button>
+              <button className="btn btn-danger" onClick={handleDelete} disabled={isProcessing}>{isProcessing ? 'Списання...' : 'Списати'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* МОДАЛКА ЗМІНИ СТАТУСУ */}
       {statusModalVehicle && (
-        <div className="modal-overlay" onClick={() => setStatusModalVehicle(null)}>
+        <div className="modal-overlay" onClick={() => !isProcessing && setStatusModalVehicle(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>Зміна статусу: {statusModalVehicle.brand} ({statusModalVehicle.plate_number})</h3>
             <form onSubmit={handleUpdateStatus}>
@@ -450,6 +508,7 @@ export default function Vehicles() {
                   value={statusForm.status} 
                   onChange={(e) => setStatusForm({...statusForm, status: e.target.value})}
                   className="fuel-type-select"
+                  disabled={isProcessing}
                 >
                   {statusModalVehicle.status !== 'IN_REPAIR' && (
                     <option value="IN_REPAIR">🛠 Відправити в ремонт</option>
@@ -466,17 +525,15 @@ export default function Vehicles() {
                   value={statusForm.reason}
                   onChange={(e) => setStatusForm({...statusForm, reason: e.target.value})}
                   required
+                  disabled={isProcessing}
                 />
               </div>
 
-              {successMessage && <p className="success-text">✅ {successMessage}</p>}
-              {errorMessage && <p className="error-text">❌ {errorMessage}</p>}
-
               <div className="modal-actions">
-                <button type="button" className="btn btn-secondary cancel-margin" onClick={() => setStatusModalVehicle(null)}>
+                <button type="button" className="btn btn-secondary cancel-margin" onClick={() => setStatusModalVehicle(null)} disabled={isProcessing}>
                   Скасувати
                 </button>
-                <button type="submit" className="btn btn-danger" disabled={!!successMessage}>
+                <button type="submit" className="btn btn-danger" disabled={isProcessing}>
                   Підтвердити дію
                 </button>
               </div>
@@ -487,7 +544,7 @@ export default function Vehicles() {
 
       {/* МОДАЛКА ЗМІНИ ВОДІЯ */}
       {driverModalVehicle && (
-        <div className="modal-overlay" onClick={() => setDriverModalVehicle(null)}>
+        <div className="modal-overlay" onClick={() => !isProcessing && setDriverModalVehicle(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>Екіпаж: {driverModalVehicle.brand} ({driverModalVehicle.plate_number})</h3>
             <form onSubmit={handleAssignDriver}>
@@ -501,6 +558,7 @@ export default function Vehicles() {
                   value={driverForm.driver_id} 
                   onChange={(e) => setDriverForm({...driverForm, driver_id: e.target.value})}
                   className="fuel-type-select select-normal-weight"
+                  disabled={isProcessing}
                 >
                   <option value="">-- Зняти закріплення (Без водія) --</option>
                   {usersList.map(u => (
@@ -511,14 +569,11 @@ export default function Vehicles() {
                 </select>
               </div>
 
-              {successMessage && <p className="success-text">✅ {successMessage}</p>}
-              {errorMessage && <p className="error-text">❌ {errorMessage}</p>}
-
               <div className="modal-actions">
-                <button type="button" className="btn btn-secondary cancel-margin" onClick={() => setDriverModalVehicle(null)}>
+                <button type="button" className="btn btn-secondary cancel-margin" onClick={() => setDriverModalVehicle(null)} disabled={isProcessing}>
                   Скасувати
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={!!successMessage}>
+                <button type="submit" className="btn btn-primary" disabled={isProcessing}>
                   Зберегти зміни
                 </button>
               </div>
@@ -529,7 +584,7 @@ export default function Vehicles() {
 
       {/* МОДАЛКА ПАЛЬНОГО */}
       {fuelModalVehicle && (
-        <div className="modal-overlay" onClick={closeFuelForm}>
+        <div className="modal-overlay" onClick={() => !isProcessing && setFuelModalVehicle(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>Пальне: {fuelModalVehicle.brand} ({fuelModalVehicle.plate_number})</h3>
             <form onSubmit={handleAddFuel}>
@@ -539,6 +594,7 @@ export default function Vehicles() {
                   value={fuelForm.record_type}
                   onChange={(e) => setFuelForm({ ...fuelForm, record_type: e.target.value as FuelRecordType })}
                   className={`fuel-type-select ${fuelForm.record_type === 'REFUEL' ? 'type-refuel' : 'type-expense'}`}
+                  disabled={isProcessing}
                 >
                   <option value="EXPENSE">Списання (Витрата)</option>
                   <option value="REFUEL">Заправка (Прихід)</option>
@@ -555,6 +611,7 @@ export default function Vehicles() {
                     value={fuelForm.liters || ''}
                     onChange={(e) => setFuelForm({ ...fuelForm, liters: parseFloat(e.target.value) })}
                     required
+                    disabled={isProcessing}
                   />
                 </div>
                 <div className="form-group">
@@ -569,25 +626,22 @@ export default function Vehicles() {
                     value={fuelForm.odometer_km}
                     onChange={(e) => setFuelForm({ ...fuelForm, odometer_km: e.target.value })}
                     required={fuelForm.record_type === 'EXPENSE'}
+                    disabled={isProcessing}
                   />
-                  {/* 🔥 ДОДАНО: Підказка акуратно під полем вводу */}
                   <span style={{ display: 'block', fontSize: '11px', color: '#64748b', marginTop: '6px' }}>
                     Останній запис: <strong>{(fuelModalVehicle as any).current_odometer || 0}</strong> км
                   </span>
                 </div>
               </div>
 
-              {successMessage && <p className="success-text">✅ {successMessage}</p>}
-              {errorMessage && <p className="error-text">❌ {errorMessage}</p>}
-
               <div className="modal-actions">
-                <button type="button" className="btn btn-secondary cancel-margin" onClick={closeFuelForm}>
+                <button type="button" className="btn btn-secondary cancel-margin" onClick={() => setFuelModalVehicle(null)} disabled={isProcessing}>
                   Скасувати
                 </button>
                 <button 
                   type="submit" 
                   className={fuelForm.record_type === 'REFUEL' ? "btn btn-success" : "btn btn-danger"}
-                  disabled={!!successMessage}
+                  disabled={isProcessing}
                 >
                   {fuelForm.record_type === 'REFUEL' ? 'Заправити' : 'Списати'}
                 </button>
@@ -599,7 +653,7 @@ export default function Vehicles() {
 
       {/* МОДАЛКА ТО */}
       {maintenanceModalVehicle && (
-        <div className="modal-overlay" onClick={closeMaintenanceForm}>
+        <div className="modal-overlay" onClick={() => !isProcessing && setMaintenanceModalVehicle(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>
               {maintenanceModalVehicle.status === 'IN_REPAIR' 
@@ -618,6 +672,7 @@ export default function Vehicles() {
                     value={maintenanceForm.odometer_km || ''}
                     onChange={(e) => setMaintenanceForm({...maintenanceForm, odometer_km: parseInt(e.target.value, 10)})}
                     required
+                    disabled={isProcessing}
                   />
                 </div>
                 <div className="form-group">
@@ -627,6 +682,7 @@ export default function Vehicles() {
                     placeholder="Напр. Ремрота або СТО 'Гараж'"
                     value={maintenanceForm.performed_by}
                     onChange={(e) => setMaintenanceForm({...maintenanceForm, performed_by: e.target.value})}
+                    disabled={isProcessing}
                   />
                 </div>
               </div>
@@ -639,6 +695,7 @@ export default function Vehicles() {
                   value={maintenanceForm.description}
                   onChange={(e) => setMaintenanceForm({...maintenanceForm, description: e.target.value})}
                   required
+                  disabled={isProcessing}
                 />
               </div>
 
@@ -652,6 +709,7 @@ export default function Vehicles() {
                     placeholder="Напр. 15000"
                     value={maintenanceForm.cost_amount || ''}
                     onChange={(e) => setMaintenanceForm({...maintenanceForm, cost_amount: parseFloat(e.target.value)})}
+                    disabled={isProcessing}
                   />
                 </div>
                 
@@ -667,6 +725,7 @@ export default function Vehicles() {
                           setMaintenanceForm({...maintenanceForm, document: e.target.files[0]})
                         }
                       }}
+                      disabled={isProcessing}
                     />
                     <span className="file-upload-text">
                       {maintenanceForm.document 
@@ -677,14 +736,11 @@ export default function Vehicles() {
                 </div>
               </div>
 
-              {successMessage && <p className="success-text">✅ {successMessage}</p>}
-              {errorMessage && <p className="error-text">❌ {errorMessage}</p>}
-
               <div className="modal-actions">
-                <button type="button" className="btn btn-secondary cancel-margin" onClick={closeMaintenanceForm}>
+                <button type="button" className="btn btn-secondary cancel-margin" onClick={() => setMaintenanceModalVehicle(null)} disabled={isProcessing}>
                   Скасувати
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={!!successMessage}>
+                <button type="submit" className="btn btn-primary" disabled={isProcessing}>
                   {maintenanceModalVehicle.status === 'IN_REPAIR' ? 'Повернути в стрій' : 'Зафіксувати ТО'}
                 </button>
               </div>
@@ -961,7 +1017,6 @@ export default function Vehicles() {
                               onClick={() => {
                                 setDriverModalVehicle(v)
                                 setDriverForm({ driver_id: v.driver_id || '' })
-                                setErrorMessage(null); setSuccessMessage(null)
                               }}
                             >
                               👤 Водій
@@ -972,7 +1027,6 @@ export default function Vehicles() {
                                 onClick={() => {
                                   setFuelModalVehicle(v)
                                   setFuelForm({ record_type: 'EXPENSE', liters: 0, odometer_km: '' })
-                                  setErrorMessage(null); setSuccessMessage(null)
                                 }}
                               >
                                 ⛽ Пальне
@@ -985,7 +1039,6 @@ export default function Vehicles() {
                                 onClick={() => {
                                   setMaintenanceModalVehicle(v)
                                   setMaintenanceForm({ odometer_km: v.current_odometer || 0, description: '', performed_by: '', cost_amount: 0, document: null })
-                                  setErrorMessage(null); setSuccessMessage(null)
                                 }}
                               >
                                 ✅ Завершити ремонт
@@ -996,7 +1049,6 @@ export default function Vehicles() {
                                 onClick={() => {
                                   setMaintenanceModalVehicle(v)
                                   setMaintenanceForm({ odometer_km: v.current_odometer || 0, description: '', performed_by: '', cost_amount: 0, document: null })
-                                  setErrorMessage(null); setSuccessMessage(null)
                                 }}
                               >
                                 🛠 Зафіксувати ТО
@@ -1008,11 +1060,27 @@ export default function Vehicles() {
                               onClick={() => {
                                 setStatusModalVehicle(v)
                                 setStatusForm({ status: v.status === 'IN_REPAIR' ? 'INACTIVE' : 'IN_REPAIR', reason: '' })
-                                setErrorMessage(null); setSuccessMessage(null)
                               }}
                             >
                               🚦 Статус
                             </button>
+
+                            {/* НОВІ КНОПКИ РЕДАГУВАННЯ І ВИДАЛЕННЯ */}
+                            <button 
+                              className="btn-unit-action btn-unit-edit" 
+                              onClick={() => handleOpenEdit(v)}
+                              title="Редагувати параметри авто"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                            </button>
+                            <button 
+                              className="btn-unit-action btn-unit-delete" 
+                              onClick={() => setVehicleToDelete(v)}
+                              title="Остаточно списати автомобіль"
+                            >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            </button>
+
                           </>
                         )}
                       </div>

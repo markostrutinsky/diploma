@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"millog_backend/internal/models"
@@ -123,9 +124,32 @@ func (s *UnitService) GetMyHierarchyForRole(ctx context.Context, roleStr string,
 	unitType := role.GetTargetUnitType()
 
 	if unitType == "" {
-		// Якщо посаді не потрібен підрозділ (хоча таких тут не має бути)
 		return []models.Unit{}, nil
 	}
 
 	return s.repo.GetAvailableUnitsInHierarchy(ctx, s.dbPool, unitType, role, commanderUnitID)
+}
+
+func (s *UnitService) UpdateUnit(ctx context.Context, id, name string) error {
+	return s.repo.Update(ctx, s.dbPool, id, name)
+}
+
+func (s *UnitService) DeleteUnit(ctx context.Context, id string) error {
+	var userCount int
+	err := s.dbPool.QueryRow(ctx, `SELECT count(*) FROM users WHERE unit_id = $1`, id).Scan(&userCount)
+	if err != nil {
+		return err
+	}
+
+	var resourceCount int
+	err = s.dbPool.QueryRow(ctx, `SELECT count(*) FROM resources WHERE unit_id = $1`, id).Scan(&resourceCount)
+	if err != nil {
+		return err
+	}
+
+	if userCount > 0 || resourceCount > 0 {
+		return errors.New("неможливо видалити: до підрозділу прив'язані люди або майно")
+	}
+
+	return s.repo.Delete(ctx, s.dbPool, id)
 }

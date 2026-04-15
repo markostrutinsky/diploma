@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"millog_backend/internal/models"
 	"millog_backend/internal/repositories"
@@ -41,4 +42,22 @@ func (s *WarehouseService) ListWarehouses(ctx context.Context, unitID int64) ([]
 // Додай цей метод до WarehouseService
 func (s *WarehouseService) UpdateLocation(ctx context.Context, warehouseID string, lat, lng float64) error {
 	return s.repo.UpdateLocation(ctx, s.dbPool, warehouseID, lat, lng)
+}
+
+func (s *WarehouseService) UpdateWarehouse(ctx context.Context, id, name, capacityLevel, zoneType string) error {
+	return s.repo.Update(ctx, s.dbPool, id, name, capacityLevel, zoneType)
+}
+
+func (s *WarehouseService) DeleteWarehouse(ctx context.Context, id string) error {
+	var resourceCount int
+	err := s.dbPool.QueryRow(ctx, `SELECT count(*) FROM resources WHERE warehouse_id = $1`, id).Scan(&resourceCount)
+	if err != nil {
+		return err
+	}
+
+	if resourceCount > 0 {
+		return errors.New("неможливо видалити: на складі ще є майно (або картки майна)")
+	}
+
+	return s.repo.Delete(ctx, s.dbPool, id)
 }

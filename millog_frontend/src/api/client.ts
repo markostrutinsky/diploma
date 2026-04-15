@@ -124,6 +124,16 @@ export const api = {
       request<{ message: string }>(`/inventory/resources/${id}`, {
         method: 'DELETE',
       }),
+
+    updateCategory: (id: string, body: { name: string; description?: string }) =>
+      request<ResourceCategory>(`/inventory/categories/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
+    deleteCategory: (id: string) =>
+      request<{ message: string }>(`/inventory/categories/${id}`, {
+        method: 'DELETE',
+      }),
     assignResource: (id: string, data: AssignResourceRequest) =>
       request<{ message: string }>(`/inventory/resources/${id}/assign`, {
         method: 'POST',
@@ -191,6 +201,16 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ approved, comment }),
       }),
+    reject: (id: string, comment: string) =>
+      request<{ message: string }>(`/requests/${id}/reject`, {
+        method: 'POST',
+        body: JSON.stringify({ comment }),
+      }),
+      
+    cancel: (id: string) =>
+      request<{ message: string }>(`/requests/${id}/cancel`, {
+        method: 'POST',
+      }),
   },
   units: {
     list: () => request<Unit[]>('/units'),
@@ -204,6 +224,16 @@ export const api = {
       request<Unit>('/units', {
         method: 'POST',
         body: JSON.stringify(body),
+      }),
+
+    update: (id: number, body: { name: string; unit_type: string; parent_id?: number }) =>
+      request<Unit>(`/units/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(body),
+      }),
+    delete: (id: number) =>
+      request<{ message: string }>(`/units/${id}`, {
+        method: 'DELETE',
       }),
     changeCommander: (unitId: number, newCommanderId: string) => 
       request<{ message: string }>(`/units/${unitId}/change-commander`, {
@@ -294,7 +324,17 @@ export const api = {
     getDriverHistory: async (vehicleId: string): Promise<DriverHistoryRecord[]> => {
       return request(`/vehicles/${vehicleId}/drivers`);
     },
-    
+    update: async (id: string, data: Partial<Vehicle>): Promise<void> => {
+      return request(`/vehicles/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      });
+    },
+    delete: async (id: string): Promise<void> => {
+      return request(`/vehicles/${id}`, {
+        method: 'DELETE',
+      });
+    },
   },
   warehouses: {
     list: async (): Promise<Warehouse[]> => {
@@ -310,6 +350,17 @@ export const api = {
       return request(`/warehouses/${id}/location`, {
         method: 'PATCH',
         body: JSON.stringify({ latitude: lat, longitude: lng }),
+      });
+    },
+    update: async (id: string, data: Partial<Warehouse>): Promise<void> => {
+      return request(`/warehouses/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      });
+    },
+    delete: async (id: string): Promise<void> => {
+      return request(`/warehouses/${id}`, {
+        method: 'DELETE',
       });
     },
   },

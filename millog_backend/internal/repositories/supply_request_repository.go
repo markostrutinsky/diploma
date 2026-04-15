@@ -105,3 +105,10 @@ func (r *SupplyRequestRepository) Approve(ctx context.Context, db DBExecutor, id
 	_, err := db.Exec(ctx, query, status, validApprovedBy, comment, id)
 	return err
 }
+
+// UpdateStatus змінює статус та додає коментар (наприклад, причину відмови)
+func (r *SupplyRequestRepository) UpdateStatus(ctx context.Context, db DBExecutor, id string, status string, comment string) error {
+	query := `UPDATE supply_requests SET status = $1, comment = $2 WHERE id = $3`
+	_, err := db.Exec(ctx, query, status, comment, id)
+	return err
+}

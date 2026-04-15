@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"millog_backend/internal/middleware"
 	"millog_backend/internal/models"
 	"millog_backend/internal/services"
@@ -10,11 +11,12 @@ import (
 )
 
 type WarehouseHandler struct {
-	service *services.WarehouseService
+	service      *services.WarehouseService
+	auditService *services.AuditService
 }
 
-func NewWarehouseHandler(service *services.WarehouseService) *WarehouseHandler {
-	return &WarehouseHandler{service: service}
+func NewWarehouseHandler(service *services.WarehouseService, audit *services.AuditService) *WarehouseHandler {
+	return &WarehouseHandler{service: service, auditService: audit}
 }
 
 func (h *WarehouseHandler) Create(c *gin.Context) {
@@ -104,4 +106,50 @@ func (h *WarehouseHandler) UpdateLocation(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Дислокацію успішно оновлено"})
+}
+
+func (h *WarehouseHandler) UpdateWarehouse(c *gin.Context) {
+	warehouseID := c.Param("id")
+	userID := c.GetString("user_id")
+
+	var req struct {
+		Name          string `json:"name" binding:"required"`
+		CapacityLevel string `json:"capacity_level"`
+		ZoneType      string `json:"zone_type"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Неправильні дані запиту"})
+		return
+	}
+
+	if err := h.service.UpdateWarehouse(c.Request.Context(), warehouseID, req.Name, req.CapacityLevel, req.ZoneType); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка оновлення складу"})
+		return
+	}
+
+	// 🛡️ Аудит
+	go func(u, w, n string) {
+		_ = h.auditService.LogAction(context.Background(), u, "UPDATE", "WAREHOUSE", w, "Оновлено параметри складу: "+n)
+	}(userID, warehouseID, req.Name)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Склад оновлено"})
+}
+
+// 3. Додаємо метод видалення
+func (h *WarehouseHandler) Delete(c *gin.Context) {
+	warehouseID := c.Param("id")
+	userID := c.GetString("user_id")
+
+	if err := h.service.DeleteWarehouse(c.Request.Context(), warehouseID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()}) // Поверне нашу помилку про непустий склад
+		return
+	}
+
+	// 🛡️ Аудит
+	go func(u, w string) {
+		_ = h.auditService.LogAction(context.Background(), u, "DELETE", "WAREHOUSE", w, "Видалено порожній склад")
+	}(userID, warehouseID)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Склад видалено"})
 }

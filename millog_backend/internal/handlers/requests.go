@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"millog_backend/internal/middleware"
 	"millog_backend/internal/models"
@@ -11,11 +12,12 @@ import (
 )
 
 type RequestHandler struct {
-	reqService *services.RequestService
+	reqService   *services.RequestService
+	auditService *services.AuditService
 }
 
-func NewRequestHandler(svc *services.RequestService) *RequestHandler {
-	return &RequestHandler{reqService: svc}
+func NewRequestHandler(svc *services.RequestService, auditService *services.AuditService) *RequestHandler {
+	return &RequestHandler{reqService: svc, auditService: auditService}
 }
 
 func (h *RequestHandler) Create(c *gin.Context) {
@@ -83,4 +85,55 @@ func (h *RequestHandler) Approve(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Заявку успішно оброблено"})
+}
+
+func (h *RequestHandler) GetByID(c *gin.Context) {
+	req, err := h.reqService.GetByID(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Заявку не знайдено"})
+		return
+	}
+	c.JSON(http.StatusOK, req)
+}
+
+func (h *RequestHandler) Reject(c *gin.Context) {
+	reqID := c.Param("id")
+	userID := c.GetString("user_id")
+
+	var req struct {
+		Comment string `json:"comment" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Вкажіть причину відмови"})
+		return
+	}
+
+	if err := h.reqService.Reject(c.Request.Context(), reqID, req.Comment); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка відхилення"})
+		return
+	}
+
+	// 🛡️ Аудит
+	go func(u, r, c string) {
+		_ = h.auditService.LogAction(context.Background(), u, "REJECT", "SUPPLY_REQUEST", r, "Відхилено заявку: "+c)
+	}(userID, reqID, req.Comment)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Заявку відхилено"})
+}
+
+func (h *RequestHandler) Cancel(c *gin.Context) {
+	reqID := c.Param("id")
+	userID := c.GetString("user_id")
+
+	if err := h.reqService.Cancel(c.Request.Context(), reqID, userID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 🛡️ Аудит
+	go func(u, r string) {
+		_ = h.auditService.LogAction(context.Background(), u, "CANCEL", "SUPPLY_REQUEST", r, "Скасовано власну заявку")
+	}(userID, reqID)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Заявку скасовано"})
 }

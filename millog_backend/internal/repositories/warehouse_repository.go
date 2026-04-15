@@ -104,3 +104,17 @@ func (r *WarehouseRepository) UpdateLocation(ctx context.Context, db DBExecutor,
 
 	return nil
 }
+
+// Update оновлює базові параметри складу
+func (r *WarehouseRepository) Update(ctx context.Context, db DBExecutor, id string, name string, capacityLevel string, zoneType string) error {
+	query := `UPDATE warehouses SET name = $1, capacity_level = $2, zone_type = $3 WHERE id = $4`
+	_, err := db.Exec(ctx, query, name, capacityLevel, zoneType, id)
+	return err
+}
+
+// Delete безповоротно видаляє склад
+func (r *WarehouseRepository) Delete(ctx context.Context, db DBExecutor, id string) error {
+	query := `DELETE FROM warehouses WHERE id = $1`
+	_, err := db.Exec(ctx, query, id)
+	return err
+}

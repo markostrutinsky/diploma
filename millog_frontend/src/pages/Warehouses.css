@@ -269,3 +269,48 @@
   color: #64748b;
   margin-bottom: 14px;
 }
+
+/* =========================================
+   КНОПКИ ДІЙ В ТАБЛИЦІ (Склади)
+   ========================================= */
+.unit-actions-container {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.btn-unit-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.btn-unit-edit {
+  background-color: #eff6ff;
+  color: #2563eb;
+  border-color: #dbeafe;
+}
+
+.btn-unit-edit:hover {
+  background-color: #dbeafe;
+  border-color: #bfdbfe;
+}
+
+.btn-unit-delete {
+  background-color: #fff1f2;
+  color: #e11d48;
+  border-color: #ffe4e6;
+}
+
+.btn-unit-delete:hover {
+  background-color: #ffe4e6;
+  border-color: #fecdd3;
+}

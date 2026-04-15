@@ -30,6 +30,12 @@ export default function Requests() {
     priority: 'NORMAL'
   })
 
+  // Стейти для відхилення та скасування
+  const [rejectModalData, setRejectModalData] = useState<SupplyRequest | null>(null)
+  const [rejectComment, setRejectComment] = useState('')
+  const [cancelModalData, setCancelModalData] = useState<SupplyRequest | null>(null)
+  const [isProcessing, setIsProcessing] = useState(false)
+
   const canCreate = ['ADMIN', 'BRIGADE_CMDR', 'BATTALION_CMDR', 'COMPANY_CMDR', 'PLATOON_CMDR', 'BRIGADE_LOGIST', 'BATTALION_LOGIST', 'COMPANY_SERGEANT'].includes(user?.role || '')
   const canApprove = ['ADMIN', 'BRIGADE_CMDR', 'BATTALION_CMDR', 'COMPANY_CMDR', 'BRIGADE_LOGIST', 'BATTALION_LOGIST'].includes(user?.role || '')
 
@@ -95,17 +101,13 @@ export default function Requests() {
   const fillPercentage = selectedVehicle ? Math.min(100, (currentTotalWeight / selectedVehicle.capacity_kg) * 100) : 0
   let barStatusClass = fillPercentage >= 100 ? 'bar-critical' : fillPercentage > 80 ? 'bar-warning' : 'bar-safe' 
 
-  // --- ЛОГІКА ІЄРАРХІЇ ТА НАЯВНОСТІ: Доступні склади для відправки ---
   const allowedSourceWarehouses = useMemo(() => {
     if (!dispatchForm.to_warehouse_id || units.length === 0) return [];
-
     const targetWarehouse = warehouses.find(w => w.id === dispatchForm.to_warehouse_id);
     if (!targetWarehouse) return [];
-
     const targetUnit = units.find(u => u.id === targetWarehouse.unit_id);
     if (!targetUnit) return [];
 
-    // 1. ФІЛЬТРАЦІЯ ПО ІЄРАРХІЇ
     const allowedUnitIds = new Set<number>();
     allowedUnitIds.add(targetUnit.id); 
 
@@ -120,7 +122,6 @@ export default function Requests() {
 
     const hierarchicallyAllowed = warehouses.filter(w => allowedUnitIds.has(w.unit_id) && w.id !== dispatchForm.to_warehouse_id);
 
-    // 2. ФІЛЬТРАЦІЯ ПО НАЯВНОСТІ МАЙНА
     const requiredItems = selectedRequestsDetails.reduce((acc, req) => {
       const res = resources.find(r => r.id === req.resource_id);
       if (res && res.name) {
@@ -134,35 +135,27 @@ export default function Requests() {
         const availableQty = resources
           .filter(r => r.warehouse_id === w.id && r.name === name)
           .reduce((sum, r) => sum + r.quantity, 0);
-
-        if (availableQty < neededQty) {
-          return false;
-        }
+        if (availableQty < neededQty) return false;
       }
       return true; 
     });
-
   }, [dispatchForm.to_warehouse_id, warehouses, units, selectedRequestsDetails, resources]);
 
-  // --- НОВА ЛОГІКА: Пошук локальних резервів (Горизонталь) при створенні заявки ---
   const localAlternatives = useMemo(() => {
     if (!newReq.resource_id || !newReq.target_warehouse_id) return [];
-    
     const targetW = warehouses.find(w => w.id === newReq.target_warehouse_id);
     const resName = resources.find(r => r.id === newReq.resource_id)?.name;
     if (!targetW || !resName) return [];
 
-    // Шукаємо інші склади ЦЬОГО Ж підрозділу
     return warehouses
       .filter(w => w.unit_id === targetW.unit_id && w.id !== targetW.id)
       .map(w => {
-        // Рахуємо, скільки такого ресурсу є на цьому сусідньому складі
         const availableQty = resources
           .filter(r => r.warehouse_id === w.id && r.name === resName)
           .reduce((sum, r) => sum + r.quantity, 0);
         return { warehouse: w, availableQty };
       })
-      .filter(info => info.availableQty > 0); // Показуємо тільки ті, де ресурс реально є
+      .filter(info => info.availableQty > 0);
   }, [newReq.resource_id, newReq.target_warehouse_id, warehouses, resources]);
 
   const handleOpenDispatchModal = () => {
@@ -208,7 +201,7 @@ export default function Requests() {
 
       if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Помилка сервера')
 
-      toast.success(`🚚 Збірний рейс відправлено (${payloadItems.length} позицій)!`, { id: toastId, duration: 4000 })
+      toast.success(`🚚 Збірний рейс відправлено!`, { id: toastId, duration: 4000 })
       setShowDispatchModal(false)
       setSelectedReqIds(new Set()) 
       loadData() 
@@ -219,54 +212,93 @@ export default function Requests() {
 
   const handleCreate = async (e: React.FormEvent) => { 
     e.preventDefault(); 
-    if (!newReq.target_warehouse_id) {
-      toast.error("❌ Оберіть цільовий склад!", { duration: 5000 })
-      return
-    }
-
+    if (!newReq.target_warehouse_id) return toast.error("❌ Оберіть цільовий склад!", { duration: 5000 })
     try { 
       await api.requests.create(newReq as any); 
       setShowForm(false); 
       setNewReq({ resource_id: resources[0]?.id || '', quantity: 1, target_warehouse_id: warehouses[0]?.id || '' }); 
       loadData(); 
       toast.success('Заявку створено!') 
-    } catch (err) { 
-      toast.error(err instanceof Error ? err.message : 'Помилка') 
-    } 
-  }
-
-  const handleApprove = async (id: string, approved: boolean) => { 
-    let comment = ""; 
-    if (!approved) { 
-      const reason = window.prompt("Вкажіть причину відхилення:"); 
-      if (reason === null) return; comment = reason; 
-    } 
-    try { 
-      await (api.requests.approve as any)(id, approved, comment); 
-      toast.success(approved ? 'Заявку погоджено!' : 'Заявку відхилено.'); 
-      loadData(); 
     } catch (err) { toast.error(err instanceof Error ? err.message : 'Помилка') } 
   }
 
-  const statusLabel: Record<string, string> = { PENDING: 'Очікує', APPROVED: 'Затверджено', DISPATCHED: 'В дорозі', REJECTED: 'Відхилено', COMPLETED: 'Виконано', OPEN: 'Відкрито' }
+  // Окремі функції для погодження, відхилення та скасування
+  const handleApprove = async (id: string) => { 
+    try { 
+      await (api.requests.approve as any)(id, true); 
+      toast.success('Заявку погоджено!'); 
+      loadData(); 
+    } catch (err) { toast.error(err instanceof Error ? err.message : 'Помилка погодження') } 
+  }
+
+  const handleRejectSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rejectModalData) return;
+    setIsProcessing(true);
+    try {
+      await api.requests.reject(rejectModalData.id, rejectComment);
+      toast.success('Заявку відхилено');
+      setRejectModalData(null);
+      setRejectComment('');
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Помилка відхилення');
+    } finally { setIsProcessing(false); }
+  }
+
+  const handleCancel = async () => {
+    if (!cancelModalData) return;
+    setIsProcessing(true);
+    try {
+      await api.requests.cancel(cancelModalData.id);
+      toast.success('Вашу заявку скасовано');
+      setCancelModalData(null);
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Помилка скасування');
+    } finally { setIsProcessing(false); }
+  }
+
+  const statusLabel: Record<string, string> = { 
+    PENDING: 'Очікує', 
+    APPROVED: 'Затверджено', 
+    DISPATCHED: 'В дорозі', 
+    REJECTED: 'Відхилено', 
+    COMPLETED: 'Виконано', 
+    OPEN: 'Відкрито',
+    CANCELLED: 'Скасовано'
+  }
+  
   const availableVehicles = vehicles.filter(v => v.status === 'ACTIVE' && (v.type === 'VAN' || v.type === 'TRUCK' || v.type === 'PICKUP'))
 
   if (loading) return <div className="page-loading"><div className="spinner" /></div>
 
+  const showActionsColumn = canApprove || canCreate;
+
   return (
     <div className="requests-page">
-      <div className="page-header header-flex">
-        <div className="header-titles">
-          <h1>Заявки на постачання</h1>
-          <p className="header-subtitle">Управління потребами складів</p>
+      
+      {/* 🔥 ОНОВЛЕНА ШАПКА (Відцентрована та з відступами) */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', paddingTop: '16px' }}>
+        <div>
+          <h1 style={{ margin: '0 0 6px 0', fontSize: '1.75rem', fontWeight: 'bold', color: '#0f172a' }}>
+            Заявки на постачання
+          </h1>
+          <p style={{ margin: 0, color: '#64748b', fontSize: '14px' }}>
+            Управління потребами складів
+          </p>
         </div>
-        <div className="header-actions">
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           {selectedReqIds.size > 0 && canApprove && (
-            <button className="btn btn-dispatch" onClick={handleOpenDispatchModal}>
-              🚚 Сформувати рейс на цей склад ({selectedReqIds.size})
+            <button className="btn" style={{ backgroundColor: '#8b5cf6', color: 'white', border: 'none' }} onClick={handleOpenDispatchModal}>
+              🚚 Сформувати рейс ({selectedReqIds.size})
             </button>
           )}
-          {canCreate && <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ Нова заявка</button>}
+          {canCreate && (
+            <button className="btn btn-primary" onClick={() => setShowForm(true)}>
+              + Нова заявка
+            </button>
+          )}
         </div>
       </div>
 
@@ -279,6 +311,8 @@ export default function Requests() {
             <option value="APPROVED">📦 Затверджені (Очікують логістику)</option>
             <option value="DISPATCHED">🚛 В дорозі (Прямують на склад)</option>
             <option value="COMPLETED">✅ Доставлені на склад</option>
+            <option value="REJECTED">❌ Відхилені логістом</option>
+            <option value="CANCELLED">🚫 Скасовані ініціатором</option>
           </select>
         </div>
         <div style={{ flex: 2 }}>
@@ -290,11 +324,54 @@ export default function Requests() {
         </div>
       </div>
 
+      {/* Модалка Відхилення */}
+      {rejectModalData && (
+        <div className="modal-overlay" onClick={() => !isProcessing && setRejectModalData(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ color: '#ef4444' }}>Відхилення заявки</h3>
+            <p className="text-muted">
+              Відхилити заявку на <strong>{resources.find(r => r.id === rejectModalData.resource_id)?.name}</strong> ({rejectModalData.quantity} шт.)?
+            </p>
+            <form onSubmit={handleRejectSubmit}>
+              <div className="form-group" style={{ textAlign: 'left', marginTop: '15px' }}>
+                <label>Причина відмови <span className="required">*</span></label>
+                <textarea 
+                  className="erp-input" 
+                  rows={3}
+                  placeholder="Наприклад: Відсутнє на центральному складі"
+                  value={rejectComment} 
+                  onChange={(e) => setRejectComment(e.target.value)} 
+                  required 
+                  disabled={isProcessing}
+                />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-secondary" onClick={() => setRejectModalData(null)} disabled={isProcessing}>Назад</button>
+                <button type="submit" className="btn btn-danger" disabled={!rejectComment || isProcessing}>{isProcessing ? 'Обробка...' : 'Підтвердити відмову'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Модалка Скасування */}
+      {cancelModalData && (
+        <div className="modal-overlay" onClick={() => !isProcessing && setCancelModalData(null)}>
+          <div className="modal confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ color: '#64748b' }}>Скасування заявки</h3>
+            <p>Ви впевнені, що хочете відкликати свою заявку на <strong>{resources.find(r => r.id === cancelModalData.resource_id)?.name}</strong>?</p>
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => setCancelModalData(null)} disabled={isProcessing}>Ні, залишити</button>
+              <button className="btn" style={{ backgroundColor: '#64748b', color: 'white' }} onClick={handleCancel} disabled={isProcessing}>{isProcessing ? 'Обробка...' : 'Так, скасувати'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showDispatchModal && (
         <div className="modal-overlay" onClick={() => setShowDispatchModal(false)}>
           <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
             <h3 className="modal-title">🚚 Логістика: Рейс на склад</h3>
-            
             <div className="dispatch-summary">
               <div className="summary-title">Вантаж до відправки ({selectedReqIds.size} позицій):</div>
               <ul className="summary-list">
@@ -311,7 +388,6 @@ export default function Requests() {
               </ul>
               <div className="summary-total">Загальна розрахункова вага: {currentTotalWeight.toFixed(1)} кг</div>
             </div>
-
             <form onSubmit={handleDispatchSubmit}>
               <div className="form-row-2 gap-16 mb-16">
                 <div className="form-group flex-1 mb-0">
@@ -330,26 +406,21 @@ export default function Requests() {
                   <select className="erp-input" value={dispatchForm.to_warehouse_id} disabled style={{ backgroundColor: '#e2e8f0', color: '#475569', cursor: 'not-allowed' }}>
                     {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                   </select>
-                  <span style={{ fontSize: '11px', color: '#64748b', display: 'block', marginTop: '4px' }}>Склад отримувач визначено згідно з заявкою</span>
                 </div>
               </div>
-
               <div className="form-group mb-8">
                 <label>Вільний Транспорт</label>
                 <select className="erp-input" value={dispatchForm.vehicle_id} onChange={e => setDispatchForm({...dispatchForm, vehicle_id: e.target.value})} required>
                   <option value="" disabled>Оберіть транспорт...</option>
                   {availableVehicles.map(v => <option key={v.id} value={v.id}>{v.brand} ({v.plate_number}) - Макс {v.capacity_kg} кг</option>)}
                 </select>
-                {availableVehicles.length === 0 && <span className="error-text">Немає вільних авто для логістики!</span>}
               </div>
-
               {selectedVehicle && (
                 <div className="capacity-indicator">
                   <div className="capacity-header"><span className="capacity-label">Завантаженість кузова</span><span className={`capacity-value ${isOverweight ? 'text-critical' : 'text-normal'}`}>{fillPercentage.toFixed(1)}% ({currentTotalWeight.toFixed(1)} / {selectedVehicle.capacity_kg} кг)</span></div>
                   <div className="progress-bg"><div className={`progress-fill ${barStatusClass}`} style={{ width: `${fillPercentage}%` }} /></div>
                 </div>
               )}
-
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowDispatchModal(false)}>Скасувати</button>
                 <button type="submit" className="btn btn-dispatch" disabled={availableVehicles.length === 0 || isOverweight || allowedSourceWarehouses.length === 0}>Відправити рейс 🚀</button>
@@ -369,10 +440,10 @@ export default function Requests() {
                 {canApprove && <th className="th-checkbox"></th>}
                 <th>Ресурс</th>
                 <th>Кількість</th>
-                <th>Склад отримувач</th>
+                <th>Склад отримувач & Коментарі</th>
                 <th>Статус</th>
                 <th>Дата</th>
-                {canApprove && <th>Дії</th>}
+                {showActionsColumn && <th>Дії</th>}
               </tr>
             </thead>
             <tbody>
@@ -381,6 +452,9 @@ export default function Requests() {
                 const isSelected = selectedReqIds.has(r.id);
                 const authorUser = users.find(u => u.id === r.created_by);
                 const targetWarehouse = warehouses.find(w => w.id === r.target_warehouse_id);
+                
+                const isMyRequest = r.created_by === user?.id;
+                const canCancelThis = isMyRequest && r.status === 'PENDING';
                 
                 return (
                 <tr key={r.id} className={`${isSelected ? 'row-selected' : ''} ${isLocked ? 'row-locked' : ''}`}>
@@ -398,38 +472,55 @@ export default function Requests() {
                     </td>
                   )}
                   <td className="font-medium">{resources.find((res) => res.id === r.resource_id)?.name || r.resource_id}</td>
-                  <td>{r.quantity} шт</td>
+                  <td style={{ fontWeight: 600 }}>{r.quantity} шт</td>
                   <td className="text-muted" style={{ fontSize: '13px' }}>
-                    <div style={{ fontWeight: 600, color: '#334155' }}>
-                      📍 {targetWarehouse?.name || 'Не вказано'}
-                    </div>
+                    <div style={{ fontWeight: 600, color: '#334155' }}>📍 {targetWarehouse?.name || 'Не вказано'}</div>
                     <div style={{ fontSize: '11px', color: '#94a3b8' }}>Замовив: {authorUser?.full_name}</div>
+                    
+                    {r.comment && (
+                      <div className={`comment-box ${r.status === 'REJECTED' ? 'rejected' : ''}`}>
+                        💬 {r.comment}
+                      </div>
+                    )}
                   </td>
                   <td>
-                    <span className={`badge badge-${r.status === 'PENDING' ? 'warning' : r.status === 'APPROVED' ? 'success' : r.status === 'DISPATCHED' ? 'warning' : 'neutral'}`}>
+                    <span className={`badge badge-${r.status === 'PENDING' ? 'warning' : r.status === 'APPROVED' ? 'success' : r.status === 'DISPATCHED' ? 'warning' : r.status === 'REJECTED' ? 'danger' : 'neutral'}`}>
                       {statusLabel[r.status] || r.status}
                     </span>
                   </td>
                   <td className="text-muted">{new Date(r.created_at).toLocaleDateString('uk-UA')}</td>
                   
-                  {canApprove && (
+                  {/* 🔥 ОНОВЛЕНИЙ БЛОК ДІЙ */}
+                  {showActionsColumn && (
                     <td>
                       {r.status === 'PENDING' ? (
-                        <div className="action-buttons-flex">
-                          <button className="btn btn-sm btn-primary" onClick={() => handleApprove(r.id, true)}>Затвердити</button>
-                          <button className="btn btn-sm btn-danger-outline" onClick={() => handleApprove(r.id, false)}>Відхилити</button>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start' }}>
+                          
+                          {canApprove && (
+                            <div className="action-buttons-flex">
+                              <button className="btn btn-sm btn-primary" onClick={() => handleApprove(r.id)}>Затвердити</button>
+                              <button className="btn btn-sm btn-danger-outline" onClick={() => setRejectModalData(r)}>Відхилити</button>
+                            </div>
+                          )}
+                          
+                          {canCancelThis && (
+                             <button 
+                               className="btn btn-sm" 
+                               style={{ backgroundColor: '#f1f5f9', color: '#64748b', border: '1px dashed #cbd5e1', fontSize: '12px' }} 
+                               onClick={() => setCancelModalData(r)}
+                             >
+                               {canApprove ? ' Скасувати власну' : ' Скасувати заявку'}
+                             </button>
+                          )}
+
                         </div>
                       ) : r.status === 'APPROVED' ? (
-                        <span className="status-text-waiting">
-                          {isLocked ? '⛔ Інший напрямок' : 'Очікує логістику'}
-                        </span>
+                        <span className="status-text-waiting">{isLocked ? '⛔ Інший напрямок' : 'Очікує логістику'}</span>
                       ) : r.status === 'DISPATCHED' ? (
-                        <span className="status-text-waiting" style={{ color: '#d97706' }}>
-                          🚛 В дорозі
-                        </span>
+                        <span className="status-text-waiting" style={{ color: '#d97706' }}>🚛 В дорозі</span>
                       ) : (
                         <span className="status-text-closed">
-                          {r.status === 'COMPLETED' ? '✅ Доставлено' : '🔒 Закрито'}
+                          {r.status === 'COMPLETED' ? '✅ Доставлено' : r.status === 'REJECTED' ? '❌ Відхилено' : '🔒 Закрито'}
                         </span>
                       )}
                     </td>
@@ -462,9 +553,6 @@ export default function Requests() {
                   value={newReq.quantity} 
                   onChange={(e) => {
                     const val = e.target.value;
-                    // 🔥 Виправляємо баг з інкрементом/стиранням:
-                    // Якщо поле порожнє — дозволяємо йому бути порожнім ('' as any), 
-                    // інакше парсимо число. HTML5 'required' не дасть відправити форму порожньою.
                     setNewReq({ ...newReq, quantity: val === '' ? ('' as any) : parseInt(val) });
                   }} 
                   required 
@@ -478,13 +566,8 @@ export default function Requests() {
                 </select>
               </div>
 
-              {/* РОЗУМНА ПІДКАЗКА ПРО ЛОКАЛЬНІ РЕЗЕРВИ */}
               {localAlternatives.length > 0 && (
-                <div style={{ 
-                  marginBottom: '16px', padding: '12px', 
-                  backgroundColor: '#fffbeb', border: '1px solid #fde68a', 
-                  borderRadius: '8px', fontSize: '13px', color: '#b45309' 
-                }}>
+                <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', fontSize: '13px', color: '#b45309' }}>
                   <strong style={{ display: 'block', marginBottom: '6px' }}>💡 Знайдено внутрішні резерви!</strong>
                   У вашому підрозділі вже є цей ресурс на сусідніх складах:
                   <ul style={{ margin: '6px 0 0 20px', padding: 0 }}>

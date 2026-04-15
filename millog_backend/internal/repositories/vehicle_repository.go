@@ -290,3 +290,17 @@ func (r *VehicleRepository) GetDriverHistory(ctx context.Context, vehicleID stri
 	}
 	return history, nil
 }
+
+// Update оновлює базові параметри автомобіля
+func (r *VehicleRepository) Update(ctx context.Context, db DBExecutor, id string, brand string, model string, plateNumber string, capacityKg float64) error {
+	query := `UPDATE vehicles SET brand = $1, model = $2, plate_number = $3, capacity_kg = $4 WHERE id = $5`
+	_, err := db.Exec(ctx, query, brand, model, plateNumber, capacityKg, id)
+	return err
+}
+
+// Delete безповоротно видаляє транспортний засіб
+func (r *VehicleRepository) Delete(ctx context.Context, db DBExecutor, id string) error {
+	query := `DELETE FROM vehicles WHERE id = $1`
+	_, err := db.Exec(ctx, query, id)
+	return err
+}

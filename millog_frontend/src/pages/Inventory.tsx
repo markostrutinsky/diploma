@@ -30,6 +30,11 @@ export default function Inventory() {
   const [resourceToDelete, setResourceToDelete] = useState<Resource | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   
+  // 🔥 НОВЕ: Стейти для редагування та видалення категорій
+  const [editingCategory, setEditingCategory] = useState<ResourceCategory | null>(null);
+  const [editCategoryForm, setEditCategoryForm] = useState({ name: '', description: '' });
+  const [deletingCategory, setDeletingCategory] = useState<ResourceCategory | null>(null);
+
   // Стейти для сканера
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scannedResource, setScannedResource] = useState<any | null>(null);
@@ -141,6 +146,34 @@ export default function Inventory() {
       loadData();
     } catch (err) { 
       toast.error(err instanceof Error ? err.message : 'Помилка створення категорії'); 
+    }
+  };
+
+  // 🔥 НОВЕ: Обробники для категорій (Редагування та Видалення)
+  const handleEditCategorySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCategory) return;
+    try {
+      await api.inventory.updateCategory(editingCategory.id, editCategoryForm);
+      toast.success('Категорію успішно оновлено!');
+      setEditingCategory(null);
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Помилка при оновленні категорії');
+    }
+  };
+
+  const confirmDeleteCategory = async () => {
+    if (!deletingCategory) return;
+    try {
+      await api.inventory.deleteCategory(deletingCategory.id);
+      toast.success('Категорію видалено!');
+      setDeletingCategory(null);
+      if (selectedCategoryId === deletingCategory.id) setSelectedCategoryId(null);
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Неможливо видалити: у цій категорії ще є майно');
+      setDeletingCategory(null);
     }
   };
 
@@ -332,7 +365,6 @@ export default function Inventory() {
             </button>
           )}
           
-          {/* 🔥 КНОПКА ЗАПУСКУ СКАНЕРА 🔥 */}
           <button className="btn btn-secondary" onClick={() => setIsScannerOpen(true)}>
             📷 Сканувати QR
           </button>
@@ -345,7 +377,7 @@ export default function Inventory() {
         </div>
       </div>
 
-      {/* МОДАЛКИ (Існуючі) */}
+      {/* ============================== МОДАЛКИ КАТЕГОРІЙ ============================== */}
       {showCategoryForm && canManageCategories && (
         <div className="modal-overlay" onClick={() => setShowCategoryForm(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -368,6 +400,45 @@ export default function Inventory() {
         </div>
       )}
 
+      {editingCategory && canManageCategories && (
+        <div className="modal-overlay" onClick={() => setEditingCategory(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Редагувати категорію</h3>
+            <form onSubmit={handleEditCategorySubmit}>
+              <div className="form-group">
+                <label>Назва</label>
+                <input className="erp-input" value={editCategoryForm.name} onChange={(e) => setEditCategoryForm({ ...editCategoryForm, name: e.target.value })} required />
+              </div>
+              <div className="form-group">
+                <label>Опис</label>
+                <input className="erp-input" value={editCategoryForm.description} onChange={(e) => setEditCategoryForm({ ...editCategoryForm, description: e.target.value })} />
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-secondary cancel-margin" onClick={() => setEditingCategory(null)}>Скасувати</button>
+                <button type="submit" className="btn btn-primary">Зберегти</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {deletingCategory && canManageCategories && (
+        <div className="modal-overlay" onClick={() => setDeletingCategory(null)}>
+          <div className="modal confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ color: '#ef4444' }}>⚠️ Видалення категорії</h3>
+            <p className="confirm-text text-left">
+              Видалити категорію <strong>{deletingCategory.name}</strong>?<br/>
+              <small className="text-muted">Це можливо лише якщо в категорії немає майна.</small>
+            </p>
+            <div className="modal-actions">
+              <button type="button" className="btn btn-secondary cancel-margin" onClick={() => setDeletingCategory(null)}>Скасувати</button>
+              <button type="button" className="btn btn-danger" onClick={confirmDeleteCategory}>🗑️ Видалити</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================== ІНШІ МОДАЛКИ (Майно) ============================== */}
       {showResourceForm && canManageResources && (
         <div className="modal-overlay" onClick={() => setShowResourceForm(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -561,7 +632,6 @@ export default function Inventory() {
         </div>
       )}
 
-      {/* 📷 МОДАЛКА: КАМЕРА СКАНЕРА */}
       {isScannerOpen && (
         <div className="modal-overlay" onClick={() => setIsScannerOpen(false)}>
           <div className="modal scanner-modal" onClick={e => e.stopPropagation()}>
@@ -579,7 +649,6 @@ export default function Inventory() {
         </div>
       )}
 
-      {/* 📄 МОДАЛКА: РЕЗУЛЬТАТ СКАНУВАННЯ */}
       {scannedResource && (
         <div className="modal-overlay" onClick={() => setScannedResource(null)}>
           <div className="modal scan-result-modal" onClick={e => e.stopPropagation()}>
@@ -634,9 +703,50 @@ export default function Inventory() {
             <p className="empty-state">Немає категорій</p>
           ) : (
             <ul className="category-list clean-list">
-              <li onClick={() => setSelectedCategoryId(null)} className={`category-item ${selectedCategoryId === null ? 'active-category' : ''}`}>Всі категорії</li>
+              <li onClick={() => setSelectedCategoryId(null)} className={`category-item ${selectedCategoryId === null ? 'active-category' : ''}`}>
+                Всі категорії
+              </li>
+              
+              {/* 🔥 НОВЕ: Рендер списку категорій з красивими SVG-іконками та Hover-ефектом */}
               {categories.map((c) => (
-                <li key={c.id} onClick={() => setSelectedCategoryId(c.id)} className={`category-item ${selectedCategoryId === c.id ? 'active-category' : ''}`}>{c.name}</li>
+                <li 
+                  key={c.id} 
+                  onClick={() => setSelectedCategoryId(c.id)} 
+                  className={`category-item ${selectedCategoryId === c.id ? 'active-category' : ''}`}
+                >
+                  <span className="category-name-text">{c.name}</span>
+                  
+                  {canManageCategories && (
+                    <div className="category-actions">
+                      <button
+                        type="button"
+                        className="btn-icon-small"
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          setEditingCategory(c); 
+                          setEditCategoryForm({ name: c.name, description: c.description || '' }); 
+                        }}
+                        title="Редагувати"
+                      >
+                        {/* Іконка Редагувати (Feather Icons) */}
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                      </button>
+                      
+                      <button
+                        type="button"
+                        className="btn-icon-small delete"
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          setDeletingCategory(c); 
+                        }}
+                        title="Видалити"
+                      >
+                        {/* Іконка Кошик (Feather Icons) */}
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                      </button>
+                    </div>
+                  )}
+                </li>
               ))}
             </ul>
           )}

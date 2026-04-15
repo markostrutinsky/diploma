@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"millog_backend/internal/models"
 	"millog_backend/internal/services"
@@ -13,11 +14,12 @@ import (
 )
 
 type VehicleHandler struct {
-	service *services.VehicleService
+	service      *services.VehicleService
+	auditService *services.AuditService
 }
 
-func NewVehicleHandler(service *services.VehicleService) *VehicleHandler {
-	return &VehicleHandler{service: service}
+func NewVehicleHandler(service *services.VehicleService, auditService *services.AuditService) *VehicleHandler {
+	return &VehicleHandler{service: service, auditService: auditService}
 }
 
 func (h *VehicleHandler) Create(c *gin.Context) {
@@ -203,4 +205,52 @@ func (h *VehicleHandler) GetDriverHistory(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, history)
+}
+
+// Метод оновлення
+func (h *VehicleHandler) Update(c *gin.Context) {
+	vehicleID := c.Param("id")
+	userID := c.GetString("user_id")
+
+	var req struct {
+		Brand       string  `json:"brand" binding:"required"`
+		Model       string  `json:"model"`
+		PlateNumber string  `json:"plate_number" binding:"required"`
+		CapacityKg  float64 `json:"capacity_kg"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Неправильні дані запиту"})
+		return
+	}
+
+	if err := h.service.UpdateVehicle(c.Request.Context(), vehicleID, req.Brand, req.Model, req.PlateNumber, req.CapacityKg); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка оновлення автомобіля"})
+		return
+	}
+
+	// 🛡️ Аудит
+	go func(u, v, plate string) {
+		_ = h.auditService.LogAction(context.Background(), u, "UPDATE", "VEHICLE", v, "Оновлено дані авто: "+plate)
+	}(userID, vehicleID, req.PlateNumber)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Дані автомобіля оновлено"})
+}
+
+// Метод видалення
+func (h *VehicleHandler) Delete(c *gin.Context) {
+	vehicleID := c.Param("id")
+	userID := c.GetString("user_id")
+
+	if err := h.service.DeleteVehicle(c.Request.Context(), vehicleID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 🛡️ Аудит
+	go func(u, v string) {
+		_ = h.auditService.LogAction(context.Background(), u, "DELETE", "VEHICLE", v, "Автомобіль списано/видалено")
+	}(userID, vehicleID)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Автомобіль списано"})
 }

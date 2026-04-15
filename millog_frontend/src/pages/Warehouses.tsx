@@ -17,7 +17,6 @@ export interface Vehicle { id: string; type: VehicleType; brand: string; model?:
 export interface InventoryItem { id: string; name: string; available: number; quantity?: number; weight_kg: number; }
 interface ManifestItem { item: InventoryItem; quantity: number; }
 
-// Оновлений AnimatedPolyline з виправленими типами
 const AnimatedPolyline = ({ positions, pathOptions, children }: any) => {
   const polyRef = useRef<any>(null);
   
@@ -25,7 +24,6 @@ const AnimatedPolyline = ({ positions, pathOptions, children }: any) => {
     const polyline = polyRef.current; 
     if (!polyline) return; 
     
-    // Перевіряємо, чи є метод getElement
     if (typeof polyline.getElement !== 'function') return;
     
     const el = polyline.getElement(); 
@@ -44,10 +42,8 @@ const AnimatedPolyline = ({ positions, pathOptions, children }: any) => {
     return () => cancelAnimationFrame(frame);
   }, [pathOptions?.dashArray]);
 
-  // Передаємо стилі напряму як пропси, якщо pathOptions свариться, 
-  // або ж залишаємо pathOptions з @ts-ignore для швидкого фіксу
   return (
-    // @ts-ignore - ігноруємо помилку типів для pathOptions, бо в Leaflet v3+ це часто глючить
+    // @ts-ignore
     <Polyline ref={polyRef} positions={positions} pathOptions={pathOptions}>
       {children}
     </Polyline>
@@ -122,6 +118,12 @@ export default function Warehouses() {
   const [dispatchPriority, setDispatchPriority] = useState('NORMAL');
 
   const [newWarehouse, setNewWarehouse] = useState({ unit_id: '' as number | '', name: '', location_type: 'STATIONARY' as 'STATIONARY' | 'MOBILE', latitude: '', longitude: '' });
+
+  // 🔥 НОВІ СТЕЙТИ: Редагування та видалення
+  const [editingWarehouse, setEditingWarehouse] = useState<Warehouse | null>(null);
+  const [warehouseToDelete, setWarehouseToDelete] = useState<Warehouse | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', capacity_level: '', zone_type: '' });
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const canManageWarehouses = ['ADMIN', 'BRIGADE_CMDR', 'BRIGADE_LOGIST', 'BATTALION_CMDR', 'BATTALION_LOGIST', 'COMPANY_CMDR', 'PLATOON_CMDR'].includes(user?.role || '');
 
@@ -338,6 +340,48 @@ export default function Warehouses() {
       setConfirmMove(null); loadData(); 
     } catch (error) { toast.error('Помилка збереження', { id: 'move' }); } 
   };
+
+  // 🔥 НОВІ ФУНКЦІЇ: Редагування та Видалення
+  const handleOpenEdit = (w: Warehouse) => {
+    setEditingWarehouse(w);
+    setEditForm({
+      name: w.name,
+      capacity_level: w.capacity_level || 'MEDIUM',
+      zone_type: w.zone_type || 'REAR'
+    });
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingWarehouse) return;
+    setIsProcessing(true);
+    try {
+      // 🔥 Додали "as Partial<Warehouse>", щоб заспокоїти TypeScript
+      await api.warehouses.update(editingWarehouse.id, editForm as Partial<Warehouse>);
+      toast.success('Дані складу оновлено');
+      setEditingWarehouse(null);
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Помилка оновлення');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!warehouseToDelete) return;
+    setIsProcessing(true);
+    try {
+      await api.warehouses.delete(warehouseToDelete.id);
+      toast.success('Склад видалено');
+      setWarehouseToDelete(null);
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || 'Помилка видалення');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
   
   const warehousesWithCoords = warehouses.filter(w => w.latitude && w.longitude);
   
@@ -378,7 +422,6 @@ export default function Warehouses() {
         <button className={`tab-btn ${activeTab === 'shipments' ? 'active' : ''}`} onClick={() => setActiveTab('shipments')}>🚚 Рейси та Накладні</button>
       </div>
 
-      {/* 🔥 ПОВЕРНУВ ЗНИКЛЕ ВІКНО ПЕРЕГЛЯДУ ЗАЛИШКІВ */}
       {viewInventoryWarehouse && (
         <div className="modal-overlay" onClick={() => setViewInventoryWarehouse(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
@@ -415,6 +458,58 @@ export default function Warehouses() {
         </div>
       )}
 
+      {/* 🔥 НОВЕ: Модалка Редагування */}
+      {editingWarehouse && (
+        <div className="modal-overlay" onClick={() => !isProcessing && setEditingWarehouse(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>Редагувати параметри складу</h3>
+            <form onSubmit={handleEditSubmit}>
+              <div className="form-group">
+                <label>Назва складу</label>
+                <input className="erp-input" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} required disabled={isProcessing} />
+              </div>
+              <div className="form-row-2">
+                <div className="form-group flex-1">
+                  <label>Місткість</label>
+                  <select className="erp-input" value={editForm.capacity_level} onChange={(e) => setEditForm({ ...editForm, capacity_level: e.target.value })} disabled={isProcessing}>
+                    <option value="LARGE">Великий (Базовий)</option>
+                    <option value="MEDIUM">Середній (Польовий)</option>
+                    <option value="SMALL">Малий (Мобільний)</option>
+                  </select>
+                </div>
+                <div className="form-group flex-1">
+                  <label>Зона розташування</label>
+                  <select className="erp-input" value={editForm.zone_type} onChange={(e) => setEditForm({ ...editForm, zone_type: e.target.value })} disabled={isProcessing}>
+                    <option value="REAR">Тилова зона</option>
+                    <option value="TACTICAL">Тактична зона</option>
+                    <option value="FORWARD">Передова лінія</option>
+                  </select>
+                </div>
+              </div>
+              <div className="modal-actions">
+                <button type="button" className="btn btn-secondary" onClick={() => setEditingWarehouse(null)} disabled={isProcessing}>Скасувати</button>
+                <button type="submit" className="btn btn-primary" disabled={isProcessing}>{isProcessing ? 'Збереження...' : 'Зберегти'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 🔥 НОВЕ: Модалка Видалення */}
+      {warehouseToDelete && (
+        <div className="modal-overlay" onClick={() => !isProcessing && setWarehouseToDelete(null)}>
+          <div className="modal confirm-modal" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ color: '#ef4444' }}>⚠️ Видалення складу</h3>
+            <p>Ви впевнені, що хочете ліквідувати склад <strong>{warehouseToDelete.name}</strong>?</p>
+            <p style={{ fontSize: '12px', color: '#64748b' }}>Система дозволить це зробити лише якщо на балансі складу нуль одиниць майна.</p>
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => setWarehouseToDelete(null)} disabled={isProcessing}>Скасувати</button>
+              <button className="btn btn-danger" onClick={handleDelete} disabled={isProcessing}>{isProcessing ? 'Видалення...' : 'Ліквідувати'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* МОДАЛКА: ПІДТВЕРДЖЕННЯ ЗМІНИ ЛОКАЦІЇ НА КАРТІ */}
       {confirmMove && (
         <div className="modal-overlay" onClick={() => { setConfirmMove(null); loadData(); }}>
@@ -434,7 +529,15 @@ export default function Warehouses() {
         <div className="card card-table">
           {warehouses.length === 0 ? <p className="empty-state">Склади ще не створені.</p> : (
             <table className="data-table">
-              <thead><tr><th>Назва складу</th><th>Підрозділ</th><th>Тип</th><th>Координати</th></tr></thead>
+              <thead>
+                <tr>
+                  <th>Назва складу</th>
+                  <th>Підрозділ</th>
+                  <th>Тип</th>
+                  <th>Координати</th>
+                  {canManageWarehouses && <th>Дії</th>}
+                </tr>
+              </thead>
               <tbody>
                 {warehouses.map((w) => (
                   <tr key={w.id}>
@@ -442,6 +545,27 @@ export default function Warehouses() {
                     <td>{units.find(u => u.id === w.unit_id)?.name || 'Невідомо'}</td>
                     <td><span className={`badge ${w.location_type === 'MOBILE' ? 'badge-warning' : 'badge-success'}`}>{w.location_type === 'MOBILE' ? 'Мобільний' : 'Стаціонарний'}</span></td>
                     <td className="text-muted">{w.latitude && w.longitude ? `${w.latitude}, ${w.longitude}` : 'Не вказано'}</td>
+                    {/* 🔥 НОВЕ: Кнопки Дій */}
+                    {canManageWarehouses && (
+                      <td>
+                        <div className="unit-actions-container">
+                          <button 
+                            className="btn-unit-action btn-unit-edit" 
+                            onClick={() => handleOpenEdit(w)}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                            Редагувати
+                          </button>
+                          <button 
+                            className="btn-unit-action btn-unit-delete" 
+                            onClick={() => setWarehouseToDelete(w)}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                            Видалити
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

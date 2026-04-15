@@ -87,3 +87,25 @@ func (s *VehicleService) AssignDriver(ctx context.Context, vehicleID string, dri
 func (s *VehicleService) GetDriverHistory(ctx context.Context, vehicleID string) ([]models.VehicleDriverHistory, error) {
 	return s.repo.GetDriverHistory(ctx, vehicleID, s.Pool)
 }
+
+func (s *VehicleService) UpdateVehicle(ctx context.Context, id, brand, model, plateNumber string, capacityKg float64) error {
+	return s.repo.Update(ctx, s.Pool, id, brand, model, plateNumber, capacityKg)
+}
+
+func (s *VehicleService) DeleteVehicle(ctx context.Context, id string) error {
+	// 1. Отримуємо поточний стан авто (наприклад, щоб перевірити чи не в рейсі)
+	// Припускаю, що у тебе є метод GetByID
+	vehicle, err := s.repo.GetByID(ctx, id, s.Pool)
+	if err != nil {
+		return errors.New("автомобіль не знайдено")
+	}
+
+	// 2. Блокуємо видалення, якщо машина зараз виконує рейс
+	if vehicle.Status == "ON_MISSION" {
+		return errors.New("неможливо списати автомобіль, який зараз перебуває у рейсі")
+	}
+
+	// 3. Видаляємо (якщо є історія заправок, база даних може видати помилку зовнішнього ключа,
+	// тоді можна змінити статус на WRITTEN_OFF замість фізичного DELETE)
+	return s.repo.Delete(ctx, s.Pool, id)
+}

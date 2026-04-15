@@ -33,3 +33,17 @@ func (r *CategoryRepository) List(ctx context.Context, db DBExecutor) ([]models.
 	}
 	return list, rows.Err()
 }
+
+// Update оновлює дані категорії
+func (r *CategoryRepository) Update(ctx context.Context, db DBExecutor, id string, name string, description string) error {
+	query := `UPDATE resource_categories SET name = $1, description = $2 WHERE id = $3`
+	_, err := db.Exec(ctx, query, name, description, id)
+	return err
+}
+
+// Delete безповоротно видаляє категорію
+func (r *CategoryRepository) Delete(ctx context.Context, db DBExecutor, id string) error {
+	query := `DELETE FROM resource_categories WHERE id = $1`
+	_, err := db.Exec(ctx, query, id)
+	return err
+}

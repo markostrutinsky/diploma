@@ -97,3 +97,30 @@ func (s *RequestService) Approve(ctx context.Context, requestID, approverID stri
 
 	return tx.Commit(ctx)
 }
+
+func (s *RequestService) GetByID(ctx context.Context, id string) (*models.SupplyRequest, error) {
+	return s.requestRepo.GetByID(ctx, s.dbPool, id)
+}
+
+func (s *RequestService) Reject(ctx context.Context, id string, comment string) error {
+	// Додаємо префікс до коментаря, щоб було зрозуміло, звідки він взявся
+	finalComment := "Відхилено: " + comment
+	return s.requestRepo.UpdateStatus(ctx, s.dbPool, id, "REJECTED", finalComment)
+}
+
+func (s *RequestService) Cancel(ctx context.Context, id string, userID string) error {
+	req, err := s.requestRepo.GetByID(ctx, s.dbPool, id)
+	if err != nil {
+		return err
+	}
+
+	// Перевірка безпеки: скасувати може лише той, хто створив!
+	if req.CreatedBy != userID {
+		return errors.New("ви не можете скасувати чужу заявку")
+	}
+	if req.Status != "PENDING" {
+		return errors.New("неможливо скасувати заявку, яка вже в обробці")
+	}
+
+	return s.requestRepo.UpdateStatus(ctx, s.dbPool, id, "CANCELLED", "Скасовано ініціатором")
+}

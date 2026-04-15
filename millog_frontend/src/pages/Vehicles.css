@@ -531,3 +531,48 @@ textarea {
   text-align: left !important;
 }
 
+/* =========================================
+   КНОПКИ РЕДАГУВАННЯ ТА ВИДАЛЕННЯ АВТО
+========================================= */
+
+.action-buttons-group {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.btn-unit-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  flex-shrink: 0;
+}
+
+.btn-unit-edit {
+  background-color: #eff6ff;
+  color: #2563eb;
+  border-color: #dbeafe;
+}
+
+.btn-unit-edit:hover {
+  background-color: #dbeafe;
+  border-color: #bfdbfe;
+}
+
+.btn-unit-delete {
+  background-color: #fff1f2;
+  color: #e11d48;
+  border-color: #ffe4e6;
+}
+
+.btn-unit-delete:hover {
+  background-color: #ffe4e6;
+  border-color: #fecdd3;
+}
