@@ -297,6 +297,16 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		`ALTER TABLE supply_requests ADD COLUMN IF NOT EXISTS target_warehouse_id UUID REFERENCES warehouses(id) ON DELETE SET NULL;`,
 
 		`ALTER TABLE shipments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;`,
+
+		`CREATE TABLE IF NOT EXISTS audit_logs (
+            id SERIAL PRIMARY KEY,
+            user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+            action_type VARCHAR(50) NOT NULL,  -- 'DELETE', 'WRITE_OFF', 'UPDATE_ROLE'
+            entity_type VARCHAR(50) NOT NULL,  -- 'RESOURCE', 'USER', 'WAREHOUSE'
+            entity_id VARCHAR(50),             -- ID того, що змінили
+            details TEXT,                      -- Детальний опис ("Списано 5 шт бронежилетів")
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );`,
 	}
 
 	for i, m := range migrations {

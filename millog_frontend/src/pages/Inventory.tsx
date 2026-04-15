@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api, type Resource, type ResourceCategory, type Unit, type Warehouse } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 import toast, { Toaster } from 'react-hot-toast';
+import { Html5QrcodeScanner } from 'html5-qrcode';
 import './Inventory.css';
 
 export default function Inventory() {
@@ -28,6 +29,10 @@ export default function Inventory() {
   const [editForm, setEditForm] = useState({ name: '', min_quantity: 0 });
   const [resourceToDelete, setResourceToDelete] = useState<Resource | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  
+  // Стейти для сканера
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [scannedResource, setScannedResource] = useState<any | null>(null);
 
   const [newCat, setNewCat] = useState({ name: '', description: '' });
   
@@ -53,7 +58,7 @@ export default function Inventory() {
 
   const canManageResources = ['ADMIN', 'BRIGADE_STOREKEEPER', 'BATTALION_STOREKEEPER', 'COMPANY_SERGEANT', 'BRIGADE_LOGIST'].includes(user?.role || '');
   const canManageCategories = ['ADMIN', 'BRIGADE_LOGIST', 'BRIGADE_CMDR'].includes(user?.role || '');
-  // Стан для модалки попереднього перегляду QR
+  
   const [qrPreviewData, setQrPreviewData] = useState<{ id: string; name: string; url: string } | null>(null);
 
   const loadData = () => {
@@ -86,6 +91,45 @@ export default function Inventory() {
   useEffect(() => { 
     loadData(); 
   }, [filterUnitId]);
+
+  // Логіка підключення камери
+  useEffect(() => {
+    if (isScannerOpen) {
+      const scanner = new Html5QrcodeScanner(
+        "qr-reader",
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        false
+      );
+
+      scanner.render(
+        async (decodedText) => {
+          scanner.clear();
+          setIsScannerOpen(false);
+          
+          if (decodedText.startsWith('millog-resource:')) {
+            const resourceId = decodedText.split(':')[1];
+            const toastId = toast.loading('Шукаємо майно в базі...');
+            try {
+              const resourceData = await api.inventory.getById(resourceId);
+              setScannedResource(resourceData);
+              toast.success('Майно знайдено!', { id: toastId });
+            } catch (err) {
+              toast.error('Майно не знайдено або видалено', { id: toastId });
+            }
+          } else {
+            toast.error('Невідомий формат QR-коду');
+          }
+        },
+        (error) => {
+          console.warn('Помилка сканування QR-коду:', error);
+        }
+      );
+
+      return () => {
+        scanner.clear().catch(e => console.error("Помилка зупинки сканера", e));
+      };
+    }
+  }, [isScannerOpen]);
 
   const handleCreateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -170,36 +214,30 @@ export default function Inventory() {
     }
   };
 
-  // Функція завантаження наклейки з QR-кодом
   const handleDownloadQR = async (resourceId: string, resourceName: string) => {
     const toastId = toast.loading('Генерація QR-коду...');
     try {
       const blob = await api.inventory.downloadResourceQR(resourceId);
-      
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      // Робимо красиву назву файлу (замінюємо пробіли на підкреслення)
       const safeName = resourceName.replace(/\s+/g, '_');
       link.setAttribute('download', `QR_${safeName}.png`);
-      
       document.body.appendChild(link);
       link.click();
       link.parentNode?.removeChild(link);
       window.URL.revokeObjectURL(url);
-      
       toast.success('Наклейку завантажено!', { id: toastId });
     } catch (error) {
       toast.error('Помилка генерації QR', { id: toastId });
     }
   };
+
   const handleShowQR = async (resourceId: string, resourceName: string) => {
     const toastId = toast.loading('Генерація QR-коду...');
     try {
       const blob = await api.inventory.downloadResourceQR(resourceId);
       const url = window.URL.createObjectURL(blob);
-    
-      // Замість створення посилання для завантаження, зберігаємо URL в стейт
       setQrPreviewData({ id: resourceId, name: resourceName, url });
       toast.dismiss(toastId);
     } catch (error) {
@@ -264,7 +302,6 @@ export default function Inventory() {
 
   const availableWarehousesForNew = warehouses.filter(w => Number(w.unit_id) === Number(newRes.unit_id));
   
-  // --- ЛОГІКА ІЄРАРХІЇ: Фільтрація людей для видачі ---
   const allowedUsersForAssignment = assignModalData 
     ? usersList.filter(u => u.role !== 'VOLUNTEER' && u.unit_id === assignModalData.resource.unit_id)
     : [];
@@ -295,6 +332,11 @@ export default function Inventory() {
             </button>
           )}
           
+          {/* 🔥 КНОПКА ЗАПУСКУ СКАНЕРА 🔥 */}
+          <button className="btn btn-secondary" onClick={() => setIsScannerOpen(true)}>
+            📷 Сканувати QR
+          </button>
+          
           {canManageResources && (
             <button className="btn btn-primary" onClick={() => setShowResourceForm(true)}>
               + Ресурс
@@ -303,6 +345,7 @@ export default function Inventory() {
         </div>
       </div>
 
+      {/* МОДАЛКИ (Існуючі) */}
       {showCategoryForm && canManageCategories && (
         <div className="modal-overlay" onClick={() => setShowCategoryForm(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -353,16 +396,11 @@ export default function Inventory() {
                 </div>
                 
                 <div className="form-group">
-                  <label>Склад (Фізична локація) <span className="required">*</span></label>
+                  <label>Склад (Локація) <span className="required">*</span></label>
                   <select className="erp-input" value={newRes.warehouse_id} onChange={(e) => setNewRes({ ...newRes, warehouse_id: e.target.value })} required>
                     <option value="" disabled>-- Оберіть конкретний склад --</option>
                     {availableWarehousesForNew.map((w) => (<option key={w.id} value={w.id}>{w.name}</option>))}
                   </select>
-                  {newRes.unit_id && availableWarehousesForNew.length === 0 && (
-                     <span className="error-text" style={{ fontSize: '12px', marginTop: '4px', display: 'block' }}>
-                       У цього підрозділу немає жодного складу. Створіть його в меню "Склади".
-                     </span>
-                  )}
                 </div>
               </div>
               
@@ -377,14 +415,14 @@ export default function Inventory() {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label>Початкова кількість (На склад)</label>
+                  <label>Кількість (На склад)</label>
                   <input className="erp-input" type="number" min="0" value={newRes.quantity.toString()} onChange={(e) => { const val = parseInt(e.target.value, 10); setNewRes({ ...newRes, quantity: isNaN(val) ? 0 : val }) }} required />
                 </div>
               </div>
               
               <div className="form-row-2">
                 <div className="form-group">
-                  <label>Мін. залишок (для сповіщень)</label>
+                  <label>Мін. залишок</label>
                   <input className="erp-input" type="number" min="0" value={newRes.min_quantity.toString()} onChange={(e) => { const val = parseInt(e.target.value, 10); setNewRes({ ...newRes, min_quantity: isNaN(val) ? 0 : val }) }} required />
                 </div>
                 <div className="form-group">
@@ -406,58 +444,28 @@ export default function Inventory() {
         <div className="modal-overlay" onClick={() => { setAssignModalData(null); setAssignError(null); }}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>Видача майна персоналу</h3>
-            <p className="text-muted text-left" style={{ marginBottom: '15px' }}>
+            <p className="text-muted text-left">
               Видаємо: <strong>{assignModalData.resource.name}</strong><br />
-              Власник: {units.find(u => u.id === assignModalData.resource.unit_id)?.name || 'Невідомо'}<br />
-              Доступно на складі: {assignModalData.resource.quantity} {formatUnitType(assignModalData.resource.unit_type)}
+              Доступно: {assignModalData.resource.quantity} {formatUnitType(assignModalData.resource.unit_type)}
             </p>
             {assignError && (<div className="modal-error-box">❌ {assignError}</div>)}
             <form onSubmit={handleAssignSubmit}>
               <div className="form-group text-left">
                 <label>Кількість до видачі</label>
-                <input 
-                  className="erp-input" 
-                  type="number" 
-                  min="1" 
-                  max={assignModalData.resource.quantity} 
-                  value={assignModalData.quantity.toString()} 
-                  onChange={(e) => { 
-                    let val = parseInt(e.target.value, 10); 
-                    if (isNaN(val)) val = 1; 
-                    if (val > assignModalData.resource.quantity) val = assignModalData.resource.quantity; 
-                    setAssignModalData({ ...assignModalData, quantity: val }) 
-                  }} 
-                  required 
-                />
+                <input className="erp-input" type="number" min="1" max={assignModalData.resource.quantity} value={assignModalData.quantity.toString()} onChange={(e) => { let val = parseInt(e.target.value, 10); if (isNaN(val)) val = 1; if (val > assignModalData.resource.quantity) val = assignModalData.resource.quantity; setAssignModalData({ ...assignModalData, quantity: val }) }} required />
               </div>
               <div className="form-group text-left">
-                <label>Співробітник (Отримувач)</label>
-                <select 
-                  className="erp-input" 
-                  value={assignModalData.user_id} 
-                  onChange={(e) => setAssignModalData({ ...assignModalData, user_id: e.target.value })} 
-                  required
-                >
+                <label>Отримувач</label>
+                <select className="erp-input" value={assignModalData.user_id} onChange={(e) => setAssignModalData({ ...assignModalData, user_id: e.target.value })} required>
                   <option value="" disabled>-- Оберіть особу --</option>
-                  {allowedUsersForAssignment.length === 0 ? (
-                    <option value="" disabled>У цьому підрозділі ще немає доданих співробітників!</option>
-                  ) : (
-                    allowedUsersForAssignment.map((u) => { 
-                      const userUnit = units.find(unit => unit.id === u.unit_id); 
-                      const unitName = userUnit ? userUnit.name : 'Без підрозділу'; 
-                      return (<option key={u.id} value={u.id}>{u.full_name || u.email} — 🏢 {unitName}</option>);
-                    })
-                  )}
+                  {allowedUsersForAssignment.map((u) => (
+                    <option key={u.id} value={u.id}>{u.full_name || u.email}</option>
+                  ))}
                 </select>
-                {allowedUsersForAssignment.length === 0 && (
-                  <span className="error-text" style={{marginTop: '6px', display: 'block', fontSize: '12px'}}>
-                    Майно можна видати ТІЛЬКИ співробітникам того підрозділу, якому воно належить.
-                  </span>
-                )}
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary cancel-margin" onClick={() => { setAssignModalData(null); setAssignError(null); }}>Скасувати</button>
-                <button type="submit" className="btn btn-primary" disabled={allowedUsersForAssignment.length === 0}>Підтвердити видачу</button>
+                <button type="submit" className="btn btn-primary" disabled={allowedUsersForAssignment.length === 0}>Видати</button>
               </div>
             </form>
           </div>
@@ -469,11 +477,7 @@ export default function Inventory() {
           <div className="modal confirm-modal" onClick={(e) => e.stopPropagation()}>
             <h3>Підтвердження видалення</h3>
             {deleteError && (<div className="modal-error-box">❌ {deleteError}</div>)}
-            <p className="confirm-text text-left">Ти дійсно хочеш <strong>назавжди видалити</strong> картку майна <strong>{resourceToDelete.name}</strong>?</p>
-            <div className="warning-box">
-              <p>Цей запис буде повністю стертий з бази даних разом з історією видач.</p>
-              <p className="critical-text">Цю дію не можна скасувати.</p>
-            </div>
+            <p className="confirm-text text-left">Видалити <strong>{resourceToDelete.name}</strong>?</p>
             <div className="modal-actions">
               <button type="button" className="btn btn-secondary cancel-margin" onClick={() => { setResourceToDelete(null); setDeleteError(null); }}>Скасувати</button>
               <button type="button" className="btn btn-danger" onClick={confirmDelete}>🗑️ Видалити</button>
@@ -492,7 +496,7 @@ export default function Inventory() {
                 <input className="erp-input" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} required />
               </div>
               <div className="form-group">
-                <label>Мінімальний залишок (для складу)</label>
+                <label>Мінімальний залишок</label>
                 <input className="erp-input" type="number" min="0" value={editForm.min_quantity.toString()} onChange={(e) => { const val = parseInt(e.target.value, 10); setEditForm({ ...editForm, min_quantity: isNaN(val) ? 0 : val }) }} required />
               </div>
               <div className="modal-actions">
@@ -507,76 +511,121 @@ export default function Inventory() {
       {writeOffModalData && canManageResources && (
         <div className="modal-overlay" onClick={() => { setWriteOffModalData(null); setWriteOffError(null); }}>
           <div className="modal confirm-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Списання майна (зі складу)</h3>
-            <p className="text-muted" style={{ marginBottom: '15px', textAlign: 'left' }}>
-              Списання: <strong>{writeOffModalData.resource.name}</strong><br />
-              Доступно на складі: {writeOffModalData.resource.quantity} {formatUnitType(writeOffModalData.resource.unit_type)}
-            </p>
+            <h3>Списання майна</h3>
             {writeOffError && (<div className="modal-error-box">❌ {writeOffError}</div>)}
             <form onSubmit={handleWriteOffSubmit}>
               <div className="form-group" style={{ textAlign: 'left' }}>
-                <label>Скільки штук списати?</label>
+                <label>Кількість до списання</label>
                 <input className="erp-input" type="number" min="1" max={writeOffModalData.resource.quantity} value={writeOffModalData.quantity.toString()} onChange={(e) => { let val = parseInt(e.target.value, 10); if (isNaN(val)) val = 1; if (val > writeOffModalData.resource.quantity) val = writeOffModalData.resource.quantity; setWriteOffModalData({ ...writeOffModalData, quantity: val }) }} required />
-              </div>
-              <div className="warning-box">
-                <p>Вказана кількість майна отримає статус <strong>«Списано»</strong> і перейде у відповідну вкладку.</p>
-                <p className="critical-text">Цю дію не можна скасувати.</p>
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary cancel-margin" onClick={() => { setWriteOffModalData(null); setWriteOffError(null); }}>Скасувати</button>
-                <button type="submit" className="btn btn-danger">Підтвердити списання</button>
+                <button type="submit" className="btn btn-danger">Списати</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* МОДАЛКА ПОПЕРЕДНЬОГО ПЕРЕГЛЯДУ QR-КОДУ */}
-{qrPreviewData && (
-  <div className="modal-overlay" onClick={() => {
-    window.URL.revokeObjectURL(qrPreviewData.url); // Очищуємо пам'ять
-    setQrPreviewData(null);
-  }}>
-    <div className="modal qr-modal" onClick={(e) => e.stopPropagation()}>
-      <div className="modal-header">
-        <h3>Наклейка майна</h3>
-        <button className="close-btn" onClick={() => setQrPreviewData(null)}>&times;</button>
-      </div>
-      
-      <div className="modal-body qr-modal-body">
-        <p className="qr-resource-name">{qrPreviewData.name}</p>
-        
-        {/* Відображення самого QR-коду */}
-        <div className="qr-image-wrapper">
-          <img src={qrPreviewData.url} alt="Resource QR Code" className="qr-image" />
+      {qrPreviewData && (
+        <div className="modal-overlay" onClick={() => {
+          window.URL.revokeObjectURL(qrPreviewData.url);
+          setQrPreviewData(null);
+        }}>
+          <div className="modal qr-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Наклейка майна</h3>
+              <button className="close-btn" onClick={() => setQrPreviewData(null)}>&times;</button>
+            </div>
+            <div className="modal-body qr-modal-body">
+              <p className="qr-resource-name">{qrPreviewData.name}</p>
+              <div className="qr-image-wrapper">
+                <img src={qrPreviewData.url} alt="Resource QR Code" className="qr-image" />
+              </div>
+              <p className="qr-id-info">
+                ID: <code className="qr-id-code">{qrPreviewData.id.split('-')[0].toUpperCase()}</code>
+              </p>
+            </div>
+            <div className="modal-actions qr-modal-actions">
+              <button className="btn btn-primary btn-block" onClick={() => {
+                const link = document.createElement('a');
+                link.href = qrPreviewData.url;
+                link.setAttribute('download', `QR_${qrPreviewData.name.replace(/\s+/g, '_')}.png`);
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+              }}>📥 Завантажити для друку</button>
+              <button className="btn btn-secondary btn-block" onClick={() => setQrPreviewData(null)}>Закрити</button>
+            </div>
+          </div>
         </div>
-        
-        <p className="qr-id-info">
-          ID: <code className="qr-id-code">{qrPreviewData.id.split('-')[0].toUpperCase()}</code>
-        </p>
-      </div>
+      )}
 
-      <div className="modal-actions qr-modal-actions">
-        <button 
-          className="btn btn-primary btn-block" 
-          onClick={() => {
-            const link = document.createElement('a');
-            link.href = qrPreviewData.url;
-            link.setAttribute('download', `QR_${qrPreviewData.name.replace(/\s+/g, '_')}.png`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-          }}
-        >
-          📥 Завантажити для друку
-        </button>
-        <button className="btn btn-secondary btn-block" onClick={() => setQrPreviewData(null)}>
-          Закрити
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+      {/* 📷 МОДАЛКА: КАМЕРА СКАНЕРА */}
+      {isScannerOpen && (
+        <div className="modal-overlay" onClick={() => setIsScannerOpen(false)}>
+          <div className="modal scanner-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Наведіть камеру на QR-код</h3>
+              <button className="close-btn" onClick={() => setIsScannerOpen(false)}>&times;</button>
+            </div>
+            <div className="modal-body scanner-modal-body">
+              <div id="qr-reader" className="qr-reader-container"></div>
+              <p className="scanner-permission-text">
+                Дозвольте браузеру доступ до камери
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 📄 МОДАЛКА: РЕЗУЛЬТАТ СКАНУВАННЯ */}
+      {scannedResource && (
+        <div className="modal-overlay" onClick={() => setScannedResource(null)}>
+          <div className="modal scan-result-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Картка майна (Скан)</h3>
+              <button className="close-btn" onClick={() => setScannedResource(null)}>&times;</button>
+            </div>
+            
+            <div className="modal-body scanner-modal-body">
+              <div className="scan-result-icon">
+                <span>📦</span>
+                <h2>{scannedResource.name}</h2>
+              </div>
+              
+              <table className="scan-result-table">
+                <tbody>
+                  <tr>
+                    <td className="scan-result-label">Залишок на складі:</td>
+                    <td className="scan-result-value">
+                      {scannedResource.quantity} {formatUnitType(scannedResource.unit_type)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="scan-result-label">Стан:</td>
+                    <td className="scan-result-value">
+                      <span className="badge badge-success">Нове / Справне</span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="scan-result-label">ID в системі:</td>
+                    <td className="scan-result-id">
+                      {scannedResource.id.split('-')[0].toUpperCase()}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="modal-actions">
+              <button className="btn btn-primary btn-block" onClick={() => setScannedResource(null)}>
+                Закрити картку
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="content-grid">
         <div className="card">
@@ -620,7 +669,7 @@ export default function Inventory() {
                 {sortedUnitIds.map(unitId => {
                   const unitResources = groupedResources[unitId];
                   const isOrphan = unitId === 0;
-                  const unitName = isOrphan ? (activeTab === 'active' ? '⚠️ НЕРОЗПОДІЛЕНИЙ ЗАЛИШОК (Помилка обліку: призначте підрозділ)' : '🗄️ Старий архів (Без підрозділу)') : units.find((u) => u.id === unitId)?.name || 'Невідомий підрозділ';
+                  const unitName = isOrphan ? (activeTab === 'active' ? '⚠️ НЕРОЗПОДІЛЕНИЙ ЗАЛИШОК' : '🗄️ Архів') : units.find((u) => u.id === unitId)?.name || 'Невідомий підрозділ';
                   const isMyUnit = user?.unit_id === unitId;
                   const isDangerRow = isOrphan && activeTab === 'active';
 
@@ -628,7 +677,7 @@ export default function Inventory() {
                     <React.Fragment key={unitId}>
                       <tr className={`unit-header-row ${isMyUnit ? 'my-unit-header' : ''} ${isDangerRow ? 'bg-orphan' : ''}`}>
                         <td colSpan={canManageResources ? 6 : 5} className={isDangerRow ? 'text-danger fw-bold' : ''}>
-                          {isDangerRow ? '🚨 ' : (isOrphan ? '' : '🏢 На балансі: ')} {unitName} {isMyUnit && <span className="my-unit-badge">(Ваш підрозділ)</span>}
+                          {isDangerRow ? '🚨 ' : (isOrphan ? '' : '🏢 ')} {unitName} {isMyUnit && <span className="my-unit-badge">(Ваш)</span>}
                         </td>
                       </tr>
                       {unitResources.map((r) => {
@@ -641,15 +690,15 @@ export default function Inventory() {
                         else if (r.quantity === 0 && issuedQty === 0) { status = 'critical'; statusText = 'Відсутньо'; } 
                         else if (r.quantity <= r.min_quantity) { status = 'warning'; statusText = 'Нестача'; }
                         
-                        const warehouseNameStr = r.warehouse_id ? warehouses.find(w => w.id === r.warehouse_id)?.name || 'Невідомий склад' : 'В дорозі / Не вказано';
+                        const warehouseNameStr = r.warehouse_id ? warehouses.find(w => w.id === r.warehouse_id)?.name || 'Невідомий склад' : 'В дорозі';
 
                         return (
                           <tr key={r.id} className={`row-${status} ${isWrittenOff ? 'written-off-row' : ''}`}>
                             <td className="resource-name-cell">{r.name}</td>
                             <td className="location-cell">
                               <div className="location-stack">
-                                <span className="stock-info">🏢 Склад: <strong>{r.quantity} {formatUnitType(r.unit_type)}</strong> ({warehouseNameStr})</span>
-                                {issuedQty > 0 && !isWrittenOff && (<span className="issued-info">👤 На руках у о/с: <strong>{issuedQty} {formatUnitType(r.unit_type)}</strong></span>)}
+                                <span className="stock-info">🏢 Склад: <strong>{r.quantity}</strong> ({warehouseNameStr})</span>
+                                {issuedQty > 0 && !isWrittenOff && (<span className="issued-info">👤 На руках: <strong>{issuedQty}</strong></span>)}
                               </div>
                             </td>
                             <td className={isWrittenOff ? 'written-off-qty text-center font-bold' : 'text-center font-bold'}>
@@ -666,29 +715,17 @@ export default function Inventory() {
                                     <div className="actions-dropdown-menu">
                                       {!isWrittenOff && (
                                         <>
-                                          <button onClick={() => { handleShowQR(r.id, r.name); setActiveMenuId(null); }}>
-                                            🔍 Переглянути QR-код
-                                          </button>
-                                          <button onClick={() => { handleDownloadQR(r.id, r.name); setActiveMenuId(null); }}>
-                                            🖨️ Друк наклейки (QR)
-                                          </button>
+                                          <button onClick={() => { handleShowQR(r.id, r.name); setActiveMenuId(null); }}>🔍 Переглянути QR-код</button>
+                                          <button onClick={() => { handleDownloadQR(r.id, r.name); setActiveMenuId(null); }}>🖨️ Друк наклейки (QR)</button>
                                           {r.quantity > 0 && (
-                                            <button className="text-primary-action" onClick={() => { setAssignModalData({ resource: r, quantity: 1, user_id: '' }); setActiveMenuId(null); }}>
-                                              👤 Видати співробітнику
-                                            </button>
+                                            <button className="text-primary-action" onClick={() => { setAssignModalData({ resource: r, quantity: 1, user_id: '' }); setActiveMenuId(null); }}>👤 Видати співробітнику</button>
                                           )}
-                                          <button onClick={() => { setEditForm({ name: r.name, min_quantity: r.min_quantity }); setEditModalId(r.id); setActiveMenuId(null); }}>
-                                            ✏️ Редагувати
-                                          </button>
-                                          <button onClick={() => { setWriteOffModalData({ resource: r, quantity: r.quantity }); setActiveMenuId(null); }}>
-                                            📦 Списати зі складу
-                                          </button>
+                                          <button onClick={() => { setEditForm({ name: r.name, min_quantity: r.min_quantity }); setEditModalId(r.id); setActiveMenuId(null); }}>✏️ Редагувати</button>
+                                          <button onClick={() => { setWriteOffModalData({ resource: r, quantity: r.quantity }); setActiveMenuId(null); }}>📦 Списати зі складу</button>
                                           <div className="dropdown-divider"></div>
                                         </>
                                       )}
-                                      <button className="text-danger" onClick={() => { setResourceToDelete(r); setActiveMenuId(null); }}>
-                                        🗑️ Видалити запис
-                                      </button>
+                                      <button className="text-danger" onClick={() => { setResourceToDelete(r); setActiveMenuId(null); }}>🗑️ Видалити запис</button>
                                     </div>
                                   )}
                                 </div>

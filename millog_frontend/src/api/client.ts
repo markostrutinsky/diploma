@@ -71,6 +71,7 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(body),
       }),
+    getAuditLogs: () => request<any[]>('/admin/audit-logs'),
   },
   users: {
     listCommanders: () => request<User[]>('/users/commanders'),
@@ -102,6 +103,8 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(body),
       }),
+    getById: (id: string) => 
+      request<Resource>(`/inventory/resources/${id}`),
     writeOffResource: (id: string, quantity: number) =>
       request<{ message: string }>(`/inventory/resources/${id}/write-off`, {
         method: 'POST',

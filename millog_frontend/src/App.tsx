@@ -16,6 +16,7 @@ import Vehicles from './pages/Vehicles'
 import Warehouses from './pages/Warehouses'
 import AnalyticsDashboard from './pages/AnalyticsDashboard'
 import Profile from './pages/Profile'
+import AuditLogs from './pages/AuditLogs'
 import { Toaster } from 'react-hot-toast'
 
 function App() {
@@ -38,7 +39,8 @@ function App() {
 
           <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
 
-          {/* НОВИЙ МАРШРУТ: МОЄ МАЙНО */}
+          <Route path="/audit" element={<ProtectedRoute><AuditLogs /></ProtectedRoute>}/>
+
           <Route 
             path="/my-equipment" 
             element={<ProtectedRoute forbidRoles={['VOLUNTEER']}><Profile /></ProtectedRoute>} 

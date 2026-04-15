@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"millog_backend/internal/middleware"
 	"millog_backend/internal/models"
@@ -12,11 +13,12 @@ import (
 )
 
 type InventoryHandler struct {
-	invService *services.InventoryService
+	invService   *services.InventoryService
+	auditService *services.AuditService
 }
 
-func NewInventoryHandler(inv *services.InventoryService) *InventoryHandler {
-	return &InventoryHandler{invService: inv}
+func NewInventoryHandler(inv *services.InventoryService, audit *services.AuditService) *InventoryHandler {
+	return &InventoryHandler{invService: inv, auditService: audit}
 }
 
 func (h *InventoryHandler) CreateCategory(c *gin.Context) {
@@ -54,6 +56,25 @@ func (h *InventoryHandler) CreateResource(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusCreated, res)
+}
+
+func (h *InventoryHandler) GetResource(c *gin.Context) {
+	resourceID := c.Param("id")
+	if resourceID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "не вказано ID ресурсу"})
+		return
+	}
+
+	res, err := h.invService.GetResource(c.Request.Context(), resourceID)
+	if err != nil {
+		if err.Error() == "repository get failed: resource not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "ресурс не знайдено"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, res)
 }
 
 func (h *InventoryHandler) ListResources(c *gin.Context) {
@@ -96,6 +117,7 @@ func (h *InventoryHandler) ListResources(c *gin.Context) {
 
 func (h *InventoryHandler) WriteOff(c *gin.Context) {
 	resourceID := c.Param("id")
+	userID := c.GetString("user_id")
 	var req models.WriteOffResourceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "невірний формат: вкажіть кількість (quantity)"})
@@ -107,6 +129,19 @@ func (h *InventoryHandler) WriteOff(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	go func(uID string, rID string) {
+		// Використовуємо context.Background(), бо контекст запиту 'c' вмирає після відповіді
+		_ = h.auditService.LogAction(
+			context.Background(),
+			uID,
+			"WRITE_OFF",
+			"RESOURCE",
+			rID,
+			"Списання майна зі складу", // Можна додати кількість, якщо вона є в змінній
+		)
+	}(userID, resourceID)
+
 	c.JSON(http.StatusOK, gin.H{"message": "Успішно списано"})
 }
 
@@ -140,6 +175,7 @@ func (h *InventoryHandler) UpdateResource(c *gin.Context) {
 
 func (h *InventoryHandler) Delete(c *gin.Context) {
 	resourceID := c.Param("id")
+	userID := c.GetString("user_id")
 	if resourceID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "не вказано ID ресурсу"})
 		return
@@ -150,6 +186,16 @@ func (h *InventoryHandler) Delete(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	go func(uID string, rID string) {
+		_ = h.auditService.LogAction(
+			context.Background(),
+			uID,
+			"DELETE",
+			"RESOURCE",
+			rID,
+			"Безповоротне видалення картки майна",
+		)
+	}(userID, resourceID)
 	c.JSON(http.StatusOK, gin.H{"message": "Ресурс успішно видалено"})
 }
 

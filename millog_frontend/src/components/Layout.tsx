@@ -156,6 +156,13 @@ export default function Layout({ children }: LayoutProps) {
                 Користувачі
               </Link>
             )}
+            
+            {user?.role === 'ADMIN' && (
+              <Link to="/audit" className={location.pathname === '/audit' ? 'active' : ''}>
+                🛡️ Журнал аудиту
+              </Link>
+            )}
+
           </nav>
           <div className="sidebar-footer">
             <div className="user-badge">

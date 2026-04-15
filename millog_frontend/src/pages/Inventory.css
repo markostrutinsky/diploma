@@ -272,3 +272,74 @@
 .btn-block {
   width: 100%;
 }
+
+/* ==========================================
+   СКАНЕР QR ТА РЕЗУЛЬТАТ
+   ========================================== */
+.scanner-modal {
+  max-width: 400px;
+}
+
+.scanner-modal-body {
+  padding: 20px 0;
+}
+
+.qr-reader-container {
+  width: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.scanner-permission-text {
+  text-align: center;
+  font-size: 13px;
+  color: #64748b;
+  margin-top: 15px;
+}
+
+.scan-result-icon {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.scan-result-icon span {
+  font-size: 40px;
+  display: block;
+  margin-bottom: 10px;
+}
+
+.scan-result-icon h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 20px;
+}
+
+.scan-result-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.scan-result-table td {
+  padding: 10px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.scan-result-table tr:last-child td {
+  border-bottom: none;
+}
+
+.scan-result-label {
+  color: #64748b;
+}
+
+.scan-result-value {
+  text-align: right;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.scan-result-id {
+  text-align: right;
+  font-size: 12px;
+  color: #94a3b8;
+}

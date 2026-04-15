@@ -1,0 +1,82 @@
+/* ==========================================
+   ЖУРНАЛ АУДИТУ (Audit Logs)
+   ========================================== */
+
+.audit-page {
+  padding: 24px;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.audit-subtitle {
+  color: #64748b;
+  margin-top: 4px;
+  font-size: 14px;
+}
+
+/* Стилізація таблиці аудиту */
+.table-audit th {
+  background-color: #f8fafc;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: #475569;
+}
+
+.timestamp-cell {
+  white-space: nowrap;
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.user-info-stack {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-email-main {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.user-role-sub {
+  font-size: 11px;
+  color: #64748b;
+}
+
+/* Бейджі типів об'єктів (Entity) */
+.entity-tag {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 11px;
+  background: #f1f5f9;
+  padding: 4px 8px;
+  border-radius: 4px;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.entity-id-short {
+  color: #94a3b8;
+  margin-left: 4px;
+}
+
+/* Текст деталей */
+.details-text {
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 400px;
+}
+
+/* Анімація появи рядків */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.data-table tbody tr {
+  transition: background-color 0.2s;
+}
+
+.data-table tbody tr:hover {
+  background-color: #f1f5f9;
+}

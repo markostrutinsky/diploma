@@ -93,15 +93,17 @@ func main() {
 	fuelRepo := repositories.NewFuelRepository()
 	warehouseRepo := repositories.NewWarehouseRepository()
 	analyticsRepo := repositories.NewAnalyticsRepository()
+	auditRepo := repositories.NewAuditLogRepository()
 
 	invService := services.NewInventoryService(catRepo, resRepo, userRepo, dbPool)
 	reqService := services.NewRequestService(reqRepo, resRepo, userRepo, dbPool)
 	unitService := services.NewUnitService(unitRepo, userRepo, dbPool)
 	volReqService := services.NewVolunteerRequestService(volReqRepo, dbPool)
 	warehouseService := services.NewWarehouseService(warehouseRepo, dbPool)
-	analyticsService := services.NewAnalyticsService(analyticsRepo, dbPool) // dbPool - твоє з'єднання
+	analyticsService := services.NewAnalyticsService(analyticsRepo, dbPool)
+	auditService := services.NewAuditService(auditRepo, dbPool)
 
-	invHandler := handlers.NewInventoryHandler(invService)
+	invHandler := handlers.NewInventoryHandler(invService, auditService)
 	reqHandler := handlers.NewRequestHandler(reqService)
 	unitHandler := handlers.NewUnitHandler(unitService)
 	volReqHandler := handlers.NewVolunteerRequestHandler(volReqService)
@@ -115,6 +117,7 @@ func main() {
 
 	vehicleService := services.NewVehicleService(vehicleRepo, dbPool)
 	vehicleHandler := handlers.NewVehicleHandler(vehicleService)
+	auditHandler := handlers.NewAuditHandler(auditService)
 
 	r := gin.Default()
 
@@ -152,6 +155,7 @@ func main() {
 		admin.Use(middleware.AuthMiddleware(jwtSecret, dbPool), middleware.RequireAnyRole(models.UserCreatorRoles))
 		{
 			admin.POST("/users", authHandler.RegisterUser)
+			admin.GET("/audit-logs", auditHandler.GetLogs)
 		}
 
 		// Units: Admin + commanders + logists + storekeepers
@@ -171,6 +175,7 @@ func main() {
 		{
 			inv.GET("/categories", invHandler.ListCategories)
 			inv.GET("/resources", invHandler.ListResources)
+			inv.GET("/resources/:id", invHandler.GetResource)
 			inv.POST("/categories", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.CreateCategory)
 			inv.POST("/resources", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.CreateResource)
 			inv.POST("/resources/:id/write-off", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.WriteOff)
