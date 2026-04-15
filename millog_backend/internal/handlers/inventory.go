@@ -7,7 +7,6 @@ import (
 	"millog_backend/internal/services"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -137,37 +136,6 @@ func (h *InventoryHandler) UpdateResource(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "resource successfully updated"})
-}
-
-func (h *InventoryHandler) Transfer(c *gin.Context) {
-	// 1. Беремо ID майна з URL (наприклад: /api/resources/:id/transfer)
-	resourceID := c.Param("id")
-	if resourceID == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "не вказано ID ресурсу"})
-		return
-	}
-
-	// 2. Парсимо тіло запиту (кількість, цільовий склад)
-	var req models.TransferResourceRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "невірний формат даних: " + err.Error()})
-		return
-	}
-
-	// 3. Викликаємо сервіс
-	err := h.invService.Transfer(c.Request.Context(), resourceID, req)
-	if err != nil {
-		// Якщо помилка пов'язана з нестачею майна, краще віддавати 400 Bad Request
-		if strings.Contains(err.Error(), "недостатньо майна") {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	// 4. Успішна відповідь
-	c.JSON(http.StatusOK, gin.H{"message": "Майно успішно переміщено"})
 }
 
 func (h *InventoryHandler) Delete(c *gin.Context) {
@@ -308,4 +276,24 @@ func (h *InventoryHandler) ReceiveShipment(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Вантаж успішно прийнято на склад!"})
+}
+
+// DownloadShipmentPDF віддає згенеровану ТТН у форматі PDF
+func (h *InventoryHandler) DownloadShipmentPDF(c *gin.Context) {
+	shipmentID := c.Param("id")
+
+	// Викликаємо сервіс
+	pdfBytes, err := h.invService.GenerateShipmentPDF(c.Request.Context(), shipmentID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Кажемо браузеру завантажити цей файл з конкретною назвою
+	filename := fmt.Sprintf("Waybill_%s.pdf", shipmentID)
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+	c.Header("Content-Type", "application/pdf")
+
+	// Віддаємо байти (HTTP статус 200)
+	c.Data(http.StatusOK, "application/pdf", pdfBytes)
 }

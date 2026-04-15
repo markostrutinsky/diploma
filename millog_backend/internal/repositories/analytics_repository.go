@@ -269,3 +269,90 @@ func (r *AnalyticsRepository) ProcessSmartReplenish(ctx context.Context, db DBEx
 
 	return count, nil
 }
+
+// --- СТРУКТУРИ ДЛЯ ЕКСПОРТУ ---
+
+type ExportInventoryRow struct {
+	Category  string
+	ItemName  string
+	UnitName  string // Філія / Підрозділ
+	Warehouse string
+	Quantity  int
+	UnitType  string
+	Condition string
+}
+
+type ExportFuelRow struct {
+	Date       time.Time
+	Vehicle    string
+	Plate      string
+	RecordType string
+	Liters     float64
+	Driver     string
+}
+
+func (r *AnalyticsRepository) GetInventoryForExport(ctx context.Context, db DBExecutor, unitID *int) ([]ExportInventoryRow, error) {
+	query := `
+		SELECT 
+			c.name as category, 
+			r.name as item_name, 
+			COALESCE(u.name, 'Без підрозділу') as unit_name, 
+			COALESCE(w.name, 'Без складу') as warehouse, 
+			r.quantity, 
+			r.unit_type, 
+			r.condition
+		FROM resources r
+		JOIN resource_categories c ON r.category_id = c.id
+		LEFT JOIN units u ON r.unit_id = u.id
+		LEFT JOIN warehouses w ON r.warehouse_id = w.id
+		WHERE ($1::int IS NULL OR r.unit_id = $1)
+		ORDER BY u.name, c.name, r.name;
+	`
+
+	rows, err := db.Query(ctx, query, unitID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []ExportInventoryRow
+	for rows.Next() {
+		var row ExportInventoryRow
+		// Тепер Scan ніколи не впаде, бо ми гарантовано отримаємо текст
+		if err := rows.Scan(&row.Category, &row.ItemName, &row.UnitName, &row.Warehouse, &row.Quantity, &row.UnitType, &row.Condition); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	return result, nil
+}
+
+// GetFuelForExport витягує історію пального за період
+func (r *AnalyticsRepository) GetFuelForExport(ctx context.Context, db DBExecutor, startDate, endDate time.Time) ([]ExportFuelRow, error) {
+	query := `
+		SELECT 
+			f.created_at, v.brand || ' ' || COALESCE(v.model, ''), v.plate_number, 
+			f.record_type, f.liters, COALESCE(u.full_name, 'Невідомо')
+		FROM fuel_records f
+		JOIN vehicles v ON f.vehicle_id = v.id
+		LEFT JOIN users u ON f.created_by = u.id
+		WHERE f.created_at >= $1 AND f.created_at <= $2
+		ORDER BY f.created_at DESC;
+	`
+
+	rows, err := db.Query(ctx, query, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []ExportFuelRow
+	for rows.Next() {
+		var row ExportFuelRow
+		if err := rows.Scan(&row.Date, &row.Vehicle, &row.Plate, &row.RecordType, &row.Liters, &row.Driver); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+	return result, nil
+}

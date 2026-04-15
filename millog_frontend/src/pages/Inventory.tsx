@@ -18,7 +18,6 @@ export default function Inventory() {
   
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [showResourceForm, setShowResourceForm] = useState(false);
-  const [transferError, setTransferError] = useState<string | null>(null);
   const [writeOffModalData, setWriteOffModalData] = useState<{ resource: Resource; quantity: number; } | null>(null);
   const [usersList, setUsersList] = useState<any[]>([]);
   const [assignModalData, setAssignModalData] = useState<{ resource: Resource; quantity: number; user_id: string; } | null>(null);
@@ -29,8 +28,6 @@ export default function Inventory() {
   const [editForm, setEditForm] = useState({ name: '', min_quantity: 0 });
   const [resourceToDelete, setResourceToDelete] = useState<Resource | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-
-  const [transferModalData, setTransferModalData] = useState<{ resource: Resource; quantity: number; target_unit_id: number | ''; target_warehouse_id: string; } | null>(null);
 
   const [newCat, setNewCat] = useState({ name: '', description: '' });
   
@@ -171,24 +168,6 @@ export default function Inventory() {
     }
   };
 
-  const handleTransferSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!transferModalData) return;
-    setTransferError(null);
-    try {
-      await api.inventory.transferResource(transferModalData.resource.id, { 
-        quantity: transferModalData.quantity, 
-        target_unit_id: transferModalData.target_unit_id === '' ? undefined : Number(transferModalData.target_unit_id), 
-        target_warehouse_id: transferModalData.target_warehouse_id === '' ? undefined : transferModalData.target_warehouse_id 
-      });
-      setTransferModalData(null);
-      toast.success('Майно переміщено в інший підрозділ');
-      loadData();
-    } catch (err) { 
-      setTransferError(err instanceof Error ? err.message : 'Помилка при переміщенні'); 
-    }
-  };
-
   const confirmDelete = async () => {
     if (!resourceToDelete) return;
     setDeleteError(null);
@@ -245,7 +224,6 @@ export default function Inventory() {
   });
 
   const availableWarehousesForNew = warehouses.filter(w => Number(w.unit_id) === Number(newRes.unit_id));
-  const availableWarehousesForTransfer = transferModalData ? warehouses.filter(w => Number(w.unit_id) === Number(transferModalData.target_unit_id)) : [];
   
   // --- ЛОГІКА ІЄРАРХІЇ: Фільтрація людей для видачі ---
   const allowedUsersForAssignment = assignModalData 
@@ -336,17 +314,16 @@ export default function Inventory() {
                 </div>
                 
                 <div className="form-group">
-                  <label>Склад (Фізична локація)</label>
-                  <select className="erp-input" value={newRes.warehouse_id} onChange={(e) => setNewRes({ ...newRes, warehouse_id: e.target.value })}>
-                    {!newRes.unit_id ? (
-                      <option value="">-- Спершу оберіть підрозділ --</option>
-                    ) : (
-                      <>
-                        <option value="">-- В дорозі / Не вказано --</option>
-                        {availableWarehousesForNew.map((w) => (<option key={w.id} value={w.id}>{w.name}</option>))}
-                      </>
-                    )}
+                  <label>Склад (Фізична локація) <span className="required">*</span></label>
+                  <select className="erp-input" value={newRes.warehouse_id} onChange={(e) => setNewRes({ ...newRes, warehouse_id: e.target.value })} required>
+                    <option value="" disabled>-- Оберіть конкретний склад --</option>
+                    {availableWarehousesForNew.map((w) => (<option key={w.id} value={w.id}>{w.name}</option>))}
                   </select>
+                  {newRes.unit_id && availableWarehousesForNew.length === 0 && (
+                     <span className="error-text" style={{ fontSize: '12px', marginTop: '4px', display: 'block' }}>
+                       У цього підрозділу немає жодного складу. Створіть його в меню "Склади".
+                     </span>
+                  )}
                 </div>
               </div>
               
@@ -386,7 +363,6 @@ export default function Inventory() {
         </div>
       )}
 
-      {/* МОДАЛКА: ВИДАЧА МАЙНА (ОНОВЛЕНО) */}
       {assignModalData && canManageResources && (
         <div className="modal-overlay" onClick={() => { setAssignModalData(null); setAssignError(null); }}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -483,48 +459,6 @@ export default function Inventory() {
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary cancel-margin" onClick={() => setEditModalId(null)}>Скасувати</button>
                 <button type="submit" className="btn btn-primary">Зберегти зміни</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {transferModalData && canManageResources && (
-        <div className="modal-overlay" onClick={() => { setTransferModalData(null); setTransferError(null); }}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Переміщення ресурсу</h3>
-            <p className="text-muted text-left" style={{ marginBottom: '15px' }}>
-              Переміщення: <strong>{transferModalData.resource.name}</strong><br />
-              Доступно на поточному складі: {transferModalData.resource.quantity} {formatUnitType(transferModalData.resource.unit_type)}
-            </p>
-            {transferError && (<div className="modal-error-box">❌ {transferError}</div>)}
-            <form onSubmit={handleTransferSubmit}>
-              <div className="form-group text-left">
-                <label>Кількість для переміщення</label>
-                <input className="erp-input" type="number" min="1" max={transferModalData.resource.quantity} value={transferModalData.quantity.toString()} onChange={(e) => { let val = parseInt(e.target.value, 10); if (isNaN(val)) val = 1; if (val > transferModalData.resource.quantity) val = transferModalData.resource.quantity; setTransferModalData({ ...transferModalData, quantity: val }) }} required />
-              </div>
-              <div className="form-group text-left">
-                <label>Кому передаємо (Підрозділ)</label>
-                <select className="erp-input" value={transferModalData.target_unit_id} onChange={(e) => { setTransferModalData({ ...transferModalData, target_unit_id: e.target.value ? parseInt(e.target.value, 10) : '', target_warehouse_id: '' }) }} required>
-                  {units.map((u) => (<option key={u.id} value={u.id}>{u.name}</option>))}
-                </select>
-              </div>
-              <div className="form-group text-left">
-                <label>На який склад</label>
-                <select className="erp-input" value={transferModalData.target_warehouse_id} onChange={(e) => setTransferModalData({ ...transferModalData, target_warehouse_id: e.target.value })}>
-                  {transferModalData.target_unit_id === '' ? (
-                    <option value="">-- Спершу оберіть підрозділ --</option>
-                  ) : (
-                    <>
-                      <option value="">-- В дорозі / Не вказано --</option>
-                      {availableWarehousesForTransfer.map((w) => (<option key={w.id} value={w.id}>{w.name}</option>))}
-                    </>
-                  )}
-                </select>
-              </div>
-              <div className="modal-actions">
-                <button type="button" className="btn btn-secondary cancel-margin" onClick={() => { setTransferModalData(null); setTransferError(null); }}>Скасувати</button>
-                <button type="submit" className="btn btn-primary">Підтвердити переміщення</button>
               </div>
             </form>
           </div>
@@ -653,9 +587,6 @@ export default function Inventory() {
                                           )}
                                           <button onClick={() => { setEditForm({ name: r.name, min_quantity: r.min_quantity }); setEditModalId(r.id); setActiveMenuId(null); }}>
                                             ✏️ Редагувати
-                                          </button>
-                                          <button onClick={() => { setTransferModalData({ resource: r, quantity: 1, target_unit_id: r.unit_id || '', target_warehouse_id: '' }); setActiveMenuId(null); }}>
-                                            🔄 Передати (Трансфер)
                                           </button>
                                           <button onClick={() => { setWriteOffModalData({ resource: r, quantity: r.quantity }); setActiveMenuId(null); }}>
                                             📦 Списати зі складу

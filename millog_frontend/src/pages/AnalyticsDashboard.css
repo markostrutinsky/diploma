@@ -358,3 +358,38 @@
   border-color: #3b82f6;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
+
+/* --- Фікс шапки та кнопок дашборду --- */
+.erp-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap; /* Дозволяє перенесення блоків на малих екранах */
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.erp-header h2 {
+  white-space: nowrap; /* Заголовок в один рядок */
+  margin: 0 0 4px 0;
+}
+
+.action-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.button-group {
+  display: flex;
+  gap: 8px;
+}
+
+.button-group button {
+  white-space: nowrap; /* 🔥 ГОЛОВНИЙ ФІКС: текст кнопок не стрибає на новий рядок */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+}

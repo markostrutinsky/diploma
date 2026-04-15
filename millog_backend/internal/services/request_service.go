@@ -87,20 +87,13 @@ func (s *RequestService) Approve(ctx context.Context, requestID, approverID stri
 		return errors.New("недостатньо прав для погодження заявки цього рівня (порушення субординації)")
 	}
 
+	// Просто оновлюємо статус заявки в базі
 	if err := s.requestRepo.Approve(ctx, tx, requestID, approverID, approved, comment); err != nil {
 		return err
 	}
 
-	if approved {
-		resource, err := s.resourceRepo.GetByID(ctx, tx, req.ResourceID)
-		if err != nil {
-			return err
-		}
-		newQty := resource.Quantity + req.Quantity
-		if err := s.resourceRepo.UpdateQuantity(ctx, tx, req.ResourceID, newQty); err != nil {
-			return err
-		}
-	}
+	// ✅ Більше ніяких махінацій з ресурсами! Майно додасться тільки тоді,
+	// коли фура приїде і комірник натисне "Прийняти вантаж" (статус COMPLETED).
 
 	return tx.Commit(ctx)
 }

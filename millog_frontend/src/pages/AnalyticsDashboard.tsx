@@ -60,7 +60,6 @@ const AnalyticsDashboard: React.FC = () => {
   }, [startDate, endDate, selectedUnit]);
 
   // УНІВЕРСАЛЬНА ГЕНЕРАЦІЯ СУЧАСНОГО PDF (EXECUTIVE SUMMARY)
-  // УНІВЕРСАЛЬНА ГЕНЕРАЦІЯ СУЧАСНОГО PDF (EXECUTIVE SUMMARY)
   const handleExportPDF = async () => {
     const input = document.getElementById('official-pdf-report');
     if (!input) return;
@@ -110,6 +109,49 @@ const AnalyticsDashboard: React.FC = () => {
       toast.error("Помилка генерації документа", { id: 'pdf-toast' });
     } finally {
       input.style.display = 'none';
+    }
+  };
+
+  // 🔥 НОВА ФУНКЦІЯ: Експорт залишків в Excel
+  const handleExportInventory = async () => {
+    const toastId = toast.loading('Формування Excel звіту (Залишки)...');
+    try {
+      const unitIdToExport = selectedUnit ? parseInt(selectedUnit, 10) : undefined;
+      const { blob, filename } = await api.analytics.exportInventory(unitIdToExport); 
+      
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Excel завантажено!', { id: toastId });
+    } catch (error: any) {
+      toast.error(error.message || 'Не вдалося завантажити звіт', { id: toastId });
+    }
+  };
+
+  // 🔥 НОВА ФУНКЦІЯ: Експорт пального в Excel
+  const handleExportFuel = async () => {
+    const toastId = toast.loading('Формування Excel звіту (Пальне)...');
+    try {
+      const { blob, filename } = await api.analytics.exportFuel(startDate, endDate); 
+      
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Excel завантажено!', { id: toastId });
+    } catch (error: any) {
+      toast.error(error.message || 'Не вдалося завантажити звіт', { id: toastId });
     }
   };
 
@@ -203,7 +245,7 @@ const AnalyticsDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* ХЕДЕР ДАШБОРДУ З ФІЛЬТРАМИ */}
+      {/* ХЕДЕР ДАШБОРДУ З ФІЛЬТРАМИ ТА КНОПКАМИ */}
       <div className="erp-header">
         <div>
           <h2>Командна панель (Analytics)</h2>
@@ -231,6 +273,9 @@ const AnalyticsDashboard: React.FC = () => {
             <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="erp-date-input" />
           </div>
           <div className="button-group">
+            {/* Додані кнопки експорту в Excel */}
+            <button onClick={handleExportInventory} className="btn-secondary" title="Залишки на складах">📊 Excel (Склади)</button>
+            <button onClick={handleExportFuel} className="btn-secondary" title="Історія пального">⛽ Excel (Пальне)</button>
             <button onClick={handleExportPDF} className="btn-secondary">📄 Звіт (А4)</button>
             <button onClick={() => setIsModalOpen(true)} className="btn-primary">⚡ Smart Поповнення</button>
           </div>
@@ -568,7 +613,7 @@ const AnalyticsDashboard: React.FC = () => {
           </tbody>
         </table>
 
-        {/* СЕКЦІЯ 4: РИЗИКИ АВТОПАРКУ (Виправлено логіку) */}
+        {/* СЕКЦІЯ 4: РИЗИКИ АВТОПАРКУ */}
         <h2 style={{ fontSize: '12pt', backgroundColor: '#f0f0f0', padding: '8px', borderLeft: '4px solid #f59e0b', marginBottom: '15px' }}>4. ВИЯВЛЕНІ АНОМАЛІЇ ТА РИЗИКИ АВТОПАРКУ</h2>
         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '40px', fontSize: '10pt' }}>
           <thead>

@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"millog_backend/internal/models"
@@ -67,4 +69,62 @@ func (h *AnalyticsHandler) AutoReplenish(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Successfully created requests", "count": count})
+}
+
+// ExportInventory віддає XLSX файл із залишками
+func (h *AnalyticsHandler) ExportInventory(c *gin.Context) {
+	// Дозволяємо фільтрувати по філії (опціонально)
+	var unitID *int
+	if idStr := c.Query("unit_id"); idStr != "" {
+		id, err := strconv.Atoi(idStr)
+		if err == nil {
+			unitID = &id
+		}
+	}
+
+	fileBytes, err := h.service.GenerateInventoryExcel(c.Request.Context(), unitID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Не вдалося згенерувати звіт"})
+		return
+	}
+
+	fileName := fmt.Sprintf("Inventory_Report_%s.xlsx", time.Now().Format("2006-01-02"))
+
+	c.Header("Content-Description", "File Transfer")
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Data(http.StatusOK, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileBytes)
+}
+
+// ExportFuel віддає XLSX файл з витратами пального
+func (h *AnalyticsHandler) ExportFuel(c *gin.Context) {
+	startStr := c.Query("start")
+	endStr := c.Query("end")
+
+	// Дефолт: за останні 30 днів
+	endDate := time.Now()
+	startDate := endDate.AddDate(0, 0, -30)
+
+	if startStr != "" {
+		if parsed, err := time.Parse("2006-01-02", startStr); err == nil {
+			startDate = parsed
+		}
+	}
+	if endStr != "" {
+		if parsed, err := time.Parse("2006-01-02", endStr); err == nil {
+			endDate = parsed.Add(23*time.Hour + 59*time.Minute) // Кінець дня
+		}
+	}
+
+	fileBytes, err := h.service.GenerateFuelExcel(c.Request.Context(), startDate, endDate)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Не вдалося згенерувати звіт"})
+		return
+	}
+
+	fileName := fmt.Sprintf("Fuel_Report_%s.xlsx", time.Now().Format("2006-01-02"))
+
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Data(http.StatusOK, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileBytes)
 }

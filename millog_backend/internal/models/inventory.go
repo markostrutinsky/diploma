@@ -93,12 +93,6 @@ type UpdateResourceRequest struct {
 	WeightKg     *float64           `json:"weight_kg"`
 }
 
-type TransferResourceRequest struct {
-	Quantity          int     `json:"quantity" binding:"required,gt=0"` // Скільки переміщуємо
-	TargetWarehouseID *string `json:"target_warehouse_id"`              // Куди (може бути nil, якщо видаємо на руки)
-	TargetUnitID      *int64  `json:"target_unit_id"`                   // Кому (якщо передаємо іншому підрозділу)
-}
-
 type WriteOffResourceRequest struct {
 	Quantity int `json:"quantity" binding:"required,gt=0"`
 }

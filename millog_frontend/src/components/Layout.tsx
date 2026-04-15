@@ -1,5 +1,8 @@
+import React, { useEffect, useState, useRef } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { api } from '../api/client' // ДОДАНО
+import toast from 'react-hot-toast' // ДОДАНО
 import './Layout.css'
 
 const USER_CREATOR_ROLES = ['ADMIN', 'BRIGADE_CMDR', 'BATTALION_CMDR', 'COMPANY_CMDR', 'PLATOON_CMDR', 'BRIGADE_LOGIST', 'BATTALION_LOGIST', 'BRIGADE_STOREKEEPER', 'BATTALION_STOREKEEPER', 'COMPANY_SERGEANT']
@@ -26,6 +29,47 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
   const { user, token, loading, logout } = useAuth()
+
+  // --- НОВЕ: Логіка сповіщень ---
+  const [pendingCount, setPendingCount] = useState(0)
+  const prevCountRef = useRef(0)
+
+  // Перевіряємо, чи має поточний користувач права погоджувати заявки (щоб не спамити звичайних солдатів)
+  const canApproveRequests = user?.role && ['ADMIN', 'BRIGADE_CMDR', 'BATTALION_CMDR', 'COMPANY_CMDR', 'BRIGADE_LOGIST', 'BATTALION_LOGIST'].includes(user.role)
+
+  useEffect(() => {
+    // Запускаємо опитування тільки для авторизованих логістів/командирів
+    if (!token || !canApproveRequests) return;
+
+    const checkNewRequests = async () => {
+      try {
+        const reqs = await api.requests.list();
+        if (Array.isArray(reqs)) {
+          const currentPending = reqs.filter(r => r.status === 'PENDING').length;
+          
+          // Якщо кількість Очікуючих заявок зросла — викидаємо Пуш-сповіщення (Toast)
+          if (currentPending > prevCountRef.current && prevCountRef.current !== 0) {
+            toast('Надійшла нова заявка на постачання!', { 
+              icon: '🔔', 
+              duration: 5000,
+              style: { border: '1px solid #3b82f6', padding: '16px', color: '#1e3a8a' }
+            });
+          }
+          
+          prevCountRef.current = currentPending;
+          setPendingCount(currentPending);
+        }
+      } catch (err) {
+        // Тихо ігноруємо помилки мережі в фоні
+      }
+    };
+
+    checkNewRequests(); // Перша перевірка при завантаженні
+    const interval = setInterval(checkNewRequests, 15000); // Опитування кожні 15 секунд
+    
+    return () => clearInterval(interval);
+  }, [token, canApproveRequests]);
+  // --------------------------------
 
   if (loading) {
     return (
@@ -66,9 +110,29 @@ export default function Layout({ children }: LayoutProps) {
                 <Link to="/inventory" className={location.pathname === '/inventory' ? 'active' : ''}>
                   Ресурси
                 </Link>
-                <Link to="/requests" className={location.pathname === '/requests' ? 'active' : ''}>
-                  Заявки
+                
+                {/* НОВЕ: Бейдж з кількістю заявок */}
+                <Link 
+                  to="/requests" 
+                  className={location.pathname === '/requests' ? 'active' : ''}
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                >
+                  <span>Заявки</span>
+                  {pendingCount > 0 && (
+                    <span style={{
+                      backgroundColor: '#ef4444', // Червоний колір
+                      color: 'white',
+                      fontSize: '11px',
+                      fontWeight: 'bold',
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      boxShadow: '0 0 8px rgba(239, 68, 68, 0.4)' // Легке світіння
+                    }}>
+                      {pendingCount}
+                    </span>
+                  )}
                 </Link>
+
                 <Link to="/vehicles" className={location.pathname === '/vehicles' ? 'active' : ''}>
                   Автопарк
                 </Link>

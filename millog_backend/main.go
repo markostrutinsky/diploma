@@ -175,7 +175,6 @@ func main() {
 			inv.POST("/resources", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.CreateResource)
 			inv.POST("/resources/:id/write-off", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.WriteOff)
 			inv.PATCH("/resources/:id", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.UpdateResource)
-			inv.POST("/resources/:id/transfer", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.Transfer)
 			inv.DELETE("/resources/:id", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.Delete)
 			inv.POST("/resources/:id/assign", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.Assign)
 			inv.GET("/my-equipment", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.GetMyEquipment)
@@ -184,6 +183,7 @@ func main() {
 			inv.GET("/warehouse/:id", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.GetByWarehouse)
 			inv.POST("/shipments/:id/receive", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.ReceiveShipment)
 			inv.GET("/shipments", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.ListShipments)
+			inv.GET("/shipments/:id/pdf", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.DownloadShipmentPDF)
 		}
 
 		// Supply requests: commanders + logists + sergeant create; commanders + logists approve
@@ -246,6 +246,8 @@ func main() {
 		{
 			analyticsGroup.GET("/dashboard", analyticsHandler.GetDashboard)
 			analyticsGroup.POST("/auto-replenish", analyticsHandler.AutoReplenish)
+			analyticsGroup.GET("/export/inventory", analyticsHandler.ExportInventory)
+			analyticsGroup.GET("/export/fuel", analyticsHandler.ExportFuel)
 		}
 	}
 

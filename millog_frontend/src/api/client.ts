@@ -129,6 +129,37 @@ export const api = {
     getMyEquipment: () => request<MyEquipmentItem[]>('/inventory/my-equipment'),
     getByWarehouse: (warehouseId: string) => 
       request<InventoryItem[]>(`/inventory/warehouse/${warehouseId}`),
+
+    downloadShipmentPDF: async (shipmentId: string) => {
+      const token = getToken();
+      const response = await fetch(`${API_BASE}/inventory/shipments/${shipmentId}/pdf`, {
+        method: 'GET',
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+      });
+
+      if (!response.ok) {
+        // Пробуємо прочитати JSON з відповіді сервера
+        const errData = await response.json().catch(() => ({}));
+        // Викидаємо конкретну помилку з бекенду (якщо вона є), або статус код
+        throw new Error(errData.error || `Внутрішня помилка сервера: HTTP ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      
+      // Витягуємо назву файлу із заголовків, які ми передали з бекенду
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = `Waybill_${shipmentId}.pdf`;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (filenameMatch && filenameMatch.length >= 2) {
+          filename = filenameMatch[1];
+        }
+      }
+
+      return { blob, filename };
+    },
   },
   requests: {
     list: () => request<SupplyRequest[]>('/requests'),
@@ -275,6 +306,64 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ items }),
       }),
+    exportInventory: async (unitId?: number) => {
+      const token = getToken();
+      const query = unitId ? `?unit_id=${unitId}` : '';
+      
+      const response = await fetch(`${API_BASE}/analytics/export/inventory${query}`, {
+        method: 'GET',
+        headers: { 'Authorization': token ? `Bearer ${token}` : '' },
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Помилка при експорті залишків');
+      }
+
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = 'Inventory_Report.xlsx';
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) filename = match[1];
+        else {
+          const fallbackMatch = contentDisposition.match(/filename=([^;]+)/);
+          if (fallbackMatch && fallbackMatch[1]) filename = fallbackMatch[1];
+        }
+      }
+      return { blob, filename };
+    },
+
+    exportFuel: async (startDate?: string, endDate?: string) => {
+      const token = getToken();
+      const params = new URLSearchParams();
+      if (startDate) params.append('start', startDate);
+      if (endDate) params.append('end', endDate);
+      const query = params.toString() ? `?${params.toString()}` : '';
+
+      const response = await fetch(`${API_BASE}/analytics/export/fuel${query}`, {
+        method: 'GET',
+        headers: { 'Authorization': token ? `Bearer ${token}` : '' },
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || 'Помилка при експорті пального');
+      }
+
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get('Content-Disposition');
+      let filename = 'Fuel_Report.xlsx';
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="?([^"]+)"?/);
+        if (match && match[1]) filename = match[1];
+        else {
+          const fallbackMatch = contentDisposition.match(/filename=([^;]+)/);
+          if (fallbackMatch && fallbackMatch[1]) filename = fallbackMatch[1];
+        }
+      }
+      return { blob, filename };
+    }
   },
 }
 

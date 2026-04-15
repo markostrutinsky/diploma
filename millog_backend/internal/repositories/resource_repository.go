@@ -258,48 +258,6 @@ func (r *ResourceRepository) Update(ctx context.Context, db DBExecutor, id strin
 	return nil
 }
 
-func (r *ResourceRepository) Transfer(ctx context.Context, db DBExecutor, resourceID string, req models.TransferResourceRequest) error {
-	orig, err := r.GetByID(ctx, db, resourceID)
-	if err != nil {
-		return fmt.Errorf("помилка отримання ресурсу: %w", err)
-	}
-
-	if orig.Quantity < req.Quantity {
-		return errors.New("недостатньо майна для переміщення")
-	}
-
-	newOrigQty := orig.Quantity - req.Quantity
-	updateQuery := `UPDATE resources SET quantity = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`
-	_, err = db.Exec(ctx, updateQuery, newOrigQty, resourceID)
-	if err != nil {
-		return fmt.Errorf("помилка оновлення залишку: %w", err)
-	}
-
-	finalUnitID := orig.UnitID
-	if req.TargetUnitID != nil && *req.TargetUnitID != 0 {
-		finalUnitID = *req.TargetUnitID
-	}
-
-	var finalWarehouseID *string = req.TargetWarehouseID
-	if finalWarehouseID != nil && *finalWarehouseID == "" {
-		finalWarehouseID = nil
-	}
-
-	insertQuery := `
-        INSERT INTO resources (category_id, unit_id, name, description, quantity, unit_type, serial_number, warehouse_id, condition, min_quantity)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`
-
-	_, err = db.Exec(ctx, insertQuery,
-		orig.CategoryID, finalUnitID, orig.Name, orig.Description, req.Quantity, orig.UnitType, orig.SerialNumber,
-		finalWarehouseID, orig.Condition, orig.MinQuantity,
-	)
-	if err != nil {
-		return fmt.Errorf("помилка створення переміщеного запису: %w", err)
-	}
-
-	return nil
-}
-
 func (r *ResourceRepository) Delete(ctx context.Context, db DBExecutor, id string) error {
 	query := `DELETE FROM resources WHERE id = $1`
 	result, err := db.Exec(ctx, query, id)
@@ -734,4 +692,68 @@ func (r *ResourceRepository) ReceiveShipment(ctx context.Context, db *pgxpool.Po
 	}
 
 	return tx.Commit(ctx)
+}
+
+// --- СТРУКТУРИ ДЛЯ ТТН (PDF) ---
+
+type ShipmentInfo struct {
+	FromWarehouse string
+	ToWarehouse   string
+	Vehicle       string
+	Status        string
+	CreatedAt     time.Time
+}
+
+type ShipmentItemInfo struct {
+	Name string
+	Qty  int
+	Unit string
+}
+
+// GetShipmentInfo отримує базову інформацію про рейс для друку ТТН
+func (r *ResourceRepository) GetShipmentInfo(ctx context.Context, db DBExecutor, shipmentID string) (*ShipmentInfo, error) {
+	var info ShipmentInfo
+	query := `
+		SELECT w1.name, w2.name, v.brand || ' (' || v.plate_number || ')', s.status, s.created_at
+		FROM shipments s
+		JOIN warehouses w1 ON s.from_warehouse_id = w1.id
+		JOIN warehouses w2 ON s.to_warehouse_id = w2.id
+		JOIN vehicles v ON s.vehicle_id = v.id
+		WHERE s.id = $1
+	`
+	err := db.QueryRow(ctx, query, shipmentID).Scan(
+		&info.FromWarehouse,
+		&info.ToWarehouse,
+		&info.Vehicle,
+		&info.Status,
+		&info.CreatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &info, nil
+}
+
+// GetShipmentItems отримує список майна у рейсі для друку ТТН
+func (r *ResourceRepository) GetShipmentItems(ctx context.Context, db DBExecutor, shipmentID string) ([]ShipmentItemInfo, error) {
+	query := `
+		SELECT r.name, si.quantity, COALESCE(r.unit_type, 'шт')
+		FROM shipment_items si
+		JOIN resources r ON si.resource_id = r.id
+		WHERE si.shipment_id = $1
+	`
+	rows, err := db.Query(ctx, query, shipmentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []ShipmentItemInfo
+	for rows.Next() {
+		var i ShipmentItemInfo
+		if err := rows.Scan(&i.Name, &i.Qty, &i.Unit); err == nil {
+			items = append(items, i)
+		}
+	}
+	return items, rows.Err()
 }

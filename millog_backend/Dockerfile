@@ -16,6 +16,7 @@ RUN apk add --no-cache ca-certificates tzdata
 
 WORKDIR /app
 COPY --from=builder /millog .
+COPY --from=builder /app/fonts ./fonts
 
 EXPOSE 8080
 

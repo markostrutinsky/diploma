@@ -11,7 +11,7 @@ export default function Requests() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [users, setUsers] = useState<User[]>([])
-  const [units, setUnits] = useState<Unit[]>([]) // НОВЕ: Список підрозділів для ієрархії
+  const [units, setUnits] = useState<Unit[]>([]) 
   
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -43,7 +43,7 @@ export default function Requests() {
         api.warehouses.list().catch(() => []),
         (api as any).vehicles?.list().catch(() => fetch('/api/vehicles', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => [])) || [],
         api.users.getVisible().catch(() => fetch('/api/users', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => [])),
-        api.units.list().catch(() => []) // Завантажуємо підрозділи
+        api.units.list().catch(() => []) 
       ])
       
       setRequests(Array.isArray(reqs) ? reqs : [])
@@ -95,7 +95,6 @@ export default function Requests() {
   const fillPercentage = selectedVehicle ? Math.min(100, (currentTotalWeight / selectedVehicle.capacity_kg) * 100) : 0
   let barStatusClass = fillPercentage >= 100 ? 'bar-critical' : fillPercentage > 80 ? 'bar-warning' : 'bar-safe' 
 
-  // --- ЛОГІКА ІЄРАРХІЇ: Доступні склади для відправки ---
   // --- ЛОГІКА ІЄРАРХІЇ ТА НАЯВНОСТІ: Доступні склади для відправки ---
   const allowedSourceWarehouses = useMemo(() => {
     if (!dispatchForm.to_warehouse_id || units.length === 0) return [];
@@ -121,9 +120,7 @@ export default function Requests() {
 
     const hierarchicallyAllowed = warehouses.filter(w => allowedUnitIds.has(w.unit_id) && w.id !== dispatchForm.to_warehouse_id);
 
-    // 2. НОВА ЛОГІКА: ФІЛЬТРАЦІЯ ПО НАЯВНОСТІ МАЙНА
-    
-    // Крок А: Рахуємо, скільки і чого (за назвою) нам треба для цього збірного рейсу
+    // 2. ФІЛЬТРАЦІЯ ПО НАЯВНОСТІ МАЙНА
     const requiredItems = selectedRequestsDetails.reduce((acc, req) => {
       const res = resources.find(r => r.id === req.resource_id);
       if (res && res.name) {
@@ -132,29 +129,47 @@ export default function Requests() {
       return acc;
     }, {} as Record<string, number>);
 
-    // Крок Б: Залишаємо тільки ті склади, де є ВСІ потрібні ресурси в достатній кількості
     return hierarchicallyAllowed.filter(w => {
       for (const [name, neededQty] of Object.entries(requiredItems)) {
-        // Рахуємо сумарний залишок ресурсу з такою назвою саме на ЦЬОМУ складі
         const availableQty = resources
           .filter(r => r.warehouse_id === w.id && r.name === name)
           .reduce((sum, r) => sum + r.quantity, 0);
 
-        // Якщо хоча б одного ресурсу не вистачає — відкидаємо цей склад
         if (availableQty < neededQty) {
           return false;
         }
       }
-      return true; // Склад має все необхідне!
+      return true; 
     });
 
   }, [dispatchForm.to_warehouse_id, warehouses, units, selectedRequestsDetails, resources]);
+
+  // --- НОВА ЛОГІКА: Пошук локальних резервів (Горизонталь) при створенні заявки ---
+  const localAlternatives = useMemo(() => {
+    if (!newReq.resource_id || !newReq.target_warehouse_id) return [];
+    
+    const targetW = warehouses.find(w => w.id === newReq.target_warehouse_id);
+    const resName = resources.find(r => r.id === newReq.resource_id)?.name;
+    if (!targetW || !resName) return [];
+
+    // Шукаємо інші склади ЦЬОГО Ж підрозділу
+    return warehouses
+      .filter(w => w.unit_id === targetW.unit_id && w.id !== targetW.id)
+      .map(w => {
+        // Рахуємо, скільки такого ресурсу є на цьому сусідньому складі
+        const availableQty = resources
+          .filter(r => r.warehouse_id === w.id && r.name === resName)
+          .reduce((sum, r) => sum + r.quantity, 0);
+        return { warehouse: w, availableQty };
+      })
+      .filter(info => info.availableQty > 0); // Показуємо тільки ті, де ресурс реально є
+  }, [newReq.resource_id, newReq.target_warehouse_id, warehouses, resources]);
 
   const handleOpenDispatchModal = () => {
     setDispatchForm(prev => ({
       ...prev,
       to_warehouse_id: activeTargetWarehouseId || '',
-      from_warehouse_id: '' // Скидаємо попередній вибір
+      from_warehouse_id: '' 
     }))
     setShowDispatchModal(true)
   }
@@ -262,7 +277,7 @@ export default function Requests() {
             <option value="ALL">Всі статуси</option>
             <option value="PENDING">⏳ Очікують погодження</option>
             <option value="APPROVED">📦 Затверджені (Очікують логістику)</option>
-            <option value="DISPATCHED">🚛 В дорозі (Прямують на склад)</option> {/* <--- ДОДАНО */}
+            <option value="DISPATCHED">🚛 В дорозі (Прямують на склад)</option>
             <option value="COMPLETED">✅ Доставлені на склад</option>
           </select>
         </div>
@@ -308,7 +323,7 @@ export default function Requests() {
                       return <option key={w.id} value={w.id}>{w.name} ({u?.name})</option>
                     })}
                   </select>
-                  {allowedSourceWarehouses.length === 0 && <span className="error-text" style={{marginTop: '4px'}}>Немає доступних складів вище по ієрархії!</span>}
+                  {allowedSourceWarehouses.length === 0 && <span className="error-text" style={{marginTop: '4px'}}>Немає доступних складів вище по ієрархії або на них недостатньо майна!</span>}
                 </div>
                 <div className="form-group flex-1 mb-0">
                   <label>Куди (Заблоковано системою)</label>
@@ -440,7 +455,20 @@ export default function Requests() {
               </div>
               <div className="form-group">
                 <label>Кількість</label>
-                <input className="erp-input" type="number" min={1} value={newReq.quantity} onChange={(e) => setNewReq({ ...newReq, quantity: parseInt(e.target.value) || 1 })} required />
+                <input 
+                  className="erp-input" 
+                  type="number" 
+                  min={1} 
+                  value={newReq.quantity} 
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    // 🔥 Виправляємо баг з інкрементом/стиранням:
+                    // Якщо поле порожнє — дозволяємо йому бути порожнім ('' as any), 
+                    // інакше парсимо число. HTML5 'required' не дасть відправити форму порожньою.
+                    setNewReq({ ...newReq, quantity: val === '' ? ('' as any) : parseInt(val) });
+                  }} 
+                  required 
+                />
               </div>
               <div className="form-group">
                 <label>На який склад доставити?</label>
@@ -449,6 +477,29 @@ export default function Requests() {
                   {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
                 </select>
               </div>
+
+              {/* РОЗУМНА ПІДКАЗКА ПРО ЛОКАЛЬНІ РЕЗЕРВИ */}
+              {localAlternatives.length > 0 && (
+                <div style={{ 
+                  marginBottom: '16px', padding: '12px', 
+                  backgroundColor: '#fffbeb', border: '1px solid #fde68a', 
+                  borderRadius: '8px', fontSize: '13px', color: '#b45309' 
+                }}>
+                  <strong style={{ display: 'block', marginBottom: '6px' }}>💡 Знайдено внутрішні резерви!</strong>
+                  У вашому підрозділі вже є цей ресурс на сусідніх складах:
+                  <ul style={{ margin: '6px 0 0 20px', padding: 0 }}>
+                    {localAlternatives.map(alt => (
+                      <li key={alt.warehouse.id} style={{ marginBottom: '4px' }}>
+                        {alt.warehouse.name} — <strong>{alt.availableQty} шт.</strong>
+                      </li>
+                    ))}
+                  </ul>
+                  <div style={{ marginTop: '8px', fontSize: '11px', fontStyle: 'italic', color: '#92400e', lineHeight: '1.4' }}>
+                    * Замість того, щоб турбувати старший штаб, можливо, варто попросити комірника цього складу просто передати майно вам.
+                  </div>
+                </div>
+              )}
+
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowForm(false)}>Скасувати</button>
                 <button type="submit" className="btn btn-primary">Створити</button>

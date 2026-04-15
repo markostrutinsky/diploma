@@ -1,14 +1,18 @@
 package services
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"time"
 
 	"millog_backend/internal/models"
 	"millog_backend/internal/repositories"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jung-kurt/gofpdf"
 )
 
 type InventoryService struct {
@@ -97,36 +101,6 @@ func (s *InventoryService) UpdateResource(ctx context.Context, id string, req mo
 	return nil
 }
 
-func (s *InventoryService) Transfer(ctx context.Context, id string, req models.TransferResourceRequest) error {
-	// Базова валідація бізнес-логіки
-	tx, err := s.dbPool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-
-	// 2. Гарантуємо, що транзакція відкотиться у разі паніки або помилки
-	defer tx.Rollback(ctx)
-	if req.Quantity <= 0 {
-		return errors.New("кількість для переміщення має бути більшою за нуль")
-	}
-
-	if id == "" {
-		return errors.New("не вказано ID ресурсу")
-	}
-
-	// Викликаємо репозиторій.
-	// s.db - це твій підключений пул бази даних (DBExecutor), який лежить у структурі сервісу.
-	err = s.resourceRepo.Transfer(ctx, tx, id, req)
-	if err != nil {
-		return fmt.Errorf("не вдалося виконати переміщення: %w", err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-	return nil
-}
-
 func (s *InventoryService) Delete(ctx context.Context, id string) error {
 	if id == "" {
 		return errors.New("не вказано ID ресурсу")
@@ -187,4 +161,89 @@ func (s *InventoryService) ListShipments(ctx context.Context) ([]repositories.Sh
 
 func (s *InventoryService) ReceiveShipment(ctx context.Context, shipmentID string) error {
 	return s.resourceRepo.ReceiveShipment(ctx, s.dbPool, shipmentID)
+}
+
+// --- НОВИЙ МЕТОД ГЕНЕРАЦІЇ PDF ---
+func (s *InventoryService) GenerateShipmentPDF(ctx context.Context, shipmentID string) ([]byte, error) {
+	info, err := s.resourceRepo.GetShipmentInfo(ctx, s.dbPool, shipmentID)
+	if err != nil {
+		return nil, fmt.Errorf("помилка отримання інфо про рейс: %w", err)
+	}
+
+	items, err := s.resourceRepo.GetShipmentItems(ctx, s.dbPool, shipmentID)
+	if err != nil {
+		return nil, fmt.Errorf("помилка отримання маніфесту: %w", err)
+	}
+
+	// ФІКС ЧАСОВОГО ПОЯСУ: Переводимо час з UTC у Київський
+	loc, errLoc := time.LoadLocation("Europe/Kyiv")
+	if errLoc == nil {
+		info.CreatedAt = info.CreatedAt.In(loc)
+	}
+
+	pdf := gofpdf.New("P", "mm", "A4", "")
+	pdf.AddUTF8Font("Roboto", "", "fonts/Roboto-Regular.ttf")
+	pdf.AddPage()
+
+	pdf.SetFont("Roboto", "", 16)
+	pdf.CellFormat(190, 10, "ТОВАРНО-ТРАНСПОРТНА НАКЛАДНА (МАРШРУТНИЙ ЛИСТ)", "0", 1, "C", false, 0, "")
+
+	pdf.SetFont("Roboto", "", 11)
+	pdf.SetTextColor(100, 100, 100)
+
+	shortID := strings.ToUpper(strings.Split(shipmentID, "-")[0])
+	pdf.CellFormat(190, 6, fmt.Sprintf("Рейс №: %s", shortID), "0", 1, "C", false, 0, "")
+
+	// ЗАЛИШАЄМО ТІЛЬКИ ОДНУ ДАТУ (Дату фактичного відправлення рейсу)
+	pdf.CellFormat(190, 6, fmt.Sprintf("Дата відправлення: %s", info.CreatedAt.Format("02.01.2006 15:04")), "0", 1, "C", false, 0, "")
+	pdf.Ln(10)
+
+	pdf.SetTextColor(0, 0, 0)
+	pdf.SetFont("Roboto", "", 12)
+	pdf.CellFormat(190, 8, fmt.Sprintf("ВІДПРАВНИК (Склад): %s", info.FromWarehouse), "0", 1, "L", false, 0, "")
+	pdf.CellFormat(190, 8, fmt.Sprintf("ОДЕРЖУВАЧ (Склад): %s", info.ToWarehouse), "0", 1, "L", false, 0, "")
+	pdf.CellFormat(190, 8, fmt.Sprintf("ТРАНСПОРТНИЙ ЗАСІБ: %s", info.Vehicle), "0", 1, "L", false, 0, "")
+	pdf.Ln(8)
+
+	pdf.SetFillColor(230, 230, 230)
+	pdf.SetFont("Roboto", "", 11)
+	pdf.CellFormat(15, 10, "№", "1", 0, "C", true, 0, "")
+	pdf.CellFormat(115, 10, "Найменування майна", "1", 0, "C", true, 0, "")
+	pdf.CellFormat(30, 10, "Кількість", "1", 0, "C", true, 0, "")
+	pdf.CellFormat(30, 10, "Од. вим.", "1", 1, "C", true, 0, "")
+
+	pdf.SetFont("Roboto", "", 11)
+	for idx, item := range items {
+		// ПЕРЕКЛАДАЄМО ОДИНИЦІ ВИМІРУ
+		unitTranslated := item.Unit
+		switch item.Unit {
+		case "PCS":
+			unitTranslated = "шт"
+		case "KIT":
+			unitTranslated = "компл"
+		case "KG":
+			unitTranslated = "кг"
+		case "L":
+			unitTranslated = "л"
+		}
+
+		pdf.CellFormat(15, 10, fmt.Sprintf("%d", idx+1), "1", 0, "C", false, 0, "")
+		pdf.CellFormat(115, 10, "  "+item.Name, "1", 0, "L", false, 0, "")
+		pdf.CellFormat(30, 10, fmt.Sprintf("%d", item.Qty), "1", 0, "C", false, 0, "")
+		pdf.CellFormat(30, 10, unitTranslated, "1", 1, "C", false, 0, "")
+	}
+	pdf.Ln(25)
+
+	pdf.SetFont("Roboto", "", 12)
+	pdf.CellFormat(95, 10, "ЗДАВ (Відправник): ___________________", "0", 0, "L", false, 0, "")
+	pdf.CellFormat(95, 10, "ПРИЙНЯВ (Одержувач): ___________________", "0", 1, "L", false, 0, "")
+	pdf.Ln(10)
+	pdf.CellFormat(190, 10, "ВОДІЙ-ЕКСПЕДИТОР: ___________________", "0", 1, "C", false, 0, "")
+
+	var buf bytes.Buffer
+	if err := pdf.Output(&buf); err != nil {
+		return nil, fmt.Errorf("помилка рендеру PDF: %w", err)
+	}
+
+	return buf.Bytes(), nil
 }
