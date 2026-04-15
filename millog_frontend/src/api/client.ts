@@ -160,6 +160,21 @@ export const api = {
 
       return { blob, filename };
     },
+
+    downloadResourceQR: async (resourceId: string) => {
+      const token = getToken();
+      const response = await fetch(`${API_BASE}/inventory/resources/${resourceId}/qr`, {
+        method: 'GET',
+        headers: { 'Authorization': token ? `Bearer ${token}` : '' },
+      });
+
+      if (!response.ok) {
+        throw new Error('Помилка при генерації QR-коду');
+      }
+
+      const blob = await response.blob();
+      return blob;
+    },
   },
   requests: {
     list: () => request<SupplyRequest[]>('/requests'),

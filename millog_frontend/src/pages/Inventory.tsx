@@ -53,6 +53,8 @@ export default function Inventory() {
 
   const canManageResources = ['ADMIN', 'BRIGADE_STOREKEEPER', 'BATTALION_STOREKEEPER', 'COMPANY_SERGEANT', 'BRIGADE_LOGIST'].includes(user?.role || '');
   const canManageCategories = ['ADMIN', 'BRIGADE_LOGIST', 'BRIGADE_CMDR'].includes(user?.role || '');
+  // Стан для модалки попереднього перегляду QR
+  const [qrPreviewData, setQrPreviewData] = useState<{ id: string; name: string; url: string } | null>(null);
 
   const loadData = () => {
     const unitId = filterUnitId || undefined;
@@ -165,6 +167,43 @@ export default function Inventory() {
       loadData();
     } catch (err) { 
       toast.error(err instanceof Error ? err.message : 'Помилка оновлення ресурсу'); 
+    }
+  };
+
+  // Функція завантаження наклейки з QR-кодом
+  const handleDownloadQR = async (resourceId: string, resourceName: string) => {
+    const toastId = toast.loading('Генерація QR-коду...');
+    try {
+      const blob = await api.inventory.downloadResourceQR(resourceId);
+      
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      // Робимо красиву назву файлу (замінюємо пробіли на підкреслення)
+      const safeName = resourceName.replace(/\s+/g, '_');
+      link.setAttribute('download', `QR_${safeName}.png`);
+      
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode?.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast.success('Наклейку завантажено!', { id: toastId });
+    } catch (error) {
+      toast.error('Помилка генерації QR', { id: toastId });
+    }
+  };
+  const handleShowQR = async (resourceId: string, resourceName: string) => {
+    const toastId = toast.loading('Генерація QR-коду...');
+    try {
+      const blob = await api.inventory.downloadResourceQR(resourceId);
+      const url = window.URL.createObjectURL(blob);
+    
+      // Замість створення посилання для завантаження, зберігаємо URL в стейт
+      setQrPreviewData({ id: resourceId, name: resourceName, url });
+      toast.dismiss(toastId);
+    } catch (error) {
+      toast.error('Помилка генерації QR', { id: toastId });
     }
   };
 
@@ -492,6 +531,53 @@ export default function Inventory() {
         </div>
       )}
 
+      {/* МОДАЛКА ПОПЕРЕДНЬОГО ПЕРЕГЛЯДУ QR-КОДУ */}
+{qrPreviewData && (
+  <div className="modal-overlay" onClick={() => {
+    window.URL.revokeObjectURL(qrPreviewData.url); // Очищуємо пам'ять
+    setQrPreviewData(null);
+  }}>
+    <div className="modal qr-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-header">
+        <h3>Наклейка майна</h3>
+        <button className="close-btn" onClick={() => setQrPreviewData(null)}>&times;</button>
+      </div>
+      
+      <div className="modal-body qr-modal-body">
+        <p className="qr-resource-name">{qrPreviewData.name}</p>
+        
+        {/* Відображення самого QR-коду */}
+        <div className="qr-image-wrapper">
+          <img src={qrPreviewData.url} alt="Resource QR Code" className="qr-image" />
+        </div>
+        
+        <p className="qr-id-info">
+          ID: <code className="qr-id-code">{qrPreviewData.id.split('-')[0].toUpperCase()}</code>
+        </p>
+      </div>
+
+      <div className="modal-actions qr-modal-actions">
+        <button 
+          className="btn btn-primary btn-block" 
+          onClick={() => {
+            const link = document.createElement('a');
+            link.href = qrPreviewData.url;
+            link.setAttribute('download', `QR_${qrPreviewData.name.replace(/\s+/g, '_')}.png`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+          }}
+        >
+          📥 Завантажити для друку
+        </button>
+        <button className="btn btn-secondary btn-block" onClick={() => setQrPreviewData(null)}>
+          Закрити
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
       <div className="content-grid">
         <div className="card">
           <h2>Категорії</h2>
@@ -580,6 +666,12 @@ export default function Inventory() {
                                     <div className="actions-dropdown-menu">
                                       {!isWrittenOff && (
                                         <>
+                                          <button onClick={() => { handleShowQR(r.id, r.name); setActiveMenuId(null); }}>
+                                            🔍 Переглянути QR-код
+                                          </button>
+                                          <button onClick={() => { handleDownloadQR(r.id, r.name); setActiveMenuId(null); }}>
+                                            🖨️ Друк наклейки (QR)
+                                          </button>
                                           {r.quantity > 0 && (
                                             <button className="text-primary-action" onClick={() => { setAssignModalData({ resource: r, quantity: 1, user_id: '' }); setActiveMenuId(null); }}>
                                               👤 Видати співробітнику

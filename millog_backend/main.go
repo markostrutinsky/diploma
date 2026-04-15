@@ -184,6 +184,7 @@ func main() {
 			inv.POST("/shipments/:id/receive", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.ReceiveShipment)
 			inv.GET("/shipments", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.ListShipments)
 			inv.GET("/shipments/:id/pdf", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.DownloadShipmentPDF)
+			inv.GET("/resources/:id/qr", invHandler.DownloadResourceQR)
 		}
 
 		// Supply requests: commanders + logists + sergeant create; commanders + logists approve

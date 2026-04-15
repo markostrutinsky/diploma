@@ -297,3 +297,20 @@ func (h *InventoryHandler) DownloadShipmentPDF(c *gin.Context) {
 	// Віддаємо байти (HTTP статус 200)
 	c.Data(http.StatusOK, "application/pdf", pdfBytes)
 }
+
+// DownloadResourceQR віддає згенерований QR-код у форматі PNG
+func (h *InventoryHandler) DownloadResourceQR(c *gin.Context) {
+	resourceID := c.Param("id")
+
+	pngBytes, err := h.invService.GenerateResourceQR(resourceID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	fileName := fmt.Sprintf("QR_%s.png", resourceID)
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", fileName))
+	c.Header("Content-Type", "image/png")
+
+	c.Data(http.StatusOK, "image/png", pngBytes)
+}

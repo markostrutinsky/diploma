@@ -13,6 +13,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jung-kurt/gofpdf"
+	"github.com/skip2/go-qrcode"
 )
 
 type InventoryService struct {
@@ -246,4 +247,15 @@ func (s *InventoryService) GenerateShipmentPDF(ctx context.Context, shipmentID s
 	}
 
 	return buf.Bytes(), nil
+}
+
+func (s *InventoryService) GenerateResourceQR(resourceID string) ([]byte, error) {
+	content := fmt.Sprintf("millog-resource:%s", resourceID)
+
+	pngImage, err := qrcode.Encode(content, qrcode.Medium, 256)
+	if err != nil {
+		return nil, fmt.Errorf("помилка генерації QR-коду: %w", err)
+	}
+
+	return pngImage, nil
 }
