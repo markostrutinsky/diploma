@@ -78,6 +78,16 @@ type SmartReplenishRequest struct {
 	Items []SmartReplenishItem `json:"items"`
 }
 
+type WarehouseLoadStat struct {
+	WarehouseName string `json:"warehouse_name"`
+	TotalItems    int    `json:"total_items"`
+}
+
+type TopResourceStat struct {
+	ResourceName string `json:"resource_name"`
+	TotalOrdered int    `json:"total_ordered"`
+}
+
 // --- ГОЛОВНА СТРУКТУРА ДАШБОРДУ ---
 type DashboardAnalytics struct {
 	ActiveVehicles    int `json:"active_vehicles"`
@@ -88,6 +98,10 @@ type DashboardAnalytics struct {
 	CompletedRequests   int `json:"completed_requests"`    // Виконані заявки на склади (отримане майно)
 	InRepairVehicles    int `json:"in_repair_vehicles"`    // Машини в ремонті
 	InactiveVehicles    int `json:"inactive_vehicles"`
+
+	// НОВЕ: Графіки для вкладки Логістика
+	WarehouseLoad []WarehouseLoadStat `json:"warehouse_load"`
+	TopResources  []TopResourceStat   `json:"top_resources"`
 
 	PredictiveBurnRate []PredictStat            `json:"predictive_burn_rate"`
 	FleetRisk          []FleetRiskStat          `json:"fleet_risk"`

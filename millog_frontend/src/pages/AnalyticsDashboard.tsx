@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart, Bar, Cell } from 'recharts';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart, Bar, Cell, PieChart, Pie } from 'recharts';
 import { toast, Toaster } from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -395,7 +395,56 @@ const AnalyticsDashboard: React.FC = () => {
         {/* ВКЛАДКА 2: МАЙНО (ЛОГІСТИКА) */}
         {activeTab === 'logistics' && (
           <div className="grid-layout">
-            <div className="erp-widget col-span-full">
+            
+            {/* НОВИЙ ГРАФІК: ЗАВАНТАЖЕНІСТЬ СКЛАДІВ */}
+            <div className="erp-widget col-span-2">
+              <div className="widget-header"><h3>Завантаженість складів (Топ-5)</h3></div>
+              <div className="chart-container">
+                {(!data.warehouse_load || data.warehouse_load.length === 0) ? <p className="empty">Немає майна на складах.</p> : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={data.warehouse_load} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                      <XAxis dataKey="warehouse_name" tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
+                      <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }} cursor={{ fill: '#f8fafc' }} />
+                      <Bar dataKey="total_items" name="Одиниць майна" fill="#6366f1" radius={[4, 4, 0, 0]} barSize={40} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
+
+            {/* НОВИЙ ГРАФІК: ТОП-5 РЕСУРСІВ */}
+            <div className="erp-widget col-span-1">
+              <div className="widget-header"><h3>Топ-5 затребуваних ресурсів</h3></div>
+              <div className="chart-container">
+                {(!data.top_resources || data.top_resources.length === 0) ? <p className="empty">Замовлення відсутні.</p> : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie 
+                        data={data.top_resources} 
+                        dataKey="total_ordered" 
+                        nameKey="resource_name" 
+                        cx="50%" 
+                        cy="50%" 
+                        innerRadius={60} 
+                        outerRadius={90} 
+                        paddingAngle={5}
+                      >
+                        {data.top_resources.map((_: any, index: number) => (
+                          <Cell key={`cell-${index}`} fill={TCO_COLORS[index % TCO_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }} />
+                      <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px' }}/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
+
+            {/* СТАРИЙ ВІДЖЕТ ПРОГНОЗУ (ТЕПЕР ЗНИЗУ) */}
+            <div className="erp-widget col-span-full" style={{ height: '350px' }}>
               <div className="widget-header"><h3>Прогноз вичерпання ресурсів</h3><span className="info-badge">За обраний період</span></div>
               <div className="scroll-container predict-list">
                 {(!data.predictive_burn_rate || data.predictive_burn_rate.length === 0) ? <p className="empty">Немає витрат для прогнозу.</p> : (
@@ -412,6 +461,7 @@ const AnalyticsDashboard: React.FC = () => {
                 )}
               </div>
             </div>
+
           </div>
         )}
 

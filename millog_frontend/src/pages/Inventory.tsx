@@ -30,12 +30,10 @@ export default function Inventory() {
   const [resourceToDelete, setResourceToDelete] = useState<Resource | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   
-  // 🔥 НОВЕ: Стейти для редагування та видалення категорій
   const [editingCategory, setEditingCategory] = useState<ResourceCategory | null>(null);
   const [editCategoryForm, setEditCategoryForm] = useState({ name: '', description: '' });
   const [deletingCategory, setDeletingCategory] = useState<ResourceCategory | null>(null);
 
-  // Стейти для сканера
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scannedResource, setScannedResource] = useState<any | null>(null);
 
@@ -97,7 +95,6 @@ export default function Inventory() {
     loadData(); 
   }, [filterUnitId]);
 
-  // Логіка підключення камери
   useEffect(() => {
     if (isScannerOpen) {
       const scanner = new Html5QrcodeScanner(
@@ -149,7 +146,6 @@ export default function Inventory() {
     }
   };
 
-  // 🔥 НОВЕ: Обробники для категорій (Редагування та Видалення)
   const handleEditCategorySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingCategory) return;
@@ -379,7 +375,7 @@ export default function Inventory() {
 
       {/* ============================== МОДАЛКИ КАТЕГОРІЙ ============================== */}
       {showCategoryForm && canManageCategories && (
-        <div className="modal-overlay" onClick={() => setShowCategoryForm(false)}>
+        <div className="modal-overlay inventory-modal" onClick={() => setShowCategoryForm(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>Нова категорія</h3>
             <form onSubmit={handleCreateCategory}>
@@ -392,7 +388,7 @@ export default function Inventory() {
                 <input className="erp-input" value={newCat.description} onChange={(e) => setNewCat({ ...newCat, description: e.target.value })} />
               </div>
               <div className="modal-actions">
-                <button type="button" className="btn btn-secondary cancel-margin" onClick={() => setShowCategoryForm(false)}>Скасувати</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowCategoryForm(false)}>Скасувати</button>
                 <button type="submit" className="btn btn-primary">Створити</button>
               </div>
             </form>
@@ -401,7 +397,7 @@ export default function Inventory() {
       )}
 
       {editingCategory && canManageCategories && (
-        <div className="modal-overlay" onClick={() => setEditingCategory(null)}>
+        <div className="modal-overlay inventory-modal" onClick={() => setEditingCategory(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>Редагувати категорію</h3>
             <form onSubmit={handleEditCategorySubmit}>
@@ -414,7 +410,7 @@ export default function Inventory() {
                 <input className="erp-input" value={editCategoryForm.description} onChange={(e) => setEditCategoryForm({ ...editCategoryForm, description: e.target.value })} />
               </div>
               <div className="modal-actions">
-                <button type="button" className="btn btn-secondary cancel-margin" onClick={() => setEditingCategory(null)}>Скасувати</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setEditingCategory(null)}>Скасувати</button>
                 <button type="submit" className="btn btn-primary">Зберегти</button>
               </div>
             </form>
@@ -423,15 +419,15 @@ export default function Inventory() {
       )}
 
       {deletingCategory && canManageCategories && (
-        <div className="modal-overlay" onClick={() => setDeletingCategory(null)}>
+        <div className="modal-overlay inventory-modal" onClick={() => setDeletingCategory(null)}>
           <div className="modal confirm-modal" onClick={(e) => e.stopPropagation()}>
             <h3 style={{ color: '#ef4444' }}>⚠️ Видалення категорії</h3>
             <p className="confirm-text text-left">
               Видалити категорію <strong>{deletingCategory.name}</strong>?<br/>
-              <small className="text-muted">Це можливо лише якщо в категорії немає майна.</small>
+              <small style={{color: '#64748b'}}>Це можливо лише якщо в категорії немає майна.</small>
             </p>
             <div className="modal-actions">
-              <button type="button" className="btn btn-secondary cancel-margin" onClick={() => setDeletingCategory(null)}>Скасувати</button>
+              <button type="button" className="btn btn-secondary" onClick={() => setDeletingCategory(null)}>Скасувати</button>
               <button type="button" className="btn btn-danger" onClick={confirmDeleteCategory}>🗑️ Видалити</button>
             </div>
           </div>
@@ -440,12 +436,12 @@ export default function Inventory() {
 
       {/* ============================== ІНШІ МОДАЛКИ (Майно) ============================== */}
       {showResourceForm && canManageResources && (
-        <div className="modal-overlay" onClick={() => setShowResourceForm(false)}>
+        <div className="modal-overlay inventory-modal" onClick={() => setShowResourceForm(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>Новий ресурс</h3>
             <form onSubmit={handleCreateResource}>
               <div className="form-group">
-                <label>Категорія <span className="required">*</span></label>
+                <label>Категорія <span style={{color: '#ef4444'}}>*</span></label>
                 <select className="erp-input" value={newRes.category_id} onChange={(e) => setNewRes({ ...newRes, category_id: e.target.value })} required>
                   <option value="">Оберіть категорію</option>
                   {categories.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
@@ -453,13 +449,13 @@ export default function Inventory() {
               </div>
               
               <div className="form-group">
-                <label>Назва майна <span className="required">*</span></label>
+                <label>Назва майна <span style={{color: '#ef4444'}}>*</span></label>
                 <input className="erp-input" placeholder="Напр. Бронежилет Корсар М3" value={newRes.name} onChange={(e) => setNewRes({ ...newRes, name: e.target.value })} required />
               </div>
               
               <div className="form-row-2">
                 <div className="form-group">
-                  <label>Власник (Підрозділ) <span className="required">*</span></label>
+                  <label>Власник (Підрозділ) <span style={{color: '#ef4444'}}>*</span></label>
                   <select className="erp-input" value={newRes.unit_id ?? ''} onChange={(e) => { setNewRes({ ...newRes, unit_id: e.target.value ? parseInt(e.target.value, 10) : undefined, warehouse_id: '' }) }} required>
                     <option value="" disabled>Оберіть підрозділ</option>
                     {units.map((u) => (<option key={u.id} value={u.id}>{u.name}</option>))}
@@ -467,7 +463,7 @@ export default function Inventory() {
                 </div>
                 
                 <div className="form-group">
-                  <label>Склад (Локація) <span className="required">*</span></label>
+                  <label>Склад (Локація) <span style={{color: '#ef4444'}}>*</span></label>
                   <select className="erp-input" value={newRes.warehouse_id} onChange={(e) => setNewRes({ ...newRes, warehouse_id: e.target.value })} required>
                     <option value="" disabled>-- Оберіть конкретний склад --</option>
                     {availableWarehousesForNew.map((w) => (<option key={w.id} value={w.id}>{w.name}</option>))}
@@ -497,13 +493,13 @@ export default function Inventory() {
                   <input className="erp-input" type="number" min="0" value={newRes.min_quantity.toString()} onChange={(e) => { const val = parseInt(e.target.value, 10); setNewRes({ ...newRes, min_quantity: isNaN(val) ? 0 : val }) }} required />
                 </div>
                 <div className="form-group">
-                  <label>Вага 1 од. (кг) <span className="required">*</span></label>
+                  <label>Вага 1 од. (кг) <span style={{color: '#ef4444'}}>*</span></label>
                   <input className="erp-input" type="number" min="0.1" step="0.1" value={newRes.weight_kg || ''} onChange={(e) => setNewRes({ ...newRes, weight_kg: parseFloat(e.target.value) })} required />
                 </div>
               </div>
               
               <div className="modal-actions">
-                <button type="button" className="btn btn-secondary cancel-margin" onClick={() => setShowResourceForm(false)}>Скасувати</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setShowResourceForm(false)}>Скасувати</button>
                 <button type="submit" className="btn btn-primary" disabled={!newRes.unit_id}>Створити запис</button>
               </div>
             </form>
@@ -512,14 +508,14 @@ export default function Inventory() {
       )}
 
       {assignModalData && canManageResources && (
-        <div className="modal-overlay" onClick={() => { setAssignModalData(null); setAssignError(null); }}>
+        <div className="modal-overlay inventory-modal" onClick={() => { setAssignModalData(null); setAssignError(null); }}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>Видача майна персоналу</h3>
-            <p className="text-muted text-left">
-              Видаємо: <strong>{assignModalData.resource.name}</strong><br />
+            <p style={{color: '#64748b', textAlign: 'left'}}>
+              Видаємо: <strong style={{color: '#0f172a'}}>{assignModalData.resource.name}</strong><br />
               Доступно: {assignModalData.resource.quantity} {formatUnitType(assignModalData.resource.unit_type)}
             </p>
-            {assignError && (<div className="modal-error-box">❌ {assignError}</div>)}
+            {assignError && (<div style={{color: '#dc2626', padding: '10px', background: '#fef2f2', borderRadius: '6px', marginBottom: '16px'}}>❌ {assignError}</div>)}
             <form onSubmit={handleAssignSubmit}>
               <div className="form-group text-left">
                 <label>Кількість до видачі</label>
@@ -535,7 +531,7 @@ export default function Inventory() {
                 </select>
               </div>
               <div className="modal-actions">
-                <button type="button" className="btn btn-secondary cancel-margin" onClick={() => { setAssignModalData(null); setAssignError(null); }}>Скасувати</button>
+                <button type="button" className="btn btn-secondary" onClick={() => { setAssignModalData(null); setAssignError(null); }}>Скасувати</button>
                 <button type="submit" className="btn btn-primary" disabled={allowedUsersForAssignment.length === 0}>Видати</button>
               </div>
             </form>
@@ -544,13 +540,13 @@ export default function Inventory() {
       )}
 
       {resourceToDelete && canManageResources && (
-        <div className="modal-overlay" onClick={() => { setResourceToDelete(null); setDeleteError(null); }}>
+        <div className="modal-overlay inventory-modal" onClick={() => { setResourceToDelete(null); setDeleteError(null); }}>
           <div className="modal confirm-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Підтвердження видалення</h3>
-            {deleteError && (<div className="modal-error-box">❌ {deleteError}</div>)}
+            <h3 style={{color: '#ef4444'}}>Підтвердження видалення</h3>
+            {deleteError && (<div style={{color: '#dc2626', padding: '10px', background: '#fef2f2', borderRadius: '6px', marginBottom: '16px'}}>❌ {deleteError}</div>)}
             <p className="confirm-text text-left">Видалити <strong>{resourceToDelete.name}</strong>?</p>
             <div className="modal-actions">
-              <button type="button" className="btn btn-secondary cancel-margin" onClick={() => { setResourceToDelete(null); setDeleteError(null); }}>Скасувати</button>
+              <button type="button" className="btn btn-secondary" onClick={() => { setResourceToDelete(null); setDeleteError(null); }}>Скасувати</button>
               <button type="button" className="btn btn-danger" onClick={confirmDelete}>🗑️ Видалити</button>
             </div>
           </div>
@@ -558,7 +554,7 @@ export default function Inventory() {
       )}
 
       {editModalId && canManageResources && (
-        <div className="modal-overlay" onClick={() => setEditModalId(null)}>
+        <div className="modal-overlay inventory-modal" onClick={() => setEditModalId(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>Редагування ресурсу</h3>
             <form onSubmit={handleEditSubmit}>
@@ -571,7 +567,7 @@ export default function Inventory() {
                 <input className="erp-input" type="number" min="0" value={editForm.min_quantity.toString()} onChange={(e) => { const val = parseInt(e.target.value, 10); setEditForm({ ...editForm, min_quantity: isNaN(val) ? 0 : val }) }} required />
               </div>
               <div className="modal-actions">
-                <button type="button" className="btn btn-secondary cancel-margin" onClick={() => setEditModalId(null)}>Скасувати</button>
+                <button type="button" className="btn btn-secondary" onClick={() => setEditModalId(null)}>Скасувати</button>
                 <button type="submit" className="btn btn-primary">Зберегти зміни</button>
               </div>
             </form>
@@ -580,17 +576,17 @@ export default function Inventory() {
       )}
 
       {writeOffModalData && canManageResources && (
-        <div className="modal-overlay" onClick={() => { setWriteOffModalData(null); setWriteOffError(null); }}>
+        <div className="modal-overlay inventory-modal" onClick={() => { setWriteOffModalData(null); setWriteOffError(null); }}>
           <div className="modal confirm-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Списання майна</h3>
-            {writeOffError && (<div className="modal-error-box">❌ {writeOffError}</div>)}
+            <h3 style={{color: '#ef4444'}}>Списання майна</h3>
+            {writeOffError && (<div style={{color: '#dc2626', padding: '10px', background: '#fef2f2', borderRadius: '6px', marginBottom: '16px'}}>❌ {writeOffError}</div>)}
             <form onSubmit={handleWriteOffSubmit}>
               <div className="form-group" style={{ textAlign: 'left' }}>
                 <label>Кількість до списання</label>
                 <input className="erp-input" type="number" min="1" max={writeOffModalData.resource.quantity} value={writeOffModalData.quantity.toString()} onChange={(e) => { let val = parseInt(e.target.value, 10); if (isNaN(val)) val = 1; if (val > writeOffModalData.resource.quantity) val = writeOffModalData.resource.quantity; setWriteOffModalData({ ...writeOffModalData, quantity: val }) }} required />
               </div>
               <div className="modal-actions">
-                <button type="button" className="btn btn-secondary cancel-margin" onClick={() => { setWriteOffModalData(null); setWriteOffError(null); }}>Скасувати</button>
+                <button type="button" className="btn btn-secondary" onClick={() => { setWriteOffModalData(null); setWriteOffError(null); }}>Скасувати</button>
                 <button type="submit" className="btn btn-danger">Списати</button>
               </div>
             </form>
@@ -599,16 +595,16 @@ export default function Inventory() {
       )}
 
       {qrPreviewData && (
-        <div className="modal-overlay" onClick={() => {
+        <div className="modal-overlay inventory-modal" onClick={() => {
           window.URL.revokeObjectURL(qrPreviewData.url);
           setQrPreviewData(null);
         }}>
           <div className="modal qr-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Наклейка майна</h3>
-              <button className="close-btn" onClick={() => setQrPreviewData(null)}>&times;</button>
+              <button className="close-btn" onClick={() => setQrPreviewData(null)} style={{background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#64748b'}}>&times;</button>
             </div>
-            <div className="modal-body qr-modal-body">
+            <div className="qr-modal-body">
               <p className="qr-resource-name">{qrPreviewData.name}</p>
               <div className="qr-image-wrapper">
                 <img src={qrPreviewData.url} alt="Resource QR Code" className="qr-image" />
@@ -633,13 +629,13 @@ export default function Inventory() {
       )}
 
       {isScannerOpen && (
-        <div className="modal-overlay" onClick={() => setIsScannerOpen(false)}>
+        <div className="modal-overlay inventory-modal" onClick={() => setIsScannerOpen(false)}>
           <div className="modal scanner-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Наведіть камеру на QR-код</h3>
-              <button className="close-btn" onClick={() => setIsScannerOpen(false)}>&times;</button>
+              <button className="close-btn" onClick={() => setIsScannerOpen(false)} style={{background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#64748b'}}>&times;</button>
             </div>
-            <div className="modal-body scanner-modal-body">
+            <div className="scanner-modal-body">
               <div id="qr-reader" className="qr-reader-container"></div>
               <p className="scanner-permission-text">
                 Дозвольте браузеру доступ до камери
@@ -650,14 +646,14 @@ export default function Inventory() {
       )}
 
       {scannedResource && (
-        <div className="modal-overlay" onClick={() => setScannedResource(null)}>
+        <div className="modal-overlay inventory-modal" onClick={() => setScannedResource(null)}>
           <div className="modal scan-result-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Картка майна (Скан)</h3>
-              <button className="close-btn" onClick={() => setScannedResource(null)}>&times;</button>
+              <button className="close-btn" onClick={() => setScannedResource(null)} style={{background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#64748b'}}>&times;</button>
             </div>
             
-            <div className="modal-body scanner-modal-body">
+            <div className="scanner-modal-body">
               <div className="scan-result-icon">
                 <span>📦</span>
                 <h2>{scannedResource.name}</h2>
@@ -688,7 +684,7 @@ export default function Inventory() {
             </div>
 
             <div className="modal-actions">
-              <button className="btn btn-primary btn-block" onClick={() => setScannedResource(null)}>
+              <button className="btn btn-primary btn-block" style={{width: '100%', justifyContent: 'center'}} onClick={() => setScannedResource(null)}>
                 Закрити картку
               </button>
             </div>
@@ -704,10 +700,9 @@ export default function Inventory() {
           ) : (
             <ul className="category-list clean-list">
               <li onClick={() => setSelectedCategoryId(null)} className={`category-item ${selectedCategoryId === null ? 'active-category' : ''}`}>
-                Всі категорії
+                <span className="category-name-text">Всі категорії</span>
               </li>
               
-              {/* 🔥 НОВЕ: Рендер списку категорій з красивими SVG-іконками та Hover-ефектом */}
               {categories.map((c) => (
                 <li 
                   key={c.id} 
@@ -728,7 +723,6 @@ export default function Inventory() {
                         }}
                         title="Редагувати"
                       >
-                        {/* Іконка Редагувати (Feather Icons) */}
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                       </button>
                       
@@ -741,7 +735,6 @@ export default function Inventory() {
                         }}
                         title="Видалити"
                       >
-                        {/* Іконка Кошик (Feather Icons) */}
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                       </button>
                     </div>
@@ -753,11 +746,11 @@ export default function Inventory() {
         </div>
         
         <div className={`card card-table ${isRefreshing ? 'refreshing-fade' : ''}`}>
-          <div className="table-header-with-tabs">
-            <h2>Ресурси {selectedCategoryId && `(${categories.find(c => c.id === selectedCategoryId)?.name})`}</h2>
-            <div className="inventory-tabs">
-              <button className={`tab-btn ${activeTab === 'active' ? 'active' : ''}`} onClick={() => setActiveTab('active')}>На балансі</button>
-              <button className={`tab-btn ${activeTab === 'written_off' ? 'active' : ''}`} onClick={() => setActiveTab('written_off')}>Списані</button>
+          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px'}}>
+            <h2 style={{margin: 0}}>Ресурси {selectedCategoryId && `(${categories.find(c => c.id === selectedCategoryId)?.name})`}</h2>
+            <div style={{display: 'flex', gap: '8px', borderBottom: '2px solid #e2e8f0'}}>
+              <button style={{background: 'none', border: 'none', padding: '8px 16px', fontWeight: 600, cursor: 'pointer', color: activeTab === 'active' ? '#2563eb' : '#64748b', borderBottom: activeTab === 'active' ? '2px solid #2563eb' : '2px solid transparent', marginBottom: '-2px'}} onClick={() => setActiveTab('active')}>На балансі</button>
+              <button style={{background: 'none', border: 'none', padding: '8px 16px', fontWeight: 600, cursor: 'pointer', color: activeTab === 'written_off' ? '#2563eb' : '#64748b', borderBottom: activeTab === 'written_off' ? '2px solid #2563eb' : '2px solid transparent', marginBottom: '-2px'}} onClick={() => setActiveTab('written_off')}>Списані</button>
             </div>
           </div>
 
@@ -769,10 +762,10 @@ export default function Inventory() {
               <tr>
                 <th>Назва</th>
                 <th>Склад (Локація)</th>
-                <th className="text-center">Загальна кількість</th>
-                <th className="text-center">Мін. залишок</th>
-                <th className="text-center">Стан</th>
-                {canManageResources && <th>Дії</th>}
+                <th style={{textAlign: 'center'}}>Загальна кількість</th>
+                <th style={{textAlign: 'center'}}>Мін. залишок</th>
+                <th style={{textAlign: 'center'}}>Стан</th>
+                {canManageResources && <th className="col-actions-menu">Дії</th>}
               </tr>
             </thead>
             <tbody>
@@ -785,8 +778,8 @@ export default function Inventory() {
 
                   return (
                     <React.Fragment key={unitId}>
-                      <tr className={`unit-header-row ${isMyUnit ? 'my-unit-header' : ''} ${isDangerRow ? 'bg-orphan' : ''}`}>
-                        <td colSpan={canManageResources ? 6 : 5} className={isDangerRow ? 'text-danger fw-bold' : ''}>
+                      <tr className={`unit-header-row ${isMyUnit ? 'my-unit-header' : ''}`}>
+                        <td colSpan={canManageResources ? 6 : 5} style={{color: isDangerRow ? '#ef4444' : ''}}>
                           {isDangerRow ? '🚨 ' : (isOrphan ? '' : '🏢 ')} {unitName} {isMyUnit && <span className="my-unit-badge">(Ваш)</span>}
                         </td>
                       </tr>
@@ -803,22 +796,22 @@ export default function Inventory() {
                         const warehouseNameStr = r.warehouse_id ? warehouses.find(w => w.id === r.warehouse_id)?.name || 'Невідомий склад' : 'В дорозі';
 
                         return (
-                          <tr key={r.id} className={`row-${status} ${isWrittenOff ? 'written-off-row' : ''}`}>
-                            <td className="resource-name-cell">{r.name}</td>
-                            <td className="location-cell">
+                          <tr key={r.id} style={{opacity: isWrittenOff ? 0.7 : 1}}>
+                            <td style={{fontWeight: 500}}>{r.name}</td>
+                            <td>
                               <div className="location-stack">
                                 <span className="stock-info">🏢 Склад: <strong>{r.quantity}</strong> ({warehouseNameStr})</span>
                                 {issuedQty > 0 && !isWrittenOff && (<span className="issued-info">👤 На руках: <strong>{issuedQty}</strong></span>)}
                               </div>
                             </td>
-                            <td className={isWrittenOff ? 'written-off-qty text-center font-bold' : 'text-center font-bold'}>
-                              {totalQuantity} <small className="text-muted">{formatUnitType(r.unit_type)}</small>
+                            <td style={{textAlign: 'center', fontWeight: 'bold'}}>
+                              {totalQuantity} <small style={{color: '#64748b', fontWeight: 'normal', marginLeft: '4px'}}>{formatUnitType(r.unit_type)}</small>
                             </td>
-                            <td className="text-center">{r.min_quantity}</td>
-                            <td className="text-center"><span className={`badge badge-${status}`}>{statusText}</span></td>
+                            <td style={{textAlign: 'center'}}>{r.min_quantity}</td>
+                            <td style={{textAlign: 'center'}}><span className={`badge badge-${status}`}>{statusText}</span></td>
                             
                             {canManageResources && (
-                              <td>
+                              <td className="col-actions-menu">
                                 <div className="dropdown-container" onClick={(e) => e.stopPropagation()}>
                                   <button className={`btn-kebab ${activeMenuId === r.id ? 'active' : ''}`} onClick={() => setActiveMenuId(activeMenuId === r.id ? null : r.id)}>⋮</button>
                                   {activeMenuId === r.id && (
@@ -828,7 +821,7 @@ export default function Inventory() {
                                           <button onClick={() => { handleShowQR(r.id, r.name); setActiveMenuId(null); }}>🔍 Переглянути QR-код</button>
                                           <button onClick={() => { handleDownloadQR(r.id, r.name); setActiveMenuId(null); }}>🖨️ Друк наклейки (QR)</button>
                                           {r.quantity > 0 && (
-                                            <button className="text-primary-action" onClick={() => { setAssignModalData({ resource: r, quantity: 1, user_id: '' }); setActiveMenuId(null); }}>👤 Видати співробітнику</button>
+                                            <button style={{color: '#2563eb'}} onClick={() => { setAssignModalData({ resource: r, quantity: 1, user_id: '' }); setActiveMenuId(null); }}>👤 Видати співробітнику</button>
                                           )}
                                           <button onClick={() => { setEditForm({ name: r.name, min_quantity: r.min_quantity }); setEditModalId(r.id); setActiveMenuId(null); }}>✏️ Редагувати</button>
                                           <button onClick={() => { setWriteOffModalData({ resource: r, quantity: r.quantity }); setActiveMenuId(null); }}>📦 Списати зі складу</button>

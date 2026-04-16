@@ -5,7 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, Tooltip } from 'react
 import L from 'leaflet';
 import toast from 'react-hot-toast';
 import 'leaflet/dist/leaflet.css';
-import './Inventory.css';
+import './Warehouses.css';
 
 const stationaryIcon = L.divIcon({ html: '<div style="font-size: 24px; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">🏢</div>', className: 'custom-map-marker', iconSize: [30, 30], iconAnchor: [15, 30], popupAnchor: [0, -30] });
 const mobileIcon = L.divIcon({ html: '<div style="font-size: 24px; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">🚛</div>', className: 'custom-map-marker', iconSize: [30, 30], iconAnchor: [15, 30], popupAnchor: [0, -30] });
@@ -23,9 +23,7 @@ const AnimatedPolyline = ({ positions, pathOptions, children }: any) => {
   useEffect(() => {
     const polyline = polyRef.current; 
     if (!polyline) return; 
-    
     if (typeof polyline.getElement !== 'function') return;
-    
     const el = polyline.getElement(); 
     if (!el) return;
     
@@ -119,7 +117,6 @@ export default function Warehouses() {
 
   const [newWarehouse, setNewWarehouse] = useState({ unit_id: '' as number | '', name: '', location_type: 'STATIONARY' as 'STATIONARY' | 'MOBILE', latitude: '', longitude: '' });
 
-  // 🔥 НОВІ СТЕЙТИ: Редагування та видалення
   const [editingWarehouse, setEditingWarehouse] = useState<Warehouse | null>(null);
   const [warehouseToDelete, setWarehouseToDelete] = useState<Warehouse | null>(null);
   const [editForm, setEditForm] = useState({ name: '', capacity_level: '', zone_type: '' });
@@ -341,7 +338,6 @@ export default function Warehouses() {
     } catch (error) { toast.error('Помилка збереження', { id: 'move' }); } 
   };
 
-  // 🔥 НОВІ ФУНКЦІЇ: Редагування та Видалення
   const handleOpenEdit = (w: Warehouse) => {
     setEditingWarehouse(w);
     setEditForm({
@@ -356,7 +352,6 @@ export default function Warehouses() {
     if (!editingWarehouse) return;
     setIsProcessing(true);
     try {
-      // 🔥 Додали "as Partial<Warehouse>", щоб заспокоїти TypeScript
       await api.warehouses.update(editingWarehouse.id, editForm as Partial<Warehouse>);
       toast.success('Дані складу оновлено');
       setEditingWarehouse(null);
@@ -410,7 +405,7 @@ export default function Warehouses() {
   if (loading) return <div className="page-loading"><div className="spinner" /></div>;
 
   return (
-    <div className="inventory-page">
+    <div className="warehouses-page">
       <div className="page-header">
         <h1>Склади та Інфраструктура</h1>
         <div className="page-actions">{canManageWarehouses && <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ Створити склад</button>}</div>
@@ -439,7 +434,6 @@ export default function Warehouses() {
         </div>
       )}
 
-      {/* МОДАЛКА: СТВОРЕННЯ СКЛАДУ */}
       {showForm && canManageWarehouses && (
         <div className="modal-overlay" onClick={() => setShowForm(false)}>
            <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -458,7 +452,6 @@ export default function Warehouses() {
         </div>
       )}
 
-      {/* 🔥 НОВЕ: Модалка Редагування */}
       {editingWarehouse && (
         <div className="modal-overlay" onClick={() => !isProcessing && setEditingWarehouse(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -495,7 +488,6 @@ export default function Warehouses() {
         </div>
       )}
 
-      {/* 🔥 НОВЕ: Модалка Видалення */}
       {warehouseToDelete && (
         <div className="modal-overlay" onClick={() => !isProcessing && setWarehouseToDelete(null)}>
           <div className="modal confirm-modal" onClick={(e) => e.stopPropagation()}>
@@ -510,7 +502,6 @@ export default function Warehouses() {
         </div>
       )}
 
-      {/* МОДАЛКА: ПІДТВЕРДЖЕННЯ ЗМІНИ ЛОКАЦІЇ НА КАРТІ */}
       {confirmMove && (
         <div className="modal-overlay" onClick={() => { setConfirmMove(null); loadData(); }}>
           <div className="modal" onClick={e => e.stopPropagation()}>
@@ -524,7 +515,6 @@ export default function Warehouses() {
         </div>
       )}
 
-      {/* СПИСОК СКЛАДІВ */}
       {activeTab === 'list' && (
         <div className="card card-table">
           {warehouses.length === 0 ? <p className="empty-state">Склади ще не створені.</p> : (
@@ -541,25 +531,18 @@ export default function Warehouses() {
               <tbody>
                 {warehouses.map((w) => (
                   <tr key={w.id}>
-                    <td style={{ fontWeight: 'bold' }}>{w.name}</td>
+                    <td className="font-bold">{w.name}</td>
                     <td>{units.find(u => u.id === w.unit_id)?.name || 'Невідомо'}</td>
                     <td><span className={`badge ${w.location_type === 'MOBILE' ? 'badge-warning' : 'badge-success'}`}>{w.location_type === 'MOBILE' ? 'Мобільний' : 'Стаціонарний'}</span></td>
                     <td className="text-muted">{w.latitude && w.longitude ? `${w.latitude}, ${w.longitude}` : 'Не вказано'}</td>
-                    {/* 🔥 НОВЕ: Кнопки Дій */}
                     {canManageWarehouses && (
                       <td>
-                        <div className="unit-actions-container">
-                          <button 
-                            className="btn-unit-action btn-unit-edit" 
-                            onClick={() => handleOpenEdit(w)}
-                          >
+                        <div className="warehouse-action-buttons">
+                          <button className="wh-btn wh-edit" onClick={() => handleOpenEdit(w)}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                             Редагувати
                           </button>
-                          <button 
-                            className="btn-unit-action btn-unit-delete" 
-                            onClick={() => setWarehouseToDelete(w)}
-                          >
+                          <button className="wh-btn wh-delete" onClick={() => setWarehouseToDelete(w)}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                             Видалити
                           </button>
@@ -574,7 +557,6 @@ export default function Warehouses() {
         </div>
       )}
 
-      {/* ТАБЛИЦЯ РЕЙСІВ ТА ТТН */}
       {activeTab === 'shipments' && (
         <div className="card card-table">
           {shipmentsList.length === 0 ? (
@@ -589,7 +571,7 @@ export default function Warehouses() {
                   <th>Транспорт</th>
                   <th className="text-center">Пріоритет</th>
                   <th className="text-center">Статус</th>
-                  {canManageWarehouses && <th className="actions-col">Дії</th>}
+                  {canManageWarehouses && <th>Дії</th>}
                 </tr>
               </thead>
               <tbody>
@@ -606,7 +588,7 @@ export default function Warehouses() {
                       {s.status === 'DISPATCHED' ? <span className="badge badge-warning">🚛 В дорозі</span> : <span className="badge badge-success">✅ Доставлено</span>}
                     </td>
                     {canManageWarehouses && (
-                      <td className="actions-col">
+                      <td>
                         <div className="actions-flex">
                           <button className="btn btn-secondary btn-sm" onClick={() => handleDownloadPDF(s.id)} title="Завантажити накладну">📄 Друк ТТН</button>
                           {s.status === 'DISPATCHED' && (
@@ -623,9 +605,8 @@ export default function Warehouses() {
         </div>
       )}
 
-      {/* КАРТА ДИСЛОКАЦІЇ */}
       {activeTab === 'map' && (
-        <div style={{ height: '700px', width: '100%', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden', backgroundColor: '#f8fafc', position: 'relative' }}>
+        <div className="map-container-wrapper">
           {warehousesWithCoords.length === 0 ? (
             <div className="empty-state"><h3>Немає об'єктів на карті</h3></div>
           ) : (
@@ -665,15 +646,14 @@ export default function Warehouses() {
                 ))}
               </MapContainer>
 
-              {/* БОКОВА ПАНЕЛЬ: ФОРМУВАННЯ РЕЙСУ */}
               {dispatchTargetWarehouse && (
-                <div style={{ position: 'absolute', top: '16px', right: '16px', bottom: '16px', width: '420px', backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 10px 30px rgba(0,0,0,0.15)', zIndex: 1000, display: 'flex', flexDirection: 'column', overflow: 'hidden', border: '1px solid #e2e8f0', fontFamily: 'Inter, sans-serif' }}>
-                  <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f8fafc' }}>
-                    <h3 style={{ margin: 0, fontSize: '16px', color: '#1e293b', fontWeight: 600 }}>🚚 Формування рейсу</h3>
-                    <button onClick={handleCloseDispatch} style={{ background: 'none', border: 'none', fontSize: '28px', lineHeight: '1', cursor: 'pointer', color: '#94a3b8', padding: 0, marginTop: '-4px' }}>&times;</button>
+                <div className="dispatch-sidebar">
+                  <div className="dispatch-header">
+                    <h3>🚚 Формування рейсу</h3>
+                    <button onClick={handleCloseDispatch} className="close-btn">&times;</button>
                   </div>
 
-                  <div style={{ padding: '20px', overflowY: 'auto', flex: 1 }}>
+                  <div className="dispatch-content">
                     <p style={{marginBottom: '20px', fontSize: '13px', color: '#64748b'}}>Одержувач: <strong style={{color:'#0f172a'}}>{dispatchTargetWarehouse.name}</strong></p>
 
                     <div className="form-group">
@@ -685,8 +665,8 @@ export default function Warehouses() {
                     </div>
 
                     {activeRoadRoute && (
-                      <div style={{ backgroundColor: activeRoadRoute.error ? '#fef2f2' : '#f3e8ff', padding: '12px 16px', borderRadius: '8px', marginBottom: '20px', borderLeft: `4px solid ${activeRoadRoute.error ? '#ef4444' : '#8b5cf6'}`, fontSize: '13px' }}>
-                        {activeRoadRoute.isLoading ? '⏳ Прокладання маршруту...' : activeRoadRoute.error ? <span style={{color: '#ef4444'}}>{activeRoadRoute.error}</span> : <div style={{display: 'flex', justifyContent: 'space-between'}}><span>Відстань: <strong>{activeRoadRoute.distance} км</strong></span><span>Час: <strong>~{activeRoadRoute.duration} хв</strong></span></div>}
+                      <div className={`route-info-box ${activeRoadRoute.error ? 'route-error' : 'route-success'}`}>
+                        {activeRoadRoute.isLoading ? '⏳ Прокладання маршруту...' : activeRoadRoute.error ? <span>{activeRoadRoute.error}</span> : <div style={{display: 'flex', justifyContent: 'space-between'}}><span>Відстань: <strong>{activeRoadRoute.distance} км</strong></span><span>Час: <strong>~{activeRoadRoute.duration} хв</strong></span></div>}
                       </div>
                     )}
 
@@ -707,14 +687,14 @@ export default function Warehouses() {
                     </div>
 
                     {selectedVehicle && activeRoadRoute && !activeRoadRoute.error && (
-                      <div style={{ marginTop: '12px', padding: '12px', backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', fontSize: '13px', color: '#78350f' }}>
+                      <div className="fuel-forecast-box">
                         <strong>⛽ Прогноз пального:</strong><br/>
                         {selectedVehicle.fuel_norm ? `${((parseFloat(activeRoadRoute.distance) * 2 / 100) * selectedVehicle.fuel_norm).toFixed(1)} л` : 'Не вказана норма'}
                       </div>
                     )}
 
                     <h4 style={{marginTop: '24px', fontSize: '14px', color: '#1e293b'}}>📦 Вантажний маніфест</h4>
-                    <div style={{ backgroundColor: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', marginBottom: '16px' }}>
+                    <div className="manifest-container">
                       <select className="erp-input" style={{ marginBottom: '8px', backgroundColor: '#fff' }} value={itemToAdd} onChange={e => setItemToAdd(e.target.value)}>
                         <option value="" disabled>Оберіть майно...</option>
                         {warehouseInventory.map(item => <option key={item.id} value={item.id} disabled={getRemainingAvailable(item.id) <= 0}>{item.name}</option>)}
@@ -725,13 +705,13 @@ export default function Warehouses() {
                       </div>
                     </div>
 
-                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'left' }}>
-                        <thead style={{ backgroundColor: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}><tr><th style={{ padding: '8px 12px' }}>Товар</th><th style={{ padding: '8px 12px' }}>К-сть</th><th style={{ padding: '8px 12px' }}>Вага</th><th></th></tr></thead>
+                    <div className="manifest-table-wrapper">
+                      <table className="manifest-table">
+                        <thead><tr><th>Товар</th><th>К-сть</th><th>Вага</th><th></th></tr></thead>
                         <tbody>
                           {manifest.map(m => (
-                            <tr key={m.item.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                              <td style={{ padding: '8px 12px' }}>{m.item.name}</td><td style={{ padding: '8px 12px' }}>{m.quantity}</td><td style={{ padding: '8px 12px' }}>{(getSafeWeight(m.item) * m.quantity).toFixed(1)} кг</td>
+                            <tr key={m.item.id}>
+                              <td>{m.item.name}</td><td>{m.quantity}</td><td>{(getSafeWeight(m.item) * m.quantity).toFixed(1)} кг</td>
                               <td style={{textAlign: 'right'}}><button style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px' }} onClick={() => handleRemoveFromManifest(m.item.id)}>&times;</button></td>
                             </tr>
                           ))}
@@ -739,13 +719,13 @@ export default function Warehouses() {
                       </table>
                     </div>
 
-                    <div style={{ marginTop: '16px', padding: '12px 16px', borderRadius: '8px', backgroundColor: isOverweight ? '#fef2f2' : '#f0fdf4', border: `1px solid ${isOverweight ? '#fca5a5' : '#bbf7d0'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <strong style={{ color: isOverweight ? '#dc2626' : '#16a34a' }}>Вага: {currentTotalWeight.toFixed(1)} кг</strong>
-                      <span style={{ fontSize: '12px', color: isOverweight ? '#ef4444' : '#64748b' }}>Ліміт: {selectedVehicle?.capacity_kg || 0} кг</span>
+                    <div className={`weight-summary ${isOverweight ? 'weight-error' : 'weight-ok'}`}>
+                      <strong>Вага: {currentTotalWeight.toFixed(1)} кг</strong>
+                      <span>Ліміт: {selectedVehicle?.capacity_kg || 0} кг</span>
                     </div>
                   </div>
 
-                  <div style={{ padding: '16px 20px', borderTop: '1px solid #e2e8f0', backgroundColor: '#f8fafc', display: 'flex', gap: '12px' }}>
+                  <div className="dispatch-footer">
                     <button className="btn btn-secondary" style={{flex: 1}} onClick={handleCloseDispatch}>Скасувати</button>
                     <button className="btn btn-primary" style={{flex: 1}} onClick={handleDispatchSubmit} disabled={isOverweight || manifest.length === 0}>Відправити 🚀</button>
                   </div>

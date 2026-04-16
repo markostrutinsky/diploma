@@ -138,3 +138,49 @@
   background-color: #dcfce7;
   border-style: solid;
 }
+
+/* =========================================
+   КНОПКИ РЕДАГУВАННЯ ТА ВИДАЛЕННЯ (Units)
+========================================= */
+.unit-actions-container {
+  display: flex;
+  gap: 10px; /* 👈 Це виправить злипання */
+  align-items: center;
+}
+
+.btn-unit-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  background: transparent;
+}
+
+/* Синя кнопка Редагувати */
+.btn-unit-edit {
+  background-color: #eff6ff;
+  color: #2563eb;
+  border-color: #dbeafe;
+}
+
+.btn-unit-edit:hover {
+  background-color: #dbeafe;
+}
+
+/* Червона кнопка Видалити */
+.btn-unit-delete {
+  background-color: #fff1f2;
+  color: #e11d48;
+  border-color: #ffe4e6;
+}
+
+.btn-unit-delete:hover {
+  background-color: #ffe4e6;
+}

@@ -705,3 +705,13 @@ export interface ShipmentRecord {
   status: 'DISPATCHED' | 'DELIVERED';
   created_at: string;
 }
+
+export interface AuditLog {
+  id: string;
+  user_id: string;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  details: string;
+  created_at: string;
+}

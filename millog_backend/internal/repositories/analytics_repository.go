@@ -235,6 +235,44 @@ func (r *AnalyticsRepository) GetDashboardStats(ctx context.Context, db DBExecut
 		stats.DeficitResources = append(stats.DeficitResources, d)
 	}
 
+	// 12. НАЙЗАВАНТАЖЕНІШІ СКЛАДИ (ТОП-5)
+	queryWarehouseLoad := fmt.Sprintf(`
+		SELECT COALESCE(w.name, 'Без складу / В дорозі'), SUM(r.quantity) as total_items
+		FROM resources r
+		LEFT JOIN warehouses w ON r.warehouse_id = w.id
+		WHERE r.condition != 'WRITTEN_OFF' AND r.quantity > 0 %s
+		GROUP BY w.id, w.name
+		ORDER BY total_items DESC
+		LIMIT 5
+	`, resFilterPrefix)
+
+	wlRows, _ := db.Query(ctx, queryWarehouseLoad)
+	defer wlRows.Close()
+	for wlRows.Next() {
+		var wl models.WarehouseLoadStat
+		wlRows.Scan(&wl.WarehouseName, &wl.TotalItems)
+		stats.WarehouseLoad = append(stats.WarehouseLoad, wl)
+	}
+
+	// 13. ТОП-5 ЗАТРЕБУВАНИХ РЕСУРСІВ
+	queryTopResources := fmt.Sprintf(`
+		SELECT r.name, SUM(sr.quantity) as total_ordered
+		FROM supply_requests sr
+		JOIN resources r ON sr.resource_id = r.id
+		WHERE sr.status = 'APPROVED' AND sr.created_at BETWEEN $1 AND $2 %s
+		GROUP BY r.id, r.name
+		ORDER BY total_ordered DESC
+		LIMIT 5
+	`, resFilterPrefix)
+
+	trRows, _ := db.Query(ctx, queryTopResources, startDate, endDate)
+	defer trRows.Close()
+	for trRows.Next() {
+		var tr models.TopResourceStat
+		trRows.Scan(&tr.ResourceName, &tr.TotalOrdered)
+		stats.TopResources = append(stats.TopResources, tr)
+	}
+
 	return &stats, nil
 }
 

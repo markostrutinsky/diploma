@@ -240,14 +240,14 @@ a:hover {
   margin: 0;
 }
 
-/* Жорстке центрування для всіх кнопок системи */
-button.btn, 
-button.btn-primary, 
-button.btn-secondary, 
-button.btn-danger,
+/* Жорстке центрування для всіх кнопок системи без !important */
+body button.btn, 
+body button.btn-primary, 
+body button.btn-secondary, 
+body button.btn-danger,
 .login-card button {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  text-align: center !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }

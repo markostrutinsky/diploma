@@ -3,7 +3,10 @@
    ========================================== */
 
 .audit-page {
-  padding: 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  padding-bottom: 40px;
   animation: fadeIn 0.3s ease-in-out;
 }
 
@@ -11,6 +14,20 @@
   color: #64748b;
   margin-top: 4px;
   font-size: 14px;
+}
+
+/* Фільтри */
+.audit-filters-card {
+  margin-bottom: 24px;
+  padding: 16px !important;
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0;
+}
+
+.audit-filters-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 16px;
 }
 
 /* Стилізація таблиці аудиту */
@@ -36,15 +53,19 @@
 .user-email-main {
   font-weight: 600;
   color: #0f172a;
+  font-size: 14px;
 }
 
 .user-role-sub {
   font-size: 11px;
   color: #64748b;
+  margin-top: 2px;
 }
 
 /* Бейджі типів об'єктів (Entity) */
 .entity-tag {
+  display: inline-flex;
+  align-items: center;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 11px;
   background: #f1f5f9;
@@ -58,6 +79,23 @@
   color: #94a3b8;
   margin-left: 4px;
 }
+
+/* Кольори дій */
+.audit-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badge-update { background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; }
+.badge-delete { background: #fef2f2; color: #dc2626; border: 1px solid #fee2e2; }
+.badge-create { background: #f0fdf4; color: #16a34a; border: 1px solid #dcfce7; }
+.badge-warning { background: #fffbeb; color: #d97706; border: 1px solid #fef3c7; }
+.badge-primary { background: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe; }
+.badge-neutral { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
 
 /* Текст деталей */
 .details-text {
