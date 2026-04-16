@@ -307,6 +307,27 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
             details TEXT,                      -- Детальний опис ("Списано 5 шт бронежилетів")
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );`,
+
+		// 29. Таблиці для професійної інвентаризації
+		`CREATE TABLE IF NOT EXISTS inventory_checks (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            warehouse_id UUID NOT NULL REFERENCES warehouses(id) ON DELETE CASCADE,
+            created_by UUID NOT NULL REFERENCES users(id),
+            status VARCHAR(30) NOT NULL DEFAULT 'IN_PROGRESS', -- IN_PROGRESS, COMPLETED, CANCELLED
+            started_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            completed_at TIMESTAMP WITH TIME ZONE,
+            notes TEXT
+        );`,
+
+		`CREATE TABLE IF NOT EXISTS inventory_check_items (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            check_id UUID NOT NULL REFERENCES inventory_checks(id) ON DELETE CASCADE,
+            resource_id UUID NOT NULL REFERENCES resources(id) ON DELETE CASCADE,
+            book_quantity INTEGER NOT NULL,  -- Скільки було в базі на момент старту
+            actual_quantity INTEGER,         -- Скільки нарахували по факту
+            difference INTEGER GENERATED ALWAYS AS (actual_quantity - book_quantity) STORED,
+            verified_at TIMESTAMP WITH TIME ZONE
+        );`,
 	}
 
 	for i, m := range migrations {

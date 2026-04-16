@@ -6,6 +6,7 @@ import L from 'leaflet';
 import toast from 'react-hot-toast';
 import 'leaflet/dist/leaflet.css';
 import './Warehouses.css';
+import InventoryAuditModal from '../components/InventoryAuditModal'; // 🔥 Додано імпорт модалки
 
 const stationaryIcon = L.divIcon({ html: '<div style="font-size: 24px; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">🏢</div>', className: 'custom-map-marker', iconSize: [30, 30], iconAnchor: [15, 30], popupAnchor: [0, -30] });
 const mobileIcon = L.divIcon({ html: '<div style="font-size: 24px; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">🚛</div>', className: 'custom-map-marker', iconSize: [30, 30], iconAnchor: [15, 30], popupAnchor: [0, -30] });
@@ -121,6 +122,9 @@ export default function Warehouses() {
   const [warehouseToDelete, setWarehouseToDelete] = useState<Warehouse | null>(null);
   const [editForm, setEditForm] = useState({ name: '', capacity_level: '', zone_type: '' });
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // 🔥 Додано стейт для модалки переобліку
+  const [auditWarehouse, setAuditWarehouse] = useState<Warehouse | null>(null);
 
   const canManageWarehouses = ['ADMIN', 'BRIGADE_CMDR', 'BRIGADE_LOGIST', 'BATTALION_CMDR', 'BATTALION_LOGIST', 'COMPANY_CMDR', 'PLATOON_CMDR'].includes(user?.role || '');
 
@@ -538,6 +542,15 @@ export default function Warehouses() {
                     {canManageWarehouses && (
                       <td>
                         <div className="warehouse-action-buttons">
+                          {/* 🔥 НОВА КНОПКА ПЕРЕОБЛІКУ */}
+                          <button 
+                            className="wh-btn" 
+                            style={{ backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', color: '#334155' }}
+                            onClick={() => setAuditWarehouse(w)}
+                          >
+                            📋 Переоблік
+                          </button>
+                          
                           <button className="wh-btn wh-edit" onClick={() => handleOpenEdit(w)}>
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                             Редагувати
@@ -734,6 +747,15 @@ export default function Warehouses() {
             </>
           )}
         </div>
+      )}
+
+      {/* 🔥 Виклик модалки переобліку */}
+      {auditWarehouse && (
+        <InventoryAuditModal 
+          warehouseId={auditWarehouse.id} 
+          warehouseName={auditWarehouse.name}
+          onClose={() => setAuditWarehouse(null)} 
+        />
       )}
     </div>
   );

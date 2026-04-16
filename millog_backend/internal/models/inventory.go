@@ -142,3 +142,17 @@ type MyEquipmentItem struct {
 	IssuedAt     time.Time `json:"issued_at"`
 	Status       string    `json:"status"` // 'ACTIVE' (на руках)
 }
+
+// Модель для конкретної розбіжності
+type AuditDiscrepancy struct {
+	ResourceID     string `json:"resource_id" binding:"required"`
+	BookQuantity   int    `json:"book_quantity"`
+	ActualQuantity int    `json:"actual_quantity"`
+	Difference     int    `json:"difference"`
+}
+
+// Загальний запит на збереження результатів інвентаризації
+type SubmitAuditRequest struct {
+	WarehouseID   string             `json:"warehouse_id" binding:"required"`
+	Discrepancies []AuditDiscrepancy `json:"discrepancies"`
+}

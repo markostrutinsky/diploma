@@ -354,7 +354,6 @@ export default function Inventory() {
               ))}
             </select>
           )}
-          
           {canManageCategories && (
             <button className="btn btn-secondary" onClick={() => setShowCategoryForm(true)}>
               + Категорія

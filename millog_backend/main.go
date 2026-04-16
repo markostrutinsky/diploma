@@ -195,6 +195,7 @@ func main() {
 			inv.GET("/resources/:id/qr", invHandler.DownloadResourceQR)
 			inv.PATCH("/categories/:id", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.UpdateCategory)
 			inv.DELETE("/categories/:id", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.DeleteCategory)
+			inv.POST("/audit", invHandler.SubmitAudit)
 		}
 
 		// Supply requests: commanders + logists + sergeant create; commanders + logists approve

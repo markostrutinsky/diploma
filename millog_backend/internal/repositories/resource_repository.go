@@ -757,3 +757,55 @@ func (r *ResourceRepository) GetShipmentItems(ctx context.Context, db DBExecutor
 	}
 	return items, rows.Err()
 }
+
+func (r *ResourceRepository) SubmitInventoryAudit(ctx context.Context, db DBExecutor, userID string, req models.SubmitAuditRequest) error {
+	// Починаємо транзакцію
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Створюємо сесію переобліку (Акт)
+	var checkID string
+	err = tx.QueryRow(ctx, `
+		INSERT INTO inventory_checks (warehouse_id, created_by, status, completed_at)
+		VALUES ($1, $2, 'COMPLETED', CURRENT_TIMESTAMP)
+		RETURNING id
+	`, req.WarehouseID, userID).Scan(&checkID)
+	if err != nil {
+		return fmt.Errorf("failed to create inventory check: %w", err)
+	}
+
+	// 2. Проходимося по всіх розбіжностях (якщо вони є)
+	for _, item := range req.Discrepancies {
+		// Записуємо факт перевірки конкретної позиції
+		// (поле difference вираховується в БД автоматично через GENERATED ALWAYS)
+		_, err = tx.Exec(ctx, `
+			INSERT INTO inventory_check_items (check_id, resource_id, book_quantity, actual_quantity, verified_at)
+			VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+		`, checkID, item.ResourceID, item.BookQuantity, item.ActualQuantity)
+		if err != nil {
+			return fmt.Errorf("failed to insert check item for resource %s: %w", item.ResourceID, err)
+		}
+
+		// Якщо є розбіжність - оновлюємо фактичний залишок у таблиці resources
+		if item.Difference != 0 {
+			_, err = tx.Exec(ctx, `
+				UPDATE resources
+				SET quantity = $1, updated_at = CURRENT_TIMESTAMP
+				WHERE id = $2
+			`, item.ActualQuantity, item.ResourceID)
+			if err != nil {
+				return fmt.Errorf("failed to update resource %s quantity: %w", item.ResourceID, err)
+			}
+		}
+	}
+
+	// Зберігаємо всі зміни
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
+}

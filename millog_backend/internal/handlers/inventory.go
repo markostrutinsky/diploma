@@ -410,3 +410,38 @@ func (h *InventoryHandler) DeleteCategory(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Категорію видалено"})
 }
+
+// POST /api/inventory/audit
+func (h *InventoryHandler) SubmitAudit(c *gin.Context) {
+	var req models.SubmitAuditRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Невірний формат даних: " + err.Error()})
+		return
+	}
+
+	userID := c.GetString("user_id")
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Не знайдено ID користувача"})
+		return
+	}
+
+	err := h.invService.SubmitInventoryAudit(c.Request.Context(), userID, req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка збереження результатів переобліку: " + err.Error()})
+		return
+	}
+
+	// Логуємо дію в Аудит
+	go func(uID, wID string) {
+		_ = h.auditService.LogAction(
+			context.Background(),
+			uID,
+			"INVENTORY_AUDIT",
+			"WAREHOUSE",
+			wID,
+			"Проведено переоблік складу. Зафіксовано акт розбіжностей.",
+		)
+	}(userID, req.WarehouseID)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Акт переобліку успішно сформовано, залишки оновлено!"})
+}

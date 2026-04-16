@@ -188,6 +188,28 @@ export const api = {
       const blob = await response.blob();
       return blob;
     },
+
+    submitAudit: async (warehouseId: string, discrepancies: AuditDiscrepancy[]) => {
+      const token = getToken();
+      const response = await fetch(`${API_BASE}/inventory/audit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+        body: JSON.stringify({
+          warehouse_id: warehouseId,
+          discrepancies: discrepancies
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.error || 'Помилка при збереженні результатів інвентаризації');
+      }
+
+      return response.json();
+    },
   },
   requests: {
     list: () => request<SupplyRequest[]>('/requests'),
@@ -714,4 +736,16 @@ export interface AuditLog {
   entity_id: string;
   details: string;
   created_at: string;
+}
+
+export interface AuditDiscrepancy {
+  resource_id: string;
+  book_quantity: number;
+  actual_quantity: number;
+  difference: number;
+}
+
+export interface SubmitAuditRequest {
+  warehouse_id: string;
+  discrepancies: AuditDiscrepancy[];
 }

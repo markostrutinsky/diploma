@@ -281,3 +281,12 @@ func (s *InventoryService) DeleteCategory(ctx context.Context, id string) error 
 
 	return s.categoryRepo.Delete(ctx, s.dbPool, id)
 }
+
+func (s *InventoryService) SubmitInventoryAudit(ctx context.Context, userID string, req models.SubmitAuditRequest) error {
+	// Можна додати додаткові перевірки, наприклад, чи існує такий склад
+	if req.WarehouseID == "" {
+		return fmt.Errorf("warehouse ID is required")
+	}
+
+	return s.resourceRepo.SubmitInventoryAudit(ctx, s.dbPool, userID, req)
+}
