@@ -98,7 +98,7 @@ func (h *UnitHandler) ChangeCommander(c *gin.Context) {
 		return
 	}
 
-	var req models.ChangeCommanderRequest
+	var req models.ChangeManagerRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Не вказано нового командира"})
 		return
@@ -111,7 +111,7 @@ func (h *UnitHandler) ChangeCommander(c *gin.Context) {
 	}
 	claims := claimsVal.(*middleware.Claims)
 
-	err = h.svc.ChangeCommander(c.Request.Context(), targetUnitID, req.NewCommanderID, string(claims.Role), claims.UnitID)
+	err = h.svc.ChangeCommander(c.Request.Context(), targetUnitID, req.NewManagerID, string(claims.Role), claims.UnitID)
 	if err != nil {
 		if err.Error() == "відмовлено в доступі: ви не можете змінити командира цього підрозділу" {
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})

@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'; // Видалили React, щоб не було помилки TS6133
+import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import toast, { Toaster } from 'react-hot-toast';
-import './AuditLogs.css'; // Точна назва з літерою 's'
+import './AuditLogs.css';
 
 interface AuditLog {
   id: number;
@@ -50,7 +50,7 @@ const AuditLogs = () => {
     if (act.includes('UPDATE')) return <span className="audit-badge badge-update">Оновлення</span>;
     if (act.includes('DELETE')) return <span className="audit-badge badge-delete">Видалення</span>;
     if (act.includes('WRITE_OFF')) return <span className="audit-badge badge-warning">Списання</span>;
-    if (act.includes('ASSIGN')) return <span className="audit-badge badge-primary">Видача о/с</span>;
+    if (act.includes('ASSIGN')) return <span className="audit-badge badge-primary">Видача персоналу</span>;
     return <span className="audit-badge badge-neutral">{action}</span>;
   };
 
@@ -121,7 +121,7 @@ const AuditLogs = () => {
             <option value="WAREHOUSE">Склади (WAREHOUSE)</option>
             <option value="RESOURCE">Майно (RESOURCE)</option>
             <option value="SUPPLY_REQUEST">Заявки (SUPPLY_REQUEST)</option>
-            <option value="UNIT">Підрозділи (UNIT)</option>
+            <option value="UNIT">Орг. одиниці (UNIT)</option>
             <option value="USER">Користувачі (USER)</option>
           </select>
         </div>

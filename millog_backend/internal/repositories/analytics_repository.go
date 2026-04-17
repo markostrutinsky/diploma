@@ -156,9 +156,9 @@ func (r *AnalyticsRepository) GetDashboardStats(ctx context.Context, db DBExecut
 		SELECT 
 			COALESCE(AVG(EXTRACT(EPOCH FROM (completed_at - created_at))/86400), 0) as avg_days,
 			COUNT(id)
-		FROM volunteer_requests WHERE status = 'COMPLETED' AND completed_at IS NOT NULL AND created_at BETWEEN $1 AND $2 %s
+		FROM CONTRACTOR_requests WHERE status = 'COMPLETED' AND completed_at IS NOT NULL AND created_at BETWEEN $1 AND $2 %s
 	`, volFilter)
-	db.QueryRow(ctx, querySLA, startDate, endDate).Scan(&stats.VolunteerSLA.AverageDays, &stats.VolunteerSLA.CompletedCount)
+	db.QueryRow(ctx, querySLA, startDate, endDate).Scan(&stats.CONTRACTORSLA.AverageDays, &stats.CONTRACTORSLA.CompletedCount)
 
 	// 8. ВИТРАТИ НА РЕМОНТИ
 	queryTCO := `
@@ -176,22 +176,22 @@ func (r *AnalyticsRepository) GetDashboardStats(ctx context.Context, db DBExecut
 
 	// 9. ВОЛОНТЕРСЬКА ВОРОНКА
 	queryFunnel := fmt.Sprintf(`
-		SELECT status, COUNT(id) FROM volunteer_requests 
+		SELECT status, COUNT(id) FROM CONTRACTOR_requests 
 		WHERE created_at BETWEEN $1 AND $2 %s
 		GROUP BY status
 	`, volFilter)
 	vRows, _ := db.Query(ctx, queryFunnel, startDate, endDate)
 	defer vRows.Close()
 	for vRows.Next() {
-		var v models.VolunteerRequestStat
+		var v models.CONTRACTORRequestStat
 		vRows.Scan(&v.Status, &v.Count)
-		stats.VolunteerFunnel = append(stats.VolunteerFunnel, v)
+		stats.CONTRACTORFunnel = append(stats.CONTRACTORFunnel, v)
 	}
 
 	// 10. ДИНАМІКА ВОЛОНТЕРСЬКИХ ЗАЯВОК
 	queryTimeline := fmt.Sprintf(`
 		SELECT TO_CHAR(DATE(created_at), 'DD.MM'), COUNT(id) 
-		FROM volunteer_requests 
+		FROM CONTRACTOR_requests 
 		WHERE created_at BETWEEN $1 AND $2 %s
 		GROUP BY DATE(created_at) 
 		ORDER BY DATE(created_at)
@@ -199,9 +199,9 @@ func (r *AnalyticsRepository) GetDashboardStats(ctx context.Context, db DBExecut
 	tRows, _ := db.Query(ctx, queryTimeline, startDate, endDate)
 	defer tRows.Close()
 	for tRows.Next() {
-		var vt models.VolunteerTimelineStat
+		var vt models.CONTRACTORTimelineStat
 		tRows.Scan(&vt.Date, &vt.Count)
-		stats.VolunteerTimeline = append(stats.VolunteerTimeline, vt)
+		stats.CONTRACTORTimeline = append(stats.CONTRACTORTimeline, vt)
 	}
 
 	// 11. СПИСОК ДЕФІЦИТУ ДЛЯ SMART-ПОПОВНЕННЯ (З урахуванням майна в дорозі)
@@ -290,13 +290,13 @@ func (r *AnalyticsRepository) ProcessSmartReplenish(ctx context.Context, db DBEx
 			if err == nil {
 				count++
 			}
-		} else if item.Target == "VOLUNTEER" {
+		} else if item.Target == "CONTRACTOR" {
 			// Створюємо запит для волонтерів
 			title := "Потреба: " + item.Name
 			desc := fmt.Sprintf("Автоматично сформована потреба для підрозділу на %s (Кількість: %d)", item.Name, item.Quantity)
 
 			_, err := db.Exec(ctx, `
-				INSERT INTO volunteer_requests (created_by, title, description, status, created_at)
+				INSERT INTO CONTRACTOR_requests (created_by, title, description, status, created_at)
 				VALUES ($1, $2, $3, 'OPEN', NOW())
 			`, userID, title, desc)
 			if err == nil {

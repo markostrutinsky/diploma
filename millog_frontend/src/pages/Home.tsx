@@ -6,33 +6,33 @@ import './Home.css'
 
 export default function Home() {
   const { user } = useAuth()
-  const isVolunteer = user?.role === 'VOLUNTEER'
+  const isCONTRACTOR = user?.role === 'CONTRACTOR'
   
-  // Додаємо окремі стейти для волонтерської статистики
+  // Додаємо окремі стейти для статистики підрядника
   const [stats, setStats] = useState({ 
     resources: 0, 
     categories: 0, 
     pendingRequests: 0,
-    // Нові поля для волонтера
-    openVolunteerRequests: 0,
+    // Нові поля для підрядника
+    openContractorRequests: 0,
     myActiveTasks: 0 
   })
 
   useEffect(() => {
-    if (isVolunteer) {
-      // Логіка для волонтера: тягнемо тільки волонтерські запити
-      api.volunteerRequests.list() // Припустимо, цей метод повертає всі VolunteerRequest
+    if (isCONTRACTOR) {
+      // Логіка для підрядника: тягнемо тільки доступні зовнішні завдання
+      api.contractorRequests.list() 
         .then((data) => {
           const allReqs = Array.isArray(data) ? data : []
           setStats(prev => ({
             ...prev,
-            openVolunteerRequests: allReqs.filter(r => r.status === 'OPEN').length,
+            openContractorRequests: allReqs.filter(r => r.status === 'OPEN').length,
             myActiveTasks: allReqs.filter(r => r.status === 'TAKEN' && r.taken_by === String(user?.id)).length
           }))
         })
         .catch(console.error)
     } else {
-      // Логіка для військових: стандартна складська статистика
+      // Логіка для персоналу компанії: стандартна складська статистика
       Promise.all([
         api.inventory.listResources(undefined), 
         api.inventory.listCategories(), 
@@ -51,9 +51,9 @@ export default function Home() {
         })
         .catch(() => {})
     }
-  }, [isVolunteer, user?.id])
+  }, [isCONTRACTOR, user?.id])
 
-  const canManageUsers = ['ADMIN', 'BRIGADE_CMDR', 'BATTALION_CMDR', 'COMPANY_CMDR', 'PLATOON_CMDR', 'BRIGADE_LOGIST', 'BATTALION_LOGIST', 'BRIGADE_STOREKEEPER', 'BATTALION_STOREKEEPER', 'COMPANY_SERGEANT'].includes(user?.role || '')
+  const canManageUsers = ['ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'TEAM_LEAD', 'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN', 'REGION_STOREKEEPER', 'BRANCH_STOREKEEPER', 'DEPT_SUPERVISOR'].includes(user?.role || '')
 
   return (
     <div className="dashboard">
@@ -64,13 +64,13 @@ export default function Home() {
 
       {/* --- СТАТИСТИКА --- */}
       <div className="stats-grid">
-        {isVolunteer ? (
+        {isCONTRACTOR ? (
           <>
-            <Link to="/volunteer-requests" className="stat-card">
-              <span className="stat-value">{stats.openVolunteerRequests}</span>
-              <span className="stat-label">Відкритих потреб</span>
+            <Link to="/contractor-requests" className="stat-card">
+              <span className="stat-value">{stats.openContractorRequests}</span>
+              <span className="stat-label">Доступних завдань</span>
             </Link>
-            <Link to="/volunteer-requests" className="stat-card stat-warning">
+            <Link to="/contractor-requests" className="stat-card stat-warning">
               <span className="stat-value">{stats.myActiveTasks}</span>
               <span className="stat-label">Моїх завдань</span>
             </Link>
@@ -79,7 +79,7 @@ export default function Home() {
           <>
             <Link to="/inventory" className="stat-card">
               <span className="stat-value">{stats.resources}</span>
-              <span className="stat-label">Ресурсів</span>
+              <span className="stat-label">Ресурсів на балансі</span>
             </Link>
             <Link to="/inventory" className="stat-card">
               <span className="stat-value">{stats.categories}</span>
@@ -97,8 +97,8 @@ export default function Home() {
       <div className="quick-actions">
         <h2>Швидкі дії</h2>
         <div className="actions-grid">
-          {/* Військові дії (ховаємо від волонтера) */}
-          {!isVolunteer && (
+          {/* Внутрішні дії (ховаємо від зовнішнього підрядника) */}
+          {!isCONTRACTOR && (
             <>
               <Link to="/inventory" className="action-card">Ресурси</Link>
               <Link to="/requests" className="action-card">Заявки</Link>
@@ -106,12 +106,12 @@ export default function Home() {
           )}
 
           {/* Спільна дія, але з різним текстом */}
-          <Link to="/volunteer-requests" className="action-card">
-            {isVolunteer ? 'Переглянути потреби' : 'Для волонтерів'}
+          <Link to="/contractor-requests" className="action-card">
+            {isCONTRACTOR ? 'Відкриті завдання' : 'Заявки підрядникам'}
           </Link>
 
           {/* Управління користувачами (вже має свою перевірку) */}
-          {canManageUsers && !isVolunteer && (
+          {canManageUsers && !isCONTRACTOR && (
             <Link to="/admin/users" className="action-card">
               Користувачі
             </Link>

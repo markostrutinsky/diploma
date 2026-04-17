@@ -1,22 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { api, type MyEquipmentItem } from '../api/client';
+import { api, type MyEquipmentItem, ROLE_NAMES } from '../api/client'; // 🔥 Додали ROLE_NAMES
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
 import './Profile.css';
-
-const ROLE_LABELS: Record<string, string> = {
-  ADMIN: 'Адміністратор',
-  BRIGADE_CMDR: 'Командир бригади',
-  BATTALION_CMDR: 'Командир батальйону',
-  COMPANY_CMDR: 'Командир роти',
-  PLATOON_CMDR: 'Командир взводу',
-  BRIGADE_LOGIST: 'Логіст бригади',
-  BRIGADE_STOREKEEPER: 'Комірник бригади',
-  BATTALION_LOGIST: 'Логіст батальйону',
-  BATTALION_STOREKEEPER: 'Комірник батальйону',
-  COMPANY_SERGEANT: 'Старшина роти',
-  VOLUNTEER: 'Волонтер',
-};
 
 const STATUS_LABELS: Record<string, { label: string, color: string }> = {
   ACTIVE: { label: 'Активний', color: 'success' },
@@ -25,12 +11,12 @@ const STATUS_LABELS: Record<string, { label: string, color: string }> = {
 };
 
 const PERMISSIONS = {
-  manageWarehouses: ['ADMIN', 'BRIGADE_CMDR', 'BRIGADE_LOGIST', 'BATTALION_CMDR', 'BATTALION_LOGIST', 'COMPANY_CMDR', 'PLATOON_CMDR'],
-  approveRequests: ['ADMIN', 'BRIGADE_CMDR', 'BATTALION_CMDR', 'COMPANY_CMDR', 'BRIGADE_LOGIST', 'BATTALION_LOGIST'],
-  createRequests: ['ADMIN', 'BRIGADE_CMDR', 'BATTALION_CMDR', 'COMPANY_CMDR', 'PLATOON_CMDR', 'BRIGADE_LOGIST', 'BATTALION_LOGIST', 'COMPANY_SERGEANT'],
-  manageInventory: ['ADMIN', 'BRIGADE_STOREKEEPER', 'BATTALION_STOREKEEPER', 'COMPANY_SERGEANT'],
-  manageUnits: ['ADMIN', 'BRIGADE_CMDR', 'BATTALION_CMDR', 'COMPANY_CMDR', 'BRIGADE_LOGIST', 'BATTALION_LOGIST', 'BRIGADE_STOREKEEPER', 'BATTALION_STOREKEEPER'],
-  createUsers: ['ADMIN', 'BRIGADE_CMDR', 'BATTALION_CMDR', 'COMPANY_CMDR', 'PLATOON_CMDR', 'BRIGADE_LOGIST', 'BATTALION_LOGIST', 'BRIGADE_STOREKEEPER', 'BATTALION_STOREKEEPER', 'COMPANY_SERGEANT'],
+  manageWarehouses: ['ADMIN', 'REGION_DIRECTOR', 'REGION_LOGISTICIAN', 'BRANCH_MANAGER', 'BRANCH_LOGISTICIAN', 'DEPT_MANAGER', 'TEAM_LEAD'],
+  approveRequests: ['ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN'],
+  createRequests: ['ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'TEAM_LEAD', 'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN', 'DEPT_SUPERVISOR'],
+  manageInventory: ['ADMIN', 'REGION_STOREKEEPER', 'BRANCH_STOREKEEPER', 'DEPT_SUPERVISOR'],
+  manageUnits: ['ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN', 'REGION_STOREKEEPER', 'BRANCH_STOREKEEPER'],
+  createUsers: ['ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'TEAM_LEAD', 'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN', 'REGION_STOREKEEPER', 'BRANCH_STOREKEEPER', 'DEPT_SUPERVISOR'],
 };
 
 export default function Profile() {
@@ -46,7 +32,6 @@ export default function Profile() {
   const [passwords, setPasswords] = useState({ old: '', new: '', confirm: '' });
   const [isChangingPass, setIsChangingPass] = useState(false);
 
-  // --- СТЕЙТ ФОРМИ РЕДАГУВАННЯ ---
   const [formData, setFormData] = useState({
     full_name: '',
     phone: '',
@@ -55,7 +40,6 @@ export default function Profile() {
   });
   const [isSaving, setIsSaving] = useState(false);
 
-  // Заповнюємо форму даними користувача, коли вони завантажаться
   useEffect(() => {
     if (user) {
       setFormData({
@@ -83,7 +67,6 @@ export default function Profile() {
     }
   };
 
-  // --- ОБРОБНИКИ ФОРМИ ---
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -92,7 +75,6 @@ export default function Profile() {
     e.preventDefault();
     try {
       setIsSaving(true);
-      // Зверни увагу: якщо поле пусте, відправляємо undefined, щоб бекенд отримав nil
       await api.users.updateProfile({
         full_name: formData.full_name,
         phone: formData.phone || undefined,
@@ -109,7 +91,7 @@ export default function Profile() {
 
   const handleReportSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    alert(`Рапорт на ${reportItem?.resource_name} (Причина: ${reportReason}) успішно відправлено!`);
+    alert(`Запит щодо ${reportItem?.resource_name} (Причина: ${reportReason}) успішно відправлено!`);
     setReportItem(null);
   };
 
@@ -178,7 +160,7 @@ export default function Profile() {
             
             <div className="profile-badges">
               <span className="profile-role-badge">
-                {user?.role ? ROLE_LABELS[user.role] || user.role : 'Посада не вказана'}
+                {user?.role ? ROLE_NAMES[user.role] || user.role : 'Посада не вказана'}
               </span>
               <span className={`status-badge status-${statusInfo.color}`}>
                 {statusInfo.label}
@@ -201,9 +183,9 @@ export default function Profile() {
                 <span className="detail-value">{user?.phone || 'Не вказано'}</span>
               </div>
               <div className="detail-item">
-                <span className="detail-label">Підрозділ</span>
+                <span className="detail-label">Орг. одиниця</span>
                 <span className="detail-value font-mono">
-                  {user?.unit_id ? `ID: ${user.unit_id}` : 'Без підрозділу'}
+                  {user?.unit_id ? `ID: ${user.unit_id}` : 'Без закріплення'}
                 </span>
               </div>
             </div>
@@ -217,7 +199,7 @@ export default function Profile() {
               className={`ptab-btn ${activeTab === 'equipment' ? 'active' : ''}`}
               onClick={() => setActiveTab('equipment')}
             >
-              🎒 Моє екіпірування
+              📦 Моє майно
             </button>
             <button 
               className={`ptab-btn ${activeTab === 'permissions' ? 'active' : ''}`}
@@ -239,9 +221,9 @@ export default function Profile() {
               <>
                 {equipment.length === 0 ? (
                   <div className="empty-state-card">
-                    <span className="empty-icon">🎒</span>
+                    <span className="empty-icon">📦</span>
                     <h3>У вас немає закріпленого майна</h3>
-                    <p>Коли логіст видасть вам екіпірування, воно з'явиться тут.</p>
+                    <p>Коли логіст видасть вам робоче майно, воно з'явиться тут.</p>
                   </div>
                 ) : (
                   <div className="equipment-grid">
@@ -259,7 +241,7 @@ export default function Profile() {
                           <span className="qty-unit">{formatUnitType(item.unit_type)}</span>
                         </div>
                         <button className="btn-report" onClick={() => setReportItem(item)}>
-                          ⚠️ Подати рапорт
+                          ⚠️ Повідомити про проблему
                         </button>
                       </div>
                     ))}
@@ -272,15 +254,15 @@ export default function Profile() {
               <div className="permissions-panel">
                 <h3>Права доступу в системі</h3>
                 <p className="text-muted mb-4">
-                  Ваші можливості в системі визначаються вашою посадою (<strong>{ROLE_LABELS[user?.role || ''] || 'Невідомо'}</strong>).
-                </p>
+  Ваші можливості в системі визначаються вашою посадою (<strong>{user?.role ? ROLE_NAMES[user.role] || user.role : 'Невідомо'}</strong>).
+</p>
                 
                 <div className="permissions-list">
                   <div className="perm-item">
                     <span className="perm-icon">{hasPerm(PERMISSIONS.approveRequests) ? '✅' : '❌'}</span>
                     <div className="perm-text">
                       <strong>Затвердження заявок</strong>
-                      <p>Право розглядати та погоджувати заявки на постачання від підлеглих.</p>
+                      <p>Право розглядати та погоджувати заявки на постачання від співробітників.</p>
                     </div>
                   </div>
                   <div className="perm-item">
@@ -300,15 +282,14 @@ export default function Profile() {
                   <div className="perm-item">
                     <span className="perm-icon">{hasPerm(PERMISSIONS.createUsers) ? '✅' : '❌'}</span>
                     <div className="perm-text">
-                      <strong>Управління особовим складом</strong>
-                      <p>Право створювати профілі для підлеглих військовослужбовців.</p>
+                      <strong>Управління персоналом</strong>
+                      <p>Право створювати профілі для нових співробітників.</p>
                     </div>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* ВКЛАДКА: НАЛАШТУВАННЯ (ОНОВЛЕНО) */}
             {activeTab === 'settings' && (
               <div className="settings-panel">
                 <h3 style={{ marginBottom: '24px' }}>Редагування профілю</h3>
@@ -377,50 +358,48 @@ export default function Profile() {
                 <h3 style={{ color: '#dc2626', marginBottom: '8px' }}>Небезпечна зона</h3>
                 <p className="text-muted mb-4">Якщо ви зміните пароль, вам доведеться зайти в систему наново.</p>
                 <button 
-  type="button" 
-  className="btn btn-secondary" 
-  onClick={() => setShowPasswordModal(true)}
->
-  Змінити пароль
-</button>
+                  type="button" 
+                  className="btn btn-secondary" 
+                  onClick={() => setShowPasswordModal(true)}
+                >
+                  Змінити пароль
+                </button>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Модальне вікно для Рапорту */}
       {reportItem && (
         <div className="modal-overlay" onClick={() => setReportItem(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
-            <h3>Подача рапорту</h3>
+            <h3>Списання / Заміна майна</h3>
             <p className="text-muted text-left" style={{ marginBottom: '15px' }}>
               Майно: <strong>{reportItem.resource_name}</strong>
             </p>
             <form onSubmit={handleReportSubmit}>
               <div className="form-group text-left">
-                <label>Причина списання / заміни</label>
+                <label>Причина запиту</label>
                 <select value={reportReason} onChange={(e) => setReportReason(e.target.value)} className="erp-input">
-                  <option value="BROKEN">Зламано / Пошкоджено в бою</option>
+                  <option value="BROKEN">Зламано / Пошкоджено під час роботи</option>
                   <option value="LOST">Втрачено</option>
-                  <option value="WORN_OUT">Зношено (закінчився термін)</option>
+                  <option value="WORN_OUT">Зношено (закінчився термін експлуатації)</option>
                 </select>
               </div>
               <div className="warning-box" style={{ marginTop: '16px' }}>
-                <p>Цей рапорт буде автоматично відправлено вашому командиру та логісту.</p>
+                <p>Цей запит буде автоматично відправлено вашому керівнику та відділу логістики.</p>
               </div>
               <div className="modal-actions" style={{ marginTop: '24px' }}>
                 <button type="button" className="btn btn-secondary cancel-margin" onClick={() => setReportItem(null)}>
                   Скасувати
                 </button>
-                <button type="submit" className="btn btn-danger">Відправити рапорт</button>
+                <button type="submit" className="btn btn-danger">Відправити запит</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* Модальне вікно для Зміни Пароля */}
       {showPasswordModal && (
         <div className="modal-overlay" onClick={() => setShowPasswordModal(false)}>
           <div className="modal" onClick={e => e.stopPropagation()}>

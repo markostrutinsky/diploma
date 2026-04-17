@@ -43,41 +43,41 @@ function App() {
 
           <Route 
             path="/my-equipment" 
-            element={<ProtectedRoute forbidRoles={['VOLUNTEER']}><Profile /></ProtectedRoute>} 
+            element={<ProtectedRoute forbidRoles={['CONTRACTOR']}><Profile /></ProtectedRoute>} 
           />
 
           <Route 
             path="/inventory" 
-            element={<ProtectedRoute forbidRoles={['VOLUNTEER']}><Inventory /></ProtectedRoute>} 
+            element={<ProtectedRoute forbidRoles={['CONTRACTOR']}><Inventory /></ProtectedRoute>} 
           />
           <Route 
             path="/warehouses" 
-            element={<ProtectedRoute forbidRoles={['VOLUNTEER']}><Warehouses /></ProtectedRoute>} 
+            element={<ProtectedRoute forbidRoles={['CONTRACTOR']}><Warehouses /></ProtectedRoute>} 
           />
           <Route 
             path="/requests" 
-            element={<ProtectedRoute forbidRoles={['VOLUNTEER']}><Requests /></ProtectedRoute>} 
+            element={<ProtectedRoute forbidRoles={['CONTRACTOR']}><Requests /></ProtectedRoute>} 
           />
           <Route 
             path="/units" 
-            element={<ProtectedRoute forbidRoles={['VOLUNTEER']}><Units /></ProtectedRoute>} 
+            element={<ProtectedRoute forbidRoles={['CONTRACTOR']}><Units /></ProtectedRoute>} 
           />
           <Route 
             path="/admin/users" 
-            element={<ProtectedRoute forbidRoles={['VOLUNTEER']}><AdminUsers /></ProtectedRoute>} 
+            element={<ProtectedRoute forbidRoles={['CONTRACTOR']}><AdminUsers /></ProtectedRoute>} 
           />
           <Route 
             path="/vehicles" 
-            element={<ProtectedRoute forbidRoles={['VOLUNTEER']}><Vehicles /></ProtectedRoute>} 
+            element={<ProtectedRoute forbidRoles={['CONTRACTOR']}><Vehicles /></ProtectedRoute>} 
           />
           
           <Route 
             path="/analytics" 
-            element={<ProtectedRoute forbidRoles={['VOLUNTEER']}><AnalyticsDashboard /></ProtectedRoute>} 
+            element={<ProtectedRoute forbidRoles={['CONTRACTOR']}><AnalyticsDashboard /></ProtectedRoute>} 
           />
 
           <Route 
-            path="/volunteer-requests" 
+            path="/CONTRACTOR-requests" 
             element={<ProtectedRoute><VolunteerRequests /></ProtectedRoute>} 
           />
 

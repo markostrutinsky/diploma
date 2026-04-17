@@ -157,13 +157,13 @@ type CreateShipmentRequest struct {
 
 var FuelRecordCreatorRoles = []UserRole{
 	RoleAdmin,
-	RoleBrigadeCmdr,
-	RoleBattalionCmdr,
-	RoleCompanyCmdr,
-	RolePlatoonCmdr,
-	RoleBrigadeLogist,
-	RoleBattalionLogist,
-	RoleBrigadeStorekeeper,
-	RoleBattalionStorekeeper,
-	RoleCompanySergeant,
+	RoleRegionDirector,
+	RoleBranchManager,
+	RoleDeptManager,
+	RoleTeamLead,
+	RoleRegionLogistician,
+	RoleBranchLogistician,
+	RoleRegionStorekeeper,
+	RoleBranchStorekeeper,
+	RoleDeptSupervisor,
 }

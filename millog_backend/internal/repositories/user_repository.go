@@ -110,7 +110,7 @@ func (r *UserRepository) GetCommanders(ctx context.Context, db DBExecutor) ([]*m
 	query := `
         SELECT id, username, email, full_name, phone, password_hash, role, status, unit_id, created_at, updated_at
         FROM users
-        WHERE role IN ('BRIGADE_CMDR', 'BATTALION_CMDR', 'COMPANY_CMDR', 'PLATOON_CMDR')
+        WHERE role IN ('REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'TEAM_LEAD')
     `
 
 	rows, err := db.Query(ctx, query)

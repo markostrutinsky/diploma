@@ -34,7 +34,7 @@ type MaintenancePredictStat struct {
 	KmLeft      int    `json:"km_left"`
 }
 
-type VolunteerSLAStat struct {
+type CONTRACTORSLAStat struct {
 	AverageDays    float64 `json:"average_days"`
 	CompletedCount int     `json:"completed_count"`
 }
@@ -44,12 +44,12 @@ type FleetTCOStat struct {
 	TotalCost    float64 `json:"total_cost"`
 }
 
-type VolunteerRequestStat struct {
+type CONTRACTORRequestStat struct {
 	Status string `json:"status"`
 	Count  int    `json:"count"`
 }
 
-type VolunteerTimelineStat struct {
+type CONTRACTORTimelineStat struct {
 	Date  string `json:"date"`
 	Count int    `json:"count"`
 }
@@ -70,7 +70,7 @@ type SmartReplenishItem struct {
 	ResourceID string `json:"resource_id"`
 	Name       string `json:"name"`
 	Quantity   int    `json:"quantity"`
-	Target     string `json:"target"` // "WAREHOUSE" (Зі складу) або "VOLUNTEER" (Волонтери)
+	Target     string `json:"target"` // "WAREHOUSE" (Зі складу) або "CONTRACTOR" (Волонтери)
 }
 
 // Загальне тіло запиту (Payload), яке прилетить з фронтенду
@@ -108,11 +108,11 @@ type DashboardAnalytics struct {
 	UnitReadiness      []UnitReadinessStat      `json:"unit_readiness"`
 	FuelHistory        []FuelMonthlyStat        `json:"fuel_history"`
 	MaintenancePredict []MaintenancePredictStat `json:"maintenance_predict"`
-	VolunteerSLA       VolunteerSLAStat         `json:"volunteer_sla"`
+	CONTRACTORSLA      CONTRACTORSLAStat        `json:"CONTRACTOR_sla"`
 	FleetTCO           []FleetTCOStat           `json:"fleet_tco"`
 
-	VolunteerFunnel   []VolunteerRequestStat  `json:"volunteer_funnel"`
-	VolunteerTimeline []VolunteerTimelineStat `json:"volunteer_timeline"`
+	CONTRACTORFunnel   []CONTRACTORRequestStat  `json:"CONTRACTOR_funnel"`
+	CONTRACTORTimeline []CONTRACTORTimelineStat `json:"CONTRACTOR_timeline"`
 
 	// НОВЕ: Поле для списку дефіциту (для модалки та віджета)
 	DeficitResources []DeficitResource `json:"deficit_resources"`

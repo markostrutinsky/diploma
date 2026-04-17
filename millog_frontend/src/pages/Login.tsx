@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import toast from 'react-hot-toast' // Додаємо для красивих сповіщень
+import toast from 'react-hot-toast' 
 import { api } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import './Login.css'
@@ -20,7 +20,6 @@ export default function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
 
-  // Стандартна функція входу
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -36,7 +35,6 @@ export default function Login() {
     }
   }
 
-  // Нова функція відновлення пароля
   const handleResetSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!resetEmail) return
@@ -45,7 +43,7 @@ export default function Login() {
       setIsResetting(true)
       const res = await api.auth.requestPasswordReset(resetEmail)
       toast.success(res.message || 'Інструкції надіслано на пошту!')
-      setIsForgotMode(false) // Повертаємо на екран логіну після успіху
+      setIsForgotMode(false) 
     } catch (error: any) {
       toast.error(error.message || 'Помилка при відправці запиту')
     } finally {
@@ -58,9 +56,6 @@ export default function Login() {
       <div className="login-card">
         
         {isForgotMode ? (
-          /* =========================================
-             ЕКРАН 2: ВІДНОВЛЕННЯ ПАРОЛЯ
-             ========================================= */
           <>
             <h1>Відновлення пароля</h1>
             <p style={{ marginBottom: '1.5rem' }}>
@@ -87,16 +82,14 @@ export default function Login() {
             </form>
           </>
         ) : (
-          /* =========================================
-             ЕКРАН 1: СТАНДАРТНИЙ ВХІД
-             ========================================= */
           <>
-            <h1>Millog</h1>
+            <h1>Omnilog</h1>
             <p>Увійдіть до системи</p>
             <p className="login-hint">
               <Link to="/bootstrap">Перший запуск — створіть адміна</Link>
               {' · '}
-              <Link to="/register">Реєстрація волонтера</Link>
+              {/* 🔥 Змінено з "Реєстрація волонтера" на "Реєстрація підрядника" */}
+              <Link to="/register">Реєстрація підрядника</Link>
             </p>
             <form onSubmit={handleSubmit}>
               <input
@@ -112,7 +105,7 @@ export default function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                style={{ marginBottom: '0.5rem' }} // Зменшуємо відступ, щоб кнопка була ближче
+                style={{ marginBottom: '0.5rem' }} 
               />
               
               <div className="forgot-password-container">
@@ -120,7 +113,7 @@ export default function Login() {
                   type="button" 
                   className="forgot-password-link"
                   onClick={() => {
-                    setResetEmail(email) // Переносимо введений email у форму відновлення
+                    setResetEmail(email) 
                     setIsForgotMode(true)
                     setError(null)
                   }}

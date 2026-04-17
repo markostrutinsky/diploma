@@ -88,7 +88,7 @@ func main() {
 	resRepo := repositories.NewResourceRepository()
 	reqRepo := repositories.NewSupplyRequestRepository()
 	unitRepo := repositories.NewUnitRepository()
-	volReqRepo := repositories.NewVolunteerRequestRepository()
+	volReqRepo := repositories.NewCONTRACTORRequestRepository()
 	vehicleRepo := repositories.NewVehicleRepository()
 	fuelRepo := repositories.NewFuelRepository()
 	warehouseRepo := repositories.NewWarehouseRepository()
@@ -98,7 +98,7 @@ func main() {
 	invService := services.NewInventoryService(catRepo, resRepo, userRepo, dbPool)
 	reqService := services.NewRequestService(reqRepo, resRepo, userRepo, dbPool)
 	unitService := services.NewUnitService(unitRepo, userRepo, dbPool)
-	volReqService := services.NewVolunteerRequestService(volReqRepo, dbPool)
+	volReqService := services.NewCONTRACTORRequestService(volReqRepo, dbPool)
 	warehouseService := services.NewWarehouseService(warehouseRepo, dbPool)
 	analyticsService := services.NewAnalyticsService(analyticsRepo, dbPool)
 	auditService := services.NewAuditService(auditRepo, dbPool)
@@ -106,7 +106,7 @@ func main() {
 	invHandler := handlers.NewInventoryHandler(invService, auditService)
 	reqHandler := handlers.NewRequestHandler(reqService, auditService)
 	unitHandler := handlers.NewUnitHandler(unitService, auditService)
-	volReqHandler := handlers.NewVolunteerRequestHandler(volReqService)
+	volReqHandler := handlers.NewCONTRACTORRequestHandler(volReqService)
 	analyticsHandler := handlers.NewAnalyticsHandler(analyticsService)
 	warehouseHandler := handlers.NewWarehouseHandler(warehouseService, auditService)
 
@@ -131,7 +131,7 @@ func main() {
 		{
 			auth.POST("/login", authHandler.Login)
 			auth.POST("/refresh", authHandler.Refresh)
-			auth.POST("/register", authHandler.RegisterVolunteer)
+			auth.POST("/register", authHandler.RegisterCONTRACTOR)
 			auth.POST("/setup-password", authHandler.SetupPassword)
 			auth.POST("/forgot-password", authHandler.RequestPasswordReset)
 			auth.GET("/me", middleware.AuthMiddleware(jwtSecret, dbPool), authHandler.Me)
@@ -211,24 +211,24 @@ func main() {
 
 		}
 
-		// Volunteer requests: military creates, volunteers take and complete
-		volRequests := api.Group("/volunteer-requests")
-		volRequests.Use(middleware.AuthMiddleware(jwtSecret, dbPool))
+		// CONTRACTOR requests: military creates, CONTRACTORs take and complete
+		contractorReqs := api.Group("/contractor-requests")
+		contractorReqs.Use(middleware.AuthMiddleware(jwtSecret, dbPool))
 		{
 			// Перегляд списку (доступно всім)
-			volRequests.GET("", volReqHandler.List)
+			contractorReqs.GET("", volReqHandler.List)
 
 			// Створення заявки (тільки для військових)
-			volRequests.POST("", middleware.RequireAnyRole(models.MilitaryInventoryRoles), volReqHandler.Create)
+			contractorReqs.POST("", middleware.RequireAnyRole(models.ContractorRequestCreatorRoles), volReqHandler.Create)
 
 			// Дії ВОЛОНТЕРА (Взяти в роботу, Доставити)
-			volRequests.POST("/:id/take", middleware.RequireAnyRole([]models.UserRole{models.RoleVolunteer}), volReqHandler.Take)
-			volRequests.POST("/:id/deliver", middleware.RequireAnyRole([]models.UserRole{models.RoleVolunteer}), volReqHandler.Deliver)
+			contractorReqs.POST("/:id/take", middleware.RequireAnyRole([]models.UserRole{models.RoleContractor}), volReqHandler.Take)
+			contractorReqs.POST("/:id/deliver", middleware.RequireAnyRole([]models.UserRole{models.RoleContractor}), volReqHandler.Deliver)
 
 			// Дії ВІЙСЬКОВИХ (Прийняти на баланс, Відхилити, Скасувати)
-			volRequests.POST("/:id/accept", middleware.RequireAnyRole(models.MilitaryInventoryRoles), volReqHandler.Accept)
-			volRequests.POST("/:id/reject", middleware.RequireAnyRole(models.MilitaryInventoryRoles), volReqHandler.Reject)
-			volRequests.POST("/:id/cancel", middleware.RequireAnyRole(models.MilitaryInventoryRoles), volReqHandler.Cancel)
+			contractorReqs.POST("/:id/accept", middleware.RequireAnyRole(models.ContractorRequestCreatorRoles), volReqHandler.Accept)
+			contractorReqs.POST("/:id/reject", middleware.RequireAnyRole(models.ContractorRequestCreatorRoles), volReqHandler.Reject)
+			contractorReqs.POST("/:id/cancel", middleware.RequireAnyRole(models.ContractorRequestCreatorRoles), volReqHandler.Cancel)
 		}
 
 		// Fuel records: logists + commanders create; logists + commanders view

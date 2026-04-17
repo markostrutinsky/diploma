@@ -42,7 +42,7 @@ func (r *SupplyRequestRepository) List(ctx context.Context, db DBExecutor, userR
 	var rows pgx.Rows
 	var err error
 
-	if userRole == "ADMIN" || userRole == "VOLUNTEER" {
+	if userRole == "ADMIN" || userRole == "CONTRACTOR" {
 		// ДОДАНО: target_warehouse_id у SELECT
 		query := `SELECT id, created_by, resource_id, quantity, status, target_warehouse_id, approved_by, approved_at, comment, created_at, updated_at
 				  FROM supply_requests ORDER BY created_at DESC`

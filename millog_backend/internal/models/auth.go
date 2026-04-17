@@ -7,100 +7,99 @@ import (
 type UserRole string
 
 const (
-	RoleAdmin                UserRole = "ADMIN"
-	RoleBrigadeCmdr          UserRole = "BRIGADE_CMDR"
-	RoleBattalionCmdr        UserRole = "BATTALION_CMDR"
-	RoleCompanyCmdr          UserRole = "COMPANY_CMDR"
-	RolePlatoonCmdr          UserRole = "PLATOON_CMDR"
-	RoleBrigadeLogist        UserRole = "BRIGADE_LOGIST"
-	RoleBrigadeStorekeeper   UserRole = "BRIGADE_STOREKEEPER"
-	RoleBattalionLogist      UserRole = "BATTALION_LOGIST"
-	RoleBattalionStorekeeper UserRole = "BATTALION_STOREKEEPER"
-	RoleCompanySergeant      UserRole = "COMPANY_SERGEANT"
-	RoleVolunteer            UserRole = "VOLUNTEER"
+	RoleAdmin UserRole = "ADMIN"
+
+	RoleRegionDirector    UserRole = "REGION_DIRECTOR"
+	RoleRegionLogistician UserRole = "REGION_LOGISTICIAN"
+	RoleRegionStorekeeper UserRole = "REGION_STOREKEEPER"
+
+	RoleBranchManager     UserRole = "BRANCH_MANAGER"
+	RoleBranchLogistician UserRole = "BRANCH_LOGISTICIAN"
+	RoleBranchStorekeeper UserRole = "BRANCH_STOREKEEPER"
+
+	RoleDeptManager    UserRole = "DEPT_MANAGER"
+	RoleDeptSupervisor UserRole = "DEPT_SUPERVISOR"
+
+	RoleTeamLead UserRole = "TEAM_LEAD"
+
+	RoleContractor UserRole = "CONTRACTOR"
+	RoleEmployee   UserRole = "EMPLOYEE"
 )
 
-var MilitaryInventoryRoles = []UserRole{
+var InternalInventoryRoles = []UserRole{
 	RoleAdmin,
-	RoleBrigadeCmdr,
-	RoleBattalionCmdr,
-	RoleCompanyCmdr,
-	RoleBrigadeLogist,
-	RoleBattalionLogist,
-	RoleBrigadeStorekeeper,
-	RoleBattalionStorekeeper,
-	RoleCompanySergeant,
+	RoleRegionDirector,
+	RoleBranchManager,
+	RoleDeptManager,
+	RoleRegionLogistician,
+	RoleBranchLogistician,
+	RoleRegionStorekeeper,
+	RoleBranchStorekeeper,
+	RoleDeptSupervisor,
 }
 
-// Roles that can create and manage warehouses (infrastructure)
 var WarehouseManagerRoles = []UserRole{
 	RoleAdmin,
-	RoleBrigadeCmdr,
-	RoleBrigadeLogist,
-	RoleBattalionCmdr,
-	RoleBattalionLogist,
-	RoleCompanyCmdr,
-	RolePlatoonCmdr,
+	RoleRegionDirector,
+	RoleRegionLogistician,
+	RoleBranchManager,
+	RoleBranchLogistician,
+	RoleDeptManager,
+	RoleTeamLead,
 }
 
-// Roles that can create supply requests
 var SupplyRequestCreatorRoles = []UserRole{
-	RoleAdmin, RoleBrigadeCmdr, RoleBattalionCmdr, RoleCompanyCmdr, RolePlatoonCmdr,
-	RoleBrigadeLogist, RoleBattalionLogist, RoleCompanySergeant,
+	RoleAdmin, RoleRegionDirector, RoleBranchManager, RoleDeptManager, RoleTeamLead,
+	RoleRegionLogistician, RoleBranchLogistician, RoleDeptSupervisor,
 }
 
-// Roles that can approve supply requests
 var SupplyRequestApproverRoles = []UserRole{
-	RoleAdmin, RoleBrigadeCmdr, RoleBattalionCmdr, RoleCompanyCmdr,
-	RoleBrigadeLogist, RoleBattalionLogist,
+	RoleAdmin, RoleRegionDirector, RoleBranchManager, RoleDeptManager,
+	RoleRegionLogistician, RoleBranchLogistician,
 }
 
-// Roles that can create volunteer requests
-var VolunteerRequestCreatorRoles = []UserRole{
-	RoleAdmin, RoleBrigadeCmdr, RoleBattalionCmdr, RoleCompanyCmdr,
-	RoleBrigadeLogist, RoleBattalionLogist, RoleBrigadeStorekeeper, RoleBattalionStorekeeper, RoleCompanySergeant,
+var ContractorRequestCreatorRoles = []UserRole{
+	RoleAdmin, RoleRegionDirector, RoleBranchManager, RoleDeptManager,
+	RoleRegionLogistician, RoleBranchLogistician, RoleRegionStorekeeper, RoleBranchStorekeeper, RoleDeptSupervisor,
 }
 
-// Roles that can manage inventory (warehouses)
 var InventoryManagerRoles = []UserRole{
-	RoleAdmin, RoleBrigadeStorekeeper, RoleBattalionStorekeeper, RoleCompanySergeant,
+	RoleAdmin, RoleRegionStorekeeper, RoleBranchStorekeeper, RoleDeptSupervisor,
 }
 
-// Roles that can manage units
 var UnitManagerRoles = []UserRole{
-	RoleAdmin, RoleBrigadeCmdr, RoleBattalionCmdr, RoleCompanyCmdr,
-	RoleBrigadeLogist, RoleBattalionLogist, RoleBrigadeStorekeeper, RoleBattalionStorekeeper,
+	RoleAdmin, RoleRegionDirector, RoleBranchManager, RoleDeptManager,
+	RoleRegionLogistician, RoleBranchLogistician, RoleRegionStorekeeper, RoleBranchStorekeeper,
 }
 
-// Roles that can create users (except VOLUNTEER)
 var UserCreatorRoles = []UserRole{
-	RoleAdmin, RoleBrigadeCmdr, RoleBattalionCmdr, RoleCompanyCmdr, RolePlatoonCmdr,
-	RoleBrigadeLogist, RoleBattalionLogist, RoleBrigadeStorekeeper, RoleBattalionStorekeeper, RoleCompanySergeant,
+	RoleAdmin, RoleRegionDirector, RoleBranchManager, RoleDeptManager, RoleTeamLead,
+	RoleRegionLogistician, RoleBranchLogistician, RoleRegionStorekeeper, RoleBranchStorekeeper, RoleDeptSupervisor,
 }
 
 var RoleCreationMap = map[UserRole][]UserRole{
 	RoleAdmin: {
-		RoleBrigadeCmdr, RoleBattalionCmdr, RoleCompanyCmdr, RolePlatoonCmdr,
-		RoleBrigadeLogist, RoleBrigadeStorekeeper, RoleBattalionLogist,
-		RoleBattalionStorekeeper, RoleCompanySergeant,
+		RoleRegionDirector, RoleBranchManager, RoleDeptManager, RoleTeamLead,
+		RoleRegionLogistician, RoleRegionStorekeeper, RoleBranchLogistician,
+		RoleBranchStorekeeper, RoleDeptSupervisor, RoleEmployee, RoleContractor,
 	},
-	RoleBrigadeCmdr: {
-		RoleBattalionCmdr, RoleCompanyCmdr, RolePlatoonCmdr,
-		RoleBrigadeLogist, RoleBrigadeStorekeeper, RoleBattalionLogist,
-		RoleBattalionStorekeeper, RoleCompanySergeant,
+	RoleRegionDirector: {
+		RoleBranchManager, RoleDeptManager, RoleTeamLead,
+		RoleRegionLogistician, RoleRegionStorekeeper, RoleBranchLogistician,
+		RoleBranchStorekeeper, RoleDeptSupervisor, RoleEmployee, RoleContractor,
 	},
-	RoleBattalionCmdr: {
-		RoleCompanyCmdr, RolePlatoonCmdr,
-		RoleBattalionLogist, RoleBattalionStorekeeper, RoleCompanySergeant,
+	RoleBranchManager: {
+		RoleDeptManager, RoleTeamLead,
+		RoleBranchLogistician, RoleBranchStorekeeper, RoleDeptSupervisor, RoleEmployee,
 	},
-	RoleCompanyCmdr: {
-		RolePlatoonCmdr, RoleCompanySergeant,
+	RoleDeptManager: {
+		RoleTeamLead, RoleDeptSupervisor, RoleEmployee,
 	},
-	RoleBrigadeLogist: {
-		RoleBrigadeStorekeeper, RoleBattalionLogist, RoleBattalionStorekeeper,
+	RoleRegionLogistician: {
+		RoleRegionStorekeeper, RoleBranchLogistician, RoleBranchStorekeeper,
 	},
-	RoleBattalionLogist: {
-		RoleBattalionStorekeeper,
+	RoleBranchLogistician: {
+		RoleBranchStorekeeper,
 	},
 }
 
@@ -119,7 +118,7 @@ type User struct {
 	FullName     string     `json:"full_name" gorm:"size:255"`
 	Phone        *string    `json:"phone" gorm:"size:50"`
 	PasswordHash *string    `json:"-"`
-	Role         UserRole   `json:"role" gorm:"type:varchar(30);default:'VOLUNTEER'"`
+	Role         UserRole   `json:"role" gorm:"type:varchar(30);default:'CONTRACTOR'"`
 	Status       UserStatus `json:"status" gorm:"type:varchar(20);default:'PENDING'"`
 	UnitID       *int64     `json:"unit_id"`
 	CreatedAt    time.Time  `json:"created_at"`
@@ -194,14 +193,14 @@ func (r UserRole) CanCreate(targetRole UserRole) bool {
 
 func (r UserRole) GetTargetUnitType() string {
 	switch r {
-	case RoleBrigadeCmdr, RoleBrigadeLogist, RoleBrigadeStorekeeper:
-		return "BRIGADE"
-	case RoleBattalionCmdr, RoleBattalionLogist, RoleBattalionStorekeeper:
-		return "BATTALION"
-	case RoleCompanyCmdr, RoleCompanySergeant:
-		return "COMPANY"
-	case RolePlatoonCmdr:
-		return "PLATOON"
+	case RoleRegionDirector, RoleRegionLogistician, RoleRegionStorekeeper:
+		return "REGION"
+	case RoleBranchManager, RoleBranchLogistician, RoleBranchStorekeeper:
+		return "BRANCH"
+	case RoleDeptManager, RoleDeptSupervisor:
+		return "DEPARTMENT"
+	case RoleTeamLead:
+		return "TEAM"
 	default:
 		return ""
 	}
@@ -213,12 +212,12 @@ func (r UserRole) CanCreateUnitType(unitType string) bool {
 	}
 
 	switch r {
-	case RoleBrigadeCmdr, RoleBrigadeLogist, RoleBrigadeStorekeeper:
-		return unitType == "BATTALION" || unitType == "COMPANY" || unitType == "PLATOON"
-	case RoleBattalionCmdr, RoleBattalionLogist, RoleBattalionStorekeeper:
-		return unitType == "COMPANY" || unitType == "PLATOON"
-	case RoleCompanyCmdr, RoleCompanySergeant:
-		return unitType == "PLATOON"
+	case RoleRegionDirector, RoleRegionLogistician, RoleRegionStorekeeper:
+		return unitType == "BRANCH" || unitType == "DEPARTMENT" || unitType == "TEAM"
+	case RoleBranchManager, RoleBranchLogistician, RoleBranchStorekeeper:
+		return unitType == "DEPARTMENT" || unitType == "TEAM"
+	case RoleDeptManager, RoleDeptSupervisor:
+		return unitType == "TEAM"
 	default:
 		return false
 	}
@@ -230,58 +229,58 @@ type UpdateRoleRequest struct {
 }
 
 var ApprovalMatrix = map[UserRole][]UserRole{
-	RolePlatoonCmdr: {
-		RoleCompanyCmdr, RoleCompanySergeant,
-		RoleBattalionCmdr,
-		RoleBrigadeCmdr,
+	RoleTeamLead: {
+		RoleDeptManager, RoleDeptSupervisor,
+		RoleBranchManager,
+		RoleRegionDirector,
 		RoleAdmin,
 	},
 
-	RoleCompanyCmdr: {
-		RoleBattalionCmdr,
-		RoleBrigadeCmdr,
+	RoleDeptManager: {
+		RoleBranchManager,
+		RoleRegionDirector,
 		RoleAdmin,
 	},
-	RoleCompanySergeant: {
-		RoleCompanyCmdr,
-		RoleBattalionCmdr,
-		RoleBrigadeCmdr,
-		RoleAdmin,
-	},
-
-	RoleBattalionCmdr: {
-		RoleBrigadeCmdr,
+	RoleDeptSupervisor: {
+		RoleDeptManager,
+		RoleBranchManager,
+		RoleRegionDirector,
 		RoleAdmin,
 	},
 
-	RoleBattalionLogist: {
-		RoleBattalionCmdr,
-		RoleBrigadeCmdr, RoleBrigadeLogist,
+	RoleBranchManager: {
+		RoleRegionDirector,
 		RoleAdmin,
 	},
 
-	RoleBattalionStorekeeper: {
-		RoleBattalionCmdr, RoleBattalionLogist,
-		RoleBrigadeCmdr, RoleBrigadeLogist,
+	RoleBranchLogistician: {
+		RoleBranchManager,
+		RoleRegionDirector, RoleRegionLogistician,
 		RoleAdmin,
 	},
 
-	RoleBrigadeStorekeeper: {
-		RoleBrigadeCmdr, RoleBrigadeLogist,
+	RoleBranchStorekeeper: {
+		RoleBranchManager, RoleBranchLogistician,
+		RoleRegionDirector, RoleRegionLogistician,
 		RoleAdmin,
 	},
 
-	RoleBrigadeCmdr: {
+	RoleRegionStorekeeper: {
+		RoleRegionDirector, RoleRegionLogistician,
 		RoleAdmin,
 	},
-	RoleBrigadeLogist: {
-		RoleBrigadeCmdr, RoleAdmin,
+
+	RoleRegionDirector: {
+		RoleAdmin,
+	},
+	RoleRegionLogistician: {
+		RoleRegionDirector, RoleAdmin,
 	},
 
-	"USER": {
-		RolePlatoonCmdr, RoleCompanyCmdr, RoleCompanySergeant,
-		RoleBattalionCmdr,
-		RoleBrigadeCmdr,
+	RoleEmployee: {
+		RoleTeamLead, RoleDeptManager, RoleDeptSupervisor,
+		RoleBranchManager,
+		RoleRegionDirector,
 		RoleAdmin,
 	},
 }

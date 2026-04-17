@@ -2,38 +2,38 @@ package models
 
 import "time"
 
-type VolunteerRequestStatus string
+type CONTRACTORRequestStatus string
 
 const (
-	VolunteerOpen      VolunteerRequestStatus = "OPEN"
-	VolunteerTaken     VolunteerRequestStatus = "TAKEN"
-	VolunteerDelivered VolunteerRequestStatus = "DELIVERED"
-	VolunteerRejected  VolunteerRequestStatus = "REJECTED"
-	VolunteerAccepted  VolunteerRequestStatus = "ACCEPTED"
-	VolunteerCanceled  VolunteerRequestStatus = "CANCELED"
+	CONTRACTOROpen      CONTRACTORRequestStatus = "OPEN"
+	CONTRACTORTaken     CONTRACTORRequestStatus = "TAKEN"
+	CONTRACTORDelivered CONTRACTORRequestStatus = "DELIVERED"
+	CONTRACTORRejected  CONTRACTORRequestStatus = "REJECTED"
+	CONTRACTORAccepted  CONTRACTORRequestStatus = "ACCEPTED"
+	CONTRACTORCanceled  CONTRACTORRequestStatus = "CANCELED"
 )
 
-type VolunteerRequest struct {
-	ID          string                 `json:"id"`
-	CreatedBy   string                 `json:"created_by"`
-	UnitID      *int64                 `json:"unit_id"`
-	UnitName    *string                `json:"unit_name"`
-	Title       string                 `json:"title"`
-	Description string                 `json:"description"`
-	Status      VolunteerRequestStatus `json:"status"`
-	TakenBy     *string                `json:"taken_by"`
-	TakenAt     *time.Time             `json:"taken_at"`
-	CompletedAt *time.Time             `json:"completed_at"`
-	CreatedAt   time.Time              `json:"created_at"`
+type CONTRACTORRequest struct {
+	ID          string                  `json:"id"`
+	CreatedBy   string                  `json:"created_by"`
+	UnitID      *int64                  `json:"unit_id"`
+	UnitName    *string                 `json:"unit_name"`
+	Title       string                  `json:"title"`
+	Description string                  `json:"description"`
+	Status      CONTRACTORRequestStatus `json:"status"`
+	TakenBy     *string                 `json:"taken_by"`
+	TakenAt     *time.Time              `json:"taken_at"`
+	CompletedAt *time.Time              `json:"completed_at"`
+	CreatedAt   time.Time               `json:"created_at"`
 }
 
-type CreateVolunteerRequest struct {
+type CreateCONTRACTORRequest struct {
 	Title       string `json:"title" binding:"required"`
 	Description string `json:"description"`
 	UnitID      *int64 `json:"unit_id"`
 }
 
-type AcceptVolunteerPayload struct {
+type AcceptCONTRACTORPayload struct {
 	ResourceID *string         `json:"resource_id"`
 	CategoryID string          `json:"category_id" binding:"required"`
 	Name       string          `json:"name" binding:"required"`

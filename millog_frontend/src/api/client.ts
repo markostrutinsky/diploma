@@ -74,7 +74,8 @@ export const api = {
     getAuditLogs: () => request<any[]>('/admin/audit-logs'),
   },
   users: {
-    listCommanders: () => request<User[]>('/users/commanders'),
+    // Змінено з commanders на managers
+    listManagers: () => request<User[]>('/users/commanders'),
     getVisible: () => request<User[]>('/users/visible'),
     updateRole: (id: string, role: string, unitId: number | null) => 
       request<{ message: string }>(`/users/${id}/role`, {
@@ -153,15 +154,12 @@ export const api = {
       });
 
       if (!response.ok) {
-        // Пробуємо прочитати JSON з відповіді сервера
         const errData = await response.json().catch(() => ({}));
-        // Викидаємо конкретну помилку з бекенду (якщо вона є), або статус код
         throw new Error(errData.error || `Внутрішня помилка сервера: HTTP ${response.status}`);
       }
 
       const blob = await response.blob();
       
-      // Витягуємо назву файлу із заголовків, які ми передали з бекенду
       const contentDisposition = response.headers.get('Content-Disposition');
       let filename = `Waybill_${shipmentId}.pdf`;
       if (contentDisposition) {
@@ -257,38 +255,39 @@ export const api = {
       request<{ message: string }>(`/units/${id}`, {
         method: 'DELETE',
       }),
-    changeCommander: (unitId: number, newCommanderId: string) => 
+    // 🔥 Оновлено назву та тіло запиту
+    changeManager: (unitId: number, newManagerId: string) => 
       request<{ message: string }>(`/units/${unitId}/change-commander`, {
         method: 'POST',
-        body: JSON.stringify({ new_commander_id: newCommanderId }),
+        body: JSON.stringify({ new_manager_id: newManagerId }),
       }),
   },
-  volunteerRequests: {
-    list: (status?: string) => 
-      request<VolunteerRequest[]>(`/volunteer-requests${status ? `?status=${status}` : ''}`),
-    
+  contractorRequests: {
+    list: (status?: string) =>
+      request<ContractorRequest[]>(`/contractor-requests${status ? `?status=${status}` : ''}`),
+
     create: (body: { title: string; description: string }) =>
-      request<VolunteerRequest>('/volunteer-requests', {
+      request<ContractorRequest>('/contractor-requests', {
         method: 'POST',
         body: JSON.stringify(body),
       }),
-      
-    take: (id: string) => 
-      request<{ message: string }>(`/volunteer-requests/${id}/take`, { method: 'POST' }),
-      
-    deliver: (id: string) => 
-      request<{ message: string }>(`/volunteer-requests/${id}/deliver`, { method: 'POST' }),
-      
+
+    take: (id: string) =>
+      request<{ message: string }>(`/contractor-requests/${id}/take`, { method: 'POST' }),
+
+    deliver: (id: string) =>
+      request<{ message: string }>(`/contractor-requests/${id}/deliver`, { method: 'POST' }),
+
     accept: (id: string, body: { resource_id?: string; category_id: string; name: string; quantity: number; unit_type: string }) =>
-      request<{ message: string }>(`/volunteer-requests/${id}/accept`, {
+      request<{ message: string }>(`/contractor-requests/${id}/accept`, {
         method: 'POST',
         body: JSON.stringify(body),
     }),
     reject: (id: string) => 
-      request<{ message: string }>(`/volunteer-requests/${id}/reject`, { method: 'POST' }),
-      
-    cancel: (id: string) => 
-      request<{ message: string }>(`/volunteer-requests/${id}/cancel`, { method: 'POST' }),
+      request<{ message: string }>(`/contractor-requests/${id}/reject`, { method: 'POST' }),
+
+    cancel: (id: string) =>
+      request<{ message: string }>(`/contractor-requests/${id}/cancel`, { method: 'POST' }),
   },
 
   vehicles: {
@@ -488,14 +487,15 @@ export interface CreateWarehouseData {
   longitude?: number;
 }
 
+// 🔥 Оновлено інтерфейс
 export interface Unit {
   id: number
   parent_id?: number
   name: string
-  unit_type: string
+  unit_type: 'REGION' | 'BRANCH' | 'DEPARTMENT' | 'TEAM'; 
 }
 
-export interface VolunteerRequest {
+export interface ContractorRequest {
   id: string
   created_by: string
   unit_id?: number;
@@ -509,7 +509,7 @@ export interface VolunteerRequest {
   created_at: string
 }
 
-export interface AcceptVolunteerPayload {
+export interface AcceptContractorPayload {
   category_id: string;
   name: string;
   quantity: number;
@@ -549,16 +549,17 @@ export interface LoginResponse {
 
 export type UserRole =
   | 'ADMIN'
-  | 'BRIGADE_CMDR'
-  | 'BATTALION_CMDR'
-  | 'COMPANY_CMDR'
-  | 'PLATOON_CMDR'
-  | 'BRIGADE_LOGIST'
-  | 'BRIGADE_STOREKEEPER'
-  | 'BATTALION_LOGIST'
-  | 'BATTALION_STOREKEEPER'
-  | 'COMPANY_SERGEANT'
-  | 'VOLUNTEER'
+  | 'REGION_DIRECTOR'
+  | 'BRANCH_MANAGER'
+  | 'DEPT_MANAGER'
+  | 'TEAM_LEAD'
+  | 'REGION_LOGISTICIAN'
+  | 'REGION_STOREKEEPER'
+  | 'BRANCH_LOGISTICIAN'
+  | 'BRANCH_STOREKEEPER'
+  | 'DEPT_SUPERVISOR'
+  | 'CONTRACTOR'
+  | 'EMPLOYEE'
 
 export interface CreateUserRequest {
   username?: string
@@ -621,8 +622,8 @@ export interface SupplyRequest {
   created_by: string
   resource_id: string
   quantity: number
-  status: RequestStatus // <-- Повертаємо строгий тип статусів
-  target_warehouse_id: string // <-- ОСЬ НАШЕ НОВЕ ПОЛЕ
+  status: RequestStatus 
+  target_warehouse_id: string 
   approved_by?: string
   comment: string
   created_at: string
@@ -700,10 +701,6 @@ export interface InventoryItem {
   weight_kg: number;
 }
 
-// ==========================================
-// ЛОГІСТИКА ТА РЕЙСИ (SHIPMENTS)
-// ==========================================
-
 export interface ShipmentItemPayload {
   resource_id: string;
   quantity: number;
@@ -749,3 +746,29 @@ export interface SubmitAuditRequest {
   warehouse_id: string;
   discrepancies: AuditDiscrepancy[];
 }
+
+// ==========================================
+// 🔥 СЛОВНИКИ ДЛЯ КРАСИВОГО UI
+// ==========================================
+
+export const ROLE_NAMES: Record<UserRole, string> = {
+  'ADMIN': 'Системний адміністратор',
+  'REGION_DIRECTOR': 'Директор регіону',
+  'BRANCH_MANAGER': 'Керівник філії',
+  'DEPT_MANAGER': 'Начальник відділу',
+  'TEAM_LEAD': 'Керівник групи (Тімлід)',
+  'REGION_LOGISTICIAN': 'Регіональний логіст',
+  'REGION_STOREKEEPER': 'Завідувач рег. складом',
+  'BRANCH_LOGISTICIAN': 'Логіст філії',
+  'BRANCH_STOREKEEPER': 'Завідувач складом філії',
+  'DEPT_SUPERVISOR': 'Супервайзер відділу',
+  'CONTRACTOR': 'Підрядник (Зовнішній)',
+  'EMPLOYEE': 'Співробітник'
+};
+
+export const UNIT_TYPE_NAMES: Record<string, string> = {
+  'REGION': 'Регіон / Дирекція',
+  'BRANCH': 'Філія',
+  'DEPARTMENT': 'Відділ',
+  'TEAM': 'Команда / Група'
+};

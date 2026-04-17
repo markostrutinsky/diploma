@@ -10,47 +10,47 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type VolunteerRequestService struct {
-	repo   *repositories.VolunteerRequestRepository
+type CONTRACTORRequestService struct {
+	repo   *repositories.CONTRACTORRequestRepository
 	dbPool *pgxpool.Pool
 }
 
-func NewVolunteerRequestService(repo *repositories.VolunteerRequestRepository, db *pgxpool.Pool) *VolunteerRequestService {
-	return &VolunteerRequestService{repo: repo, dbPool: db}
+func NewCONTRACTORRequestService(repo *repositories.CONTRACTORRequestRepository, db *pgxpool.Pool) *CONTRACTORRequestService {
+	return &CONTRACTORRequestService{repo: repo, dbPool: db}
 }
 
-func (s *VolunteerRequestService) Create(ctx context.Context, userID string, unitID int64, req *models.CreateVolunteerRequest) (*models.VolunteerRequest, error) {
+func (s *CONTRACTORRequestService) Create(ctx context.Context, userID string, unitID int64, req *models.CreateCONTRACTORRequest) (*models.CONTRACTORRequest, error) {
 	var finalUnitID *int64
 	if unitID != 0 {
 		id := unitID
 		finalUnitID = &id
 	}
 
-	vr := &models.VolunteerRequest{
+	vr := &models.CONTRACTORRequest{
 		CreatedBy:   userID,
 		UnitID:      finalUnitID,
 		Title:       req.Title,
 		Description: req.Description,
-		Status:      models.VolunteerOpen,
+		Status:      models.CONTRACTOROpen,
 	}
 
 	if err := s.repo.Create(ctx, s.dbPool, vr); err != nil {
-		return nil, fmt.Errorf("failed to create volunteer request: %w", err)
+		return nil, fmt.Errorf("failed to create CONTRACTOR request: %w", err)
 	}
 	return vr, nil
 }
 
 // Отримання списку заявок (з фільтром по статусу)
-func (s *VolunteerRequestService) List(ctx context.Context, status models.VolunteerRequestStatus) ([]models.VolunteerRequest, error) {
+func (s *CONTRACTORRequestService) List(ctx context.Context, status models.CONTRACTORRequestStatus) ([]models.CONTRACTORRequest, error) {
 	return s.repo.List(ctx, s.dbPool, status)
 }
 
 // Універсальний метод для оновлення статусів (Взяти в роботу, Доставити, Скасувати, Відхилити)
-func (s *VolunteerRequestService) UpdateStatus(ctx context.Context, requestID string, userID string, newStatus models.VolunteerRequestStatus) error {
+func (s *CONTRACTORRequestService) UpdateStatus(ctx context.Context, requestID string, userID string, newStatus models.CONTRACTORRequestStatus) error {
 	return s.repo.UpdateStatus(ctx, s.dbPool, requestID, userID, newStatus)
 }
 
-func (s *VolunteerRequestService) AcceptAndStore(ctx context.Context, requestID string, commanderID string, unitID int64, payload models.AcceptVolunteerPayload) error {
+func (s *CONTRACTORRequestService) AcceptAndStore(ctx context.Context, requestID string, commanderID string, unitID int64, payload models.AcceptCONTRACTORPayload) error {
 
 	// 1. Починаємо транзакцію
 	tx, err := s.dbPool.Begin(ctx)
@@ -59,7 +59,7 @@ func (s *VolunteerRequestService) AcceptAndStore(ctx context.Context, requestID 
 	}
 	defer tx.Rollback(ctx)
 
-	err = s.repo.UpdateStatus(ctx, tx, requestID, commanderID, models.VolunteerAccepted)
+	err = s.repo.UpdateStatus(ctx, tx, requestID, commanderID, models.CONTRACTORAccepted)
 	if err != nil {
 		return fmt.Errorf("не вдалося оновити статус заявки: %w", err)
 	}

@@ -153,7 +153,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-func (h *AuthHandler) RegisterVolunteer(c *gin.Context) {
+func (h *AuthHandler) RegisterCONTRACTOR(c *gin.Context) {
 	var request struct {
 		Email    string `json:"email" binding:"required,email"`
 		Password string `json:"password" binding:"required,min=8"`
@@ -163,7 +163,7 @@ func (h *AuthHandler) RegisterVolunteer(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	response, err := h.authService.RegisterVolunteer(c.Request.Context(), request.Email, request.Password, request.FullName)
+	response, err := h.authService.RegisterCONTRACTOR(c.Request.Context(), request.Email, request.Password, request.FullName)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -247,7 +247,7 @@ func (h *AuthHandler) UnblockUser(c *gin.Context) {
 	}
 	claims := claimsVal.(*middleware.Claims)
 
-	if claims.Role != "ADMIN" && claims.Role != "BRIGADE_CMDR" {
+	if claims.Role != "ADMIN" && claims.Role != "REGION_DIRECTOR" {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Тільки Адміністратор або Командир бригади може повертати людей з резерву"})
 		return
 	}

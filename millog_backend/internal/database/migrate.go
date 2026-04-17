@@ -19,7 +19,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
             full_name VARCHAR(255),
             phone VARCHAR(50),
             password_hash TEXT,
-            role VARCHAR(30) NOT NULL DEFAULT 'VOLUNTEER',
+            role VARCHAR(30) NOT NULL DEFAULT 'CONTRACTOR',
             status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
             unit_id BIGINT,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -117,7 +117,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		`CREATE INDEX IF NOT EXISTS idx_fuel_records_vehicle ON fuel_records(vehicle_id)`,
 
 		// 9. Заявки для волонтерів
-		`CREATE TABLE IF NOT EXISTS volunteer_requests (
+		`CREATE TABLE IF NOT EXISTS CONTRACTOR_requests (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
             created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             title VARCHAR(255) NOT NULL,
@@ -128,7 +128,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
             completed_at TIMESTAMP WITH TIME ZONE,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         )`,
-		`CREATE INDEX IF NOT EXISTS idx_volunteer_requests_status ON volunteer_requests(status)`,
+		`CREATE INDEX IF NOT EXISTS idx_CONTRACTOR_requests_status ON CONTRACTOR_requests(status)`,
 
 		// 10. Refresh-токени
 		`CREATE TABLE IF NOT EXISTS refresh_tokens (
@@ -145,7 +145,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		// 11. Розширити role для нових ролей
 		`ALTER TABLE users ALTER COLUMN role TYPE VARCHAR(30)`,
 
-		`ALTER TABLE volunteer_requests ADD COLUMN IF NOT EXISTS unit_id BIGINT REFERENCES units(id) ON DELETE SET NULL`,
+		`ALTER TABLE CONTRACTOR_requests ADD COLUMN IF NOT EXISTS unit_id BIGINT REFERENCES units(id) ON DELETE SET NULL`,
 		`ALTER TABLE resources ADD COLUMN IF NOT EXISTS unit_type VARCHAR(50) DEFAULT 'PCS';`,
 
 		// 12. Оновлення таблиці vehicles для існуючих БД

@@ -7,22 +7,22 @@ import (
 	"millog_backend/internal/models"
 )
 
-type VolunteerRequestRepository struct{}
+type CONTRACTORRequestRepository struct{}
 
-func NewVolunteerRequestRepository() *VolunteerRequestRepository {
-	return &VolunteerRequestRepository{}
+func NewCONTRACTORRequestRepository() *CONTRACTORRequestRepository {
+	return &CONTRACTORRequestRepository{}
 }
 
-func (r *VolunteerRequestRepository) Create(ctx context.Context, db DBExecutor, vr *models.VolunteerRequest) error {
+func (r *CONTRACTORRequestRepository) Create(ctx context.Context, db DBExecutor, vr *models.CONTRACTORRequest) error {
 	query := `
-		INSERT INTO volunteer_requests (created_by, unit_id, title, description, status)
+		INSERT INTO CONTRACTOR_requests (created_by, unit_id, title, description, status)
 		VALUES ($1, $2, $3, $4, $5) 
 		RETURNING id, created_at
 	`
 	return db.QueryRow(ctx, query, vr.CreatedBy, vr.UnitID, vr.Title, vr.Description, vr.Status).Scan(&vr.ID, &vr.CreatedAt)
 }
 
-func (r *VolunteerRequestRepository) List(ctx context.Context, db DBExecutor, status models.VolunteerRequestStatus) ([]models.VolunteerRequest, error) {
+func (r *CONTRACTORRequestRepository) List(ctx context.Context, db DBExecutor, status models.CONTRACTORRequestStatus) ([]models.CONTRACTORRequest, error) {
 
 	query := `
 		SELECT 
@@ -37,7 +37,7 @@ func (r *VolunteerRequestRepository) List(ctx context.Context, db DBExecutor, st
 			vr.taken_at, 
 			vr.completed_at, 
 			vr.created_at
-		FROM volunteer_requests vr
+		FROM CONTRACTOR_requests vr
 		LEFT JOIN units u ON vr.unit_id = u.id
 		WHERE 1=1
 	`
@@ -59,9 +59,9 @@ func (r *VolunteerRequestRepository) List(ctx context.Context, db DBExecutor, st
 	}
 	defer rows.Close()
 
-	var list []models.VolunteerRequest
+	var list []models.CONTRACTORRequest
 	for rows.Next() {
-		var vr models.VolunteerRequest
+		var vr models.CONTRACTORRequest
 		if err := rows.Scan(
 			&vr.ID,
 			&vr.CreatedBy,
@@ -82,18 +82,18 @@ func (r *VolunteerRequestRepository) List(ctx context.Context, db DBExecutor, st
 	return list, rows.Err()
 }
 
-func (r *VolunteerRequestRepository) UpdateStatus(ctx context.Context, db DBExecutor, requestID string, userID string, newStatus models.VolunteerRequestStatus) error {
+func (r *CONTRACTORRequestRepository) UpdateStatus(ctx context.Context, db DBExecutor, requestID string, userID string, newStatus models.CONTRACTORRequestStatus) error {
 
-	query := `UPDATE volunteer_requests SET status = $1`
+	query := `UPDATE CONTRACTOR_requests SET status = $1`
 	args := []interface{}{newStatus}
 	paramID := 2
 
 	switch newStatus {
-	case models.VolunteerTaken:
+	case models.CONTRACTORTaken:
 		query += fmt.Sprintf(", taken_by = $%d, taken_at = CURRENT_TIMESTAMP", paramID)
 		args = append(args, userID)
 		paramID++
-	case models.VolunteerAccepted, models.VolunteerRejected, models.VolunteerCanceled:
+	case models.CONTRACTORAccepted, models.CONTRACTORRejected, models.CONTRACTORCanceled:
 		query += ", completed_at = CURRENT_TIMESTAMP"
 	}
 

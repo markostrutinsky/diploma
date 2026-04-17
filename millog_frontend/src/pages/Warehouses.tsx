@@ -6,7 +6,7 @@ import L from 'leaflet';
 import toast from 'react-hot-toast';
 import 'leaflet/dist/leaflet.css';
 import './Warehouses.css';
-import InventoryAuditModal from '../components/InventoryAuditModal'; // 🔥 Додано імпорт модалки
+import InventoryAuditModal from '../components/InventoryAuditModal';
 
 const stationaryIcon = L.divIcon({ html: '<div style="font-size: 24px; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">🏢</div>', className: 'custom-map-marker', iconSize: [30, 30], iconAnchor: [15, 30], popupAnchor: [0, -30] });
 const mobileIcon = L.divIcon({ html: '<div style="font-size: 24px; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">🚛</div>', className: 'custom-map-marker', iconSize: [30, 30], iconAnchor: [15, 30], popupAnchor: [0, -30] });
@@ -123,10 +123,9 @@ export default function Warehouses() {
   const [editForm, setEditForm] = useState({ name: '', capacity_level: '', zone_type: '' });
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 🔥 Додано стейт для модалки переобліку
   const [auditWarehouse, setAuditWarehouse] = useState<Warehouse | null>(null);
 
-  const canManageWarehouses = ['ADMIN', 'BRIGADE_CMDR', 'BRIGADE_LOGIST', 'BATTALION_CMDR', 'BATTALION_LOGIST', 'COMPANY_CMDR', 'PLATOON_CMDR'].includes(user?.role || '');
+  const canManageWarehouses = ['ADMIN', 'REGION_DIRECTOR', 'REGION_LOGISTICIAN', 'BRANCH_MANAGER', 'BRANCH_LOGISTICIAN', 'DEPT_MANAGER', 'TEAM_LEAD'].includes(user?.role || '');
 
   const loadData = async () => {
     try {
@@ -330,9 +329,9 @@ export default function Warehouses() {
   const saveNewLocation = async () => { 
     if (!confirmMove) return; 
     try { 
-      toast.loading('Збереження дислокації...', { id: 'move' }); 
+      toast.loading('Збереження локації...', { id: 'move' }); 
       await api.warehouses.updateLocation(confirmMove.warehouse.id, parseFloat(confirmMove.lat), parseFloat(confirmMove.lng)); 
-      toast.success('Дислокацію оновлено!', { id: 'move', duration: 3000 }); 
+      toast.success('Локацію оновлено!', { id: 'move', duration: 3000 }); 
       if (dispatchTargetWarehouse && dispatchParentWarehouse) {
         const updatedTarget = confirmMove.warehouse.id === dispatchTargetWarehouse.id ? { ...dispatchTargetWarehouse, latitude: parseFloat(confirmMove.lat), longitude: parseFloat(confirmMove.lng) } : dispatchTargetWarehouse;
         const updatedParent = confirmMove.warehouse.id === dispatchParentWarehouse.id ? { ...dispatchParentWarehouse, latitude: parseFloat(confirmMove.lat), longitude: parseFloat(confirmMove.lng) } : dispatchParentWarehouse;
@@ -417,7 +416,7 @@ export default function Warehouses() {
       
       <div className="erp-tabs">
         <button className={`tab-btn ${activeTab === 'list' ? 'active' : ''}`} onClick={() => setActiveTab('list')}>📋 Список</button>
-        <button className={`tab-btn ${activeTab === 'map' ? 'active' : ''}`} onClick={() => setActiveTab('map')}>🗺️ Карта дислокації</button>
+        <button className={`tab-btn ${activeTab === 'map' ? 'active' : ''}`} onClick={() => setActiveTab('map')}>🗺️ Карта локацій</button>
         <button className={`tab-btn ${activeTab === 'shipments' ? 'active' : ''}`} onClick={() => setActiveTab('shipments')}>🚚 Рейси та Накладні</button>
       </div>
 
@@ -443,7 +442,7 @@ export default function Warehouses() {
            <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>Новий склад</h3>
             <form onSubmit={handleCreate}>
-              <div className="form-group"><label>Підрозділ <span className="required">*</span></label><select className="erp-input" value={newWarehouse.unit_id} onChange={(e) => setNewWarehouse({ ...newWarehouse, unit_id: e.target.value ? Number(e.target.value) : '' })} required><option value="" disabled>Оберіть підрозділ</option>{units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</select></div>
+              <div className="form-group"><label>Орг. одиниця <span className="required">*</span></label><select className="erp-input" value={newWarehouse.unit_id} onChange={(e) => setNewWarehouse({ ...newWarehouse, unit_id: e.target.value ? Number(e.target.value) : '' })} required><option value="" disabled>Оберіть одиницю...</option>{units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</select></div>
               <div className="form-group"><label>Назва <span className="required">*</span></label><input className="erp-input" value={newWarehouse.name} onChange={(e) => setNewWarehouse({ ...newWarehouse, name: e.target.value })} required /></div>
               <div className="form-group"><label>Тип <span className="required">*</span></label><select className="erp-input" value={newWarehouse.location_type} onChange={(e) => setNewWarehouse({ ...newWarehouse, location_type: e.target.value as 'STATIONARY' | 'MOBILE' })} required><option value="STATIONARY">Стаціонарний</option><option value="MOBILE">Мобільний</option></select></div>
               <div className="form-row-2">
@@ -469,17 +468,17 @@ export default function Warehouses() {
                 <div className="form-group flex-1">
                   <label>Місткість</label>
                   <select className="erp-input" value={editForm.capacity_level} onChange={(e) => setEditForm({ ...editForm, capacity_level: e.target.value })} disabled={isProcessing}>
-                    <option value="LARGE">Великий (Базовий)</option>
-                    <option value="MEDIUM">Середній (Польовий)</option>
-                    <option value="SMALL">Малий (Мобільний)</option>
+                    <option value="LARGE">Великий (Центральний)</option>
+                    <option value="MEDIUM">Середній (Регіональний)</option>
+                    <option value="SMALL">Малий (Мобільний/Локальний)</option>
                   </select>
                 </div>
                 <div className="form-group flex-1">
                   <label>Зона розташування</label>
                   <select className="erp-input" value={editForm.zone_type} onChange={(e) => setEditForm({ ...editForm, zone_type: e.target.value })} disabled={isProcessing}>
-                    <option value="REAR">Тилова зона</option>
-                    <option value="TACTICAL">Тактична зона</option>
-                    <option value="FORWARD">Передова лінія</option>
+                    <option value="REAR">Центральний хаб</option>
+                    <option value="TACTICAL">Регіональний вузол</option>
+                    <option value="FORWARD">Точка видачі (Остання миля)</option>
                   </select>
                 </div>
               </div>
@@ -509,7 +508,7 @@ export default function Warehouses() {
       {confirmMove && (
         <div className="modal-overlay" onClick={() => { setConfirmMove(null); loadData(); }}>
           <div className="modal" onClick={e => e.stopPropagation()}>
-            <h3 className="modal-title-blue">📍 Зміна дислокації</h3>
+            <h3 className="modal-title-blue">📍 Зміна локації</h3>
             <div className="form-row-2">
               <div className="form-group"><label>Широта (Lat)</label><input type="number" step="0.000001" className="erp-input" value={confirmMove.lat} onChange={(e) => setConfirmMove({...confirmMove, lat: e.target.value})} /></div>
               <div className="form-group"><label>Довгота (Lng)</label><input type="number" step="0.000001" className="erp-input" value={confirmMove.lng} onChange={(e) => setConfirmMove({...confirmMove, lng: e.target.value})} /></div>
@@ -526,7 +525,7 @@ export default function Warehouses() {
               <thead>
                 <tr>
                   <th>Назва складу</th>
-                  <th>Підрозділ</th>
+                  <th>Орг. одиниця</th>
                   <th>Тип</th>
                   <th>Координати</th>
                   {canManageWarehouses && <th>Дії</th>}
@@ -542,7 +541,6 @@ export default function Warehouses() {
                     {canManageWarehouses && (
                       <td>
                         <div className="warehouse-action-buttons">
-                          {/* 🔥 НОВА КНОПКА ПЕРЕОБЛІКУ */}
                           <button 
                             className="wh-btn" 
                             style={{ backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', color: '#334155' }}
@@ -749,7 +747,6 @@ export default function Warehouses() {
         </div>
       )}
 
-      {/* 🔥 Виклик модалки переобліку */}
       {auditWarehouse && (
         <InventoryAuditModal 
           warehouseId={auditWarehouse.id} 

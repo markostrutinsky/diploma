@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api, type VolunteerRequest, type Unit } from '../api/client'
+import { api, type ContractorRequest, type Unit } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import './VolunteerRequests.css'
 
@@ -13,9 +13,9 @@ const STATUS_LABELS: Record<string, string> = {
   COMPLETED: 'Виконана (старий статус)', 
 }
 
-export default function VolunteerRequests() {
+export default function ContractorRequests() {
   const { user } = useAuth()
-  const [requests, setRequests] = useState<VolunteerRequest[]>([])
+  const [requests, setRequests] = useState<ContractorRequest[]>([])
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([])
   const [units, setUnits] = useState<Unit[]>([])
   const [resources, setResources] = useState<any[]>([])
@@ -38,17 +38,17 @@ export default function VolunteerRequests() {
   const [nameMismatchWarning, setNameMismatchWarning] = useState(false)
 
   const inventoryRoles = [
-    'ADMIN', 'BRIGADE_CMDR', 'BATTALION_CMDR', 'COMPANY_CMDR', 
-    'BRIGADE_LOGIST', 'BATTALION_LOGIST', 'BRIGADE_STOREKEEPER', 
-    'BATTALION_STOREKEEPER', 'COMPANY_SERGEANT'
+    'ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 
+    'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN', 'REGION_STOREKEEPER', 
+    'BRANCH_STOREKEEPER', 'DEPT_SUPERVISOR'
   ]
   
   const canCreateRequest = inventoryRoles.includes(user?.role || '')
-  const isVolunteer = user?.role === 'VOLUNTEER'
+  const isCONTRACTOR = user?.role === 'CONTRACTOR'
 
   const canManageThisRequest = (requestUnitId?: number | null) => {
     if (!user || !inventoryRoles.includes(user.role)) return false;
-    if (['ADMIN', 'BRIGADE_CMDR', 'BRIGADE_LOGIST', 'BRIGADE_STOREKEEPER'].includes(user.role)) {
+    if (['ADMIN', 'REGION_DIRECTOR', 'REGION_LOGISTICIAN', 'REGION_STOREKEEPER'].includes(user.role)) {
       return true;
     }
     return requestUnitId === user.unit_id;
@@ -59,16 +59,15 @@ export default function VolunteerRequests() {
     return match ? parseInt(match[0], 10) : null;
   }
 
-  // --- НОВА ФУНКЦІЯ: Розумне очищення назви ---
+  // --- РОЗУМНЕ ОЧИЩЕННЯ НАЗВИ ---
   const getCleanResourceName = (title: string) => {
-    // Видаляє "5 ", "10 шт.", "3 пари" з початку назви
     return title.replace(/^\s*\d+\s*(шт\.?|штук|пар|пари|-)?\s*/i, '').trim();
   }
   // --------------------------------------------
 
   const loadData = () => {
     setLoading(true)
-    api.volunteerRequests.list()
+    api.contractorRequests.list()
       .then((data) => setRequests(Array.isArray(data) ? data : []))
       .catch(console.error)
       .finally(() => setLoading(false))
@@ -81,7 +80,7 @@ export default function VolunteerRequests() {
   }
 
   const loadResources = () => {
-    if (!isVolunteer) {
+    if (!isCONTRACTOR) {
       api.inventory.listResources()
         .then((data) => setResources(data || []))
         .catch(console.error)
@@ -111,7 +110,7 @@ export default function VolunteerRequests() {
         unit_id: selectedUnitId ? Number(selectedUnitId) : undefined
       }
 
-      await api.volunteerRequests.create(body as any)
+      await api.contractorRequests.create(body as any)
       setShowCreateForm(false)
       setCreateForm({ title: '', description: '' })
       setSelectedUnitId('') 
@@ -122,21 +121,21 @@ export default function VolunteerRequests() {
   }
 
   const handleTake = async (id: string) => {
-    try { await api.volunteerRequests.take(id); loadData() } catch (err) { alert(err instanceof Error ? err.message : 'Помилка') }
+    try { await api.contractorRequests.take(id); loadData() } catch (err) { alert(err instanceof Error ? err.message : 'Помилка') }
   }
 
   const handleDeliver = async (id: string) => {
-    try { await api.volunteerRequests.deliver(id); loadData() } catch (err) { alert(err instanceof Error ? err.message : 'Помилка') }
+    try { await api.contractorRequests.deliver(id); loadData() } catch (err) { alert(err instanceof Error ? err.message : 'Помилка') }
   }
 
   const handleReject = async (id: string) => {
-    if (!window.confirm("Ви впевнені, що хочете відхилити цю передачу (наприклад, через брак)?")) return;
-    try { await api.volunteerRequests.reject(id); loadData() } catch (err) { alert(err instanceof Error ? err.message : 'Помилка') }
+    if (!window.confirm("Ви впевнені, що хочете відхилити цю доставку (наприклад, через брак або невідповідність)?")) return;
+    try { await api.contractorRequests.reject(id); loadData() } catch (err) { alert(err instanceof Error ? err.message : 'Помилка') }
   }
 
   const handleCancel = async (id: string) => {
-    if (!window.confirm("Скасувати заявку? Вона зникне з дошки волонтерів.")) return;
-    try { await api.volunteerRequests.cancel(id); loadData() } catch (err) { alert(err instanceof Error ? err.message : 'Помилка') }
+    if (!window.confirm("Скасувати заявку? Вона зникне зі списку доступних завдань для підрядників.")) return;
+    try { await api.contractorRequests.cancel(id); loadData() } catch (err) { alert(err instanceof Error ? err.message : 'Помилка') }
   }
 
   const submitAccept = async (e: React.FormEvent) => {
@@ -175,8 +174,8 @@ export default function VolunteerRequests() {
         resource_id: acceptMode === 'EXISTING' && acceptForm.resource_id ? String(acceptForm.resource_id) : undefined,
       }
 
-      await api.volunteerRequests.accept(acceptModalId, payload)
-      
+      await api.contractorRequests.accept(acceptModalId, payload)
+
       setAcceptModalId(null)
       setNameMismatchWarning(false) 
       loadData()
@@ -187,7 +186,7 @@ export default function VolunteerRequests() {
   }
 
   const myActiveTasks = requests.filter((r) => r.taken_by === user?.id && r.status === 'TAKEN')
-  const displayedRequests = isVolunteer ? requests.filter((r) => r.status === 'OPEN') : requests
+  const displayedRequests = isCONTRACTOR ? requests.filter((r) => r.status === 'OPEN') : requests
 
   const getBadgeClass = (status: string) => {
     switch(status?.toUpperCase()) {
@@ -211,9 +210,9 @@ export default function VolunteerRequests() {
   }
 
   return (
-    <div className="volunteer-requests-page">
+    <div className="contractor-requests-page">
       <div className="page-header">
-        <h1>{isVolunteer ? 'Потреби підрозділів' : 'Робота з волонтерами'}</h1>
+        <h1>{isCONTRACTOR ? 'Доступні завдання' : 'Заявки підрядникам'}</h1>
         {canCreateRequest && (
           <button className="btn btn-primary" onClick={() => setShowCreateForm(true)}>
             + Створити заявку
@@ -224,14 +223,14 @@ export default function VolunteerRequests() {
       {showCreateForm && (
         <div className="modal-overlay" onClick={() => setShowCreateForm(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Нова заявка для волонтерів</h3>
+            <h3>Нове завдання для підрядника</h3>
             <form onSubmit={handleCreate}>
               <div className="form-group">
                 <label>Назва потреби</label>
                 <input
                   value={createForm.title}
                   onChange={(e) => setCreateForm({ ...createForm, title: e.target.value })}
-                  placeholder="Наприклад: 5 тепловізорів AGM..."
+                  placeholder="Наприклад: 5 ноутбуків Dell, 10 офісних крісел..."
                   required
                 />
               </div>
@@ -240,20 +239,20 @@ export default function VolunteerRequests() {
                 <textarea
                   value={createForm.description}
                   onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
-                  placeholder="Вкажіть точну модель, бажані характеристики або терміни..."
+                  placeholder="Вкажіть точну модель, бажані характеристики або терміни постачання..."
                   rows={4}
                 />
               </div>
               
               {user?.role === 'ADMIN' && (
                 <div className="form-group" style={{ marginTop: '15px' }}>
-                  <label>Для якого підрозділу замовляємо?</label>
+                  <label>Для якої орг. одиниці замовляємо?</label>
                   <select 
                     value={selectedUnitId} 
                     onChange={(e) => setSelectedUnitId(e.target.value ? Number(e.target.value) : '')}
                     style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da' }}
                   >
-                    <option value="">-- Загальний штаб (без підрозділу) --</option>
+                    <option value="">-- Центральний офіс (без прив'язки) --</option>
                     {units.map(u => (
                       <option key={u.id} value={u.id}>{u.name}</option>
                     ))}
@@ -348,9 +347,8 @@ export default function VolunteerRequests() {
                       onChange={(e) => setAcceptForm({ ...acceptForm, name: e.target.value })} 
                       required 
                     />
-                    {/* ДОДАНА ПІДКАЗКА ДЛЯ КОМІРНИКА */}
                     <small style={{ color: '#6c757d', fontSize: '12px', display: 'block', marginTop: '4px' }}>
-                      ⚠️ Вказуйте назву без кількості (правильно: "Шолом кевларовий", неправильно: "5 шоломів").
+                      ⚠️ Вказуйте назву без кількості (правильно: "Ноутбук Dell", неправильно: "5 ноутбуків").
                     </small>
                   </div>
                 </>
@@ -418,7 +416,7 @@ export default function VolunteerRequests() {
         </div>
       )}
 
-      {isVolunteer && myActiveTasks.length > 0 && (
+      {isCONTRACTOR && myActiveTasks.length > 0 && (
         <div className="card my-tasks-card" style={{ marginBottom: '24px' }}>
           <h2>Мої завдання в роботі</h2>
           <ul className="request-list">
@@ -439,7 +437,7 @@ export default function VolunteerRequests() {
       )}
 
       <div className="card">
-        <h2>{isVolunteer ? 'Відкриті потреби підрозділів' : 'Історія та статус заявок'}</h2>
+        <h2>{isCONTRACTOR ? 'Відкриті завдання' : 'Історія та статус заявок'}</h2>
         {displayedRequests.length === 0 ? (
           <p className="empty-state">Наразі немає записів</p>
         ) : (
@@ -460,7 +458,7 @@ export default function VolunteerRequests() {
                 </div>
 
                 <div className="action-buttons-row">
-                  {isVolunteer && r.status === 'OPEN' && (
+                  {isCONTRACTOR && r.status === 'OPEN' && (
                     <button className="btn btn-primary btn-sm take-btn" onClick={() => handleTake(r.id)}>
                       Взяти в роботу
                     </button>
@@ -473,18 +471,15 @@ export default function VolunteerRequests() {
                         onClick={() => {
                           setNameMismatchWarning(false)
                           
-                          // --- РОЗУМНЕ АВТОВИЗНАЧЕННЯ ТОВАРУ ---
                           const cleanTitle = getCleanResourceName(r.title);
                           const reqWords = cleanTitle.toLowerCase().split(/\s+/).filter(w => w.length > 3);
                           
-                          // Шукаємо, чи є вже щось схоже на складі
                           const matchedResource = resources.find(res => {
                             const resNameLower = res.name.toLowerCase();
                             return reqWords.some(w => resNameLower.includes(w));
                           });
 
                           if (matchedResource) {
-                            // Знайшли на складі - вмикаємо режим EXISTING
                             setAcceptMode('EXISTING')
                             setAcceptForm(prev => ({ 
                               ...prev, 
@@ -495,12 +490,11 @@ export default function VolunteerRequests() {
                               unit_type: matchedResource.unit_type || 'PCS'
                             }))
                           } else {
-                            // Немає на складі - вмикаємо режим NEW і підставляємо ЧИСТУ назву
                             setAcceptMode('NEW')
                             setAcceptForm(prev => ({ 
                               ...prev, 
                               resource_id: '',
-                              name: cleanTitle, // <--- Назва без цифр
+                              name: cleanTitle, 
                               quantity: getPlannedQuantity(r.title) || 1,
                               category_id: categories.length > 0 ? categories[0].id : ''
                             }))

@@ -8,19 +8,19 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type VolunteerRequestHandler struct {
-	svc *services.VolunteerRequestService
+type CONTRACTORRequestHandler struct {
+	svc *services.CONTRACTORRequestService
 }
 
-func NewVolunteerRequestHandler(svc *services.VolunteerRequestService) *VolunteerRequestHandler {
-	return &VolunteerRequestHandler{svc: svc}
+func NewCONTRACTORRequestHandler(svc *services.CONTRACTORRequestService) *CONTRACTORRequestHandler {
+	return &CONTRACTORRequestHandler{svc: svc}
 }
 
-func (h *VolunteerRequestHandler) Create(c *gin.Context) {
+func (h *CONTRACTORRequestHandler) Create(c *gin.Context) {
 	userID := c.GetString("user_id")
 	tokenUnitID := c.GetInt64("unit_id")
 
-	var req models.CreateVolunteerRequest
+	var req models.CreateCONTRACTORRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -40,27 +40,27 @@ func (h *VolunteerRequestHandler) Create(c *gin.Context) {
 }
 
 // Список заявок
-func (h *VolunteerRequestHandler) List(c *gin.Context) {
+func (h *CONTRACTORRequestHandler) List(c *gin.Context) {
 	status := c.Query("status")
 
-	list, err := h.svc.List(c.Request.Context(), models.VolunteerRequestStatus(status))
+	list, err := h.svc.List(c.Request.Context(), models.CONTRACTORRequestStatus(status))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	if list == nil {
-		list = []models.VolunteerRequest{}
+		list = []models.CONTRACTORRequest{}
 	}
 
 	c.JSON(http.StatusOK, list)
 }
 
 // Волонтер бере в роботу
-func (h *VolunteerRequestHandler) Take(c *gin.Context) {
+func (h *CONTRACTORRequestHandler) Take(c *gin.Context) {
 	userID := c.GetString("user_id")
 	id := c.Param("id")
-	if err := h.svc.UpdateStatus(c.Request.Context(), id, userID, models.VolunteerTaken); err != nil {
+	if err := h.svc.UpdateStatus(c.Request.Context(), id, userID, models.CONTRACTORTaken); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -68,10 +68,10 @@ func (h *VolunteerRequestHandler) Take(c *gin.Context) {
 }
 
 // Волонтер відправляє/доставляє (Замість старого Complete)
-func (h *VolunteerRequestHandler) Deliver(c *gin.Context) {
+func (h *CONTRACTORRequestHandler) Deliver(c *gin.Context) {
 	userID := c.GetString("user_id")
 	id := c.Param("id")
-	if err := h.svc.UpdateStatus(c.Request.Context(), id, userID, models.VolunteerDelivered); err != nil {
+	if err := h.svc.UpdateStatus(c.Request.Context(), id, userID, models.CONTRACTORDelivered); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -79,10 +79,10 @@ func (h *VolunteerRequestHandler) Deliver(c *gin.Context) {
 }
 
 // ВІЙСЬКОВИЙ: Скасування заявки (поки вона ще OPEN)
-func (h *VolunteerRequestHandler) Cancel(c *gin.Context) {
+func (h *CONTRACTORRequestHandler) Cancel(c *gin.Context) {
 	userID := c.GetString("user_id")
 	id := c.Param("id")
-	if err := h.svc.UpdateStatus(c.Request.Context(), id, userID, models.VolunteerCanceled); err != nil {
+	if err := h.svc.UpdateStatus(c.Request.Context(), id, userID, models.CONTRACTORCanceled); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -90,10 +90,10 @@ func (h *VolunteerRequestHandler) Cancel(c *gin.Context) {
 }
 
 // ВІЙСЬКОВИЙ: Відхилення доставленого майна (брак)
-func (h *VolunteerRequestHandler) Reject(c *gin.Context) {
+func (h *CONTRACTORRequestHandler) Reject(c *gin.Context) {
 	userID := c.GetString("user_id")
 	id := c.Param("id")
-	if err := h.svc.UpdateStatus(c.Request.Context(), id, userID, models.VolunteerRejected); err != nil {
+	if err := h.svc.UpdateStatus(c.Request.Context(), id, userID, models.CONTRACTORRejected); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -101,12 +101,12 @@ func (h *VolunteerRequestHandler) Reject(c *gin.Context) {
 }
 
 // ВІЙСЬКОВИЙ (Комірник/Старшина): Прийомка на баланс (НАЙГОЛОВНІШЕ)
-func (h *VolunteerRequestHandler) Accept(c *gin.Context) {
+func (h *CONTRACTORRequestHandler) Accept(c *gin.Context) {
 	commanderID := c.GetString("user_id") // ID того, хто приймає
 	unitID := c.GetInt64("unit_id")       // Склад підрозділу
 	requestID := c.Param("id")
 
-	var payload models.AcceptVolunteerPayload
+	var payload models.AcceptCONTRACTORPayload
 	if err := c.ShouldBindJSON(&payload); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Неправильні дані для складу: " + err.Error()})
 		return

@@ -1,41 +1,42 @@
 import { useEffect, useState } from 'react'
-import { api, type CreateUserRequest, type Unit, type User } from '../api/client'
+import { api, type CreateUserRequest, type Unit, type User, ROLE_NAMES, type UserRole } from '../api/client'
 import './AdminUsers.css'
 
-const ROLES = [
-  { value: 'ADMIN', label: 'Адмін' },
-  { value: 'BRIGADE_CMDR', label: 'Командир бригади' },
-  { value: 'BATTALION_CMDR', label: 'Командир батальйону' },
-  { value: 'COMPANY_CMDR', label: 'Командир роти' },
-  { value: 'PLATOON_CMDR', label: 'Командир взводу' },
-  { value: 'BRIGADE_LOGIST', label: 'Логіст бригади' },
-  { value: 'BRIGADE_STOREKEEPER', label: 'Комірник бригади' },
-  { value: 'BATTALION_LOGIST', label: 'Логіст батальйону' },
-  { value: 'BATTALION_STOREKEEPER', label: 'Комірник батальйону' },
-  { value: 'COMPANY_SERGEANT', label: 'Старшина роти' },
-] as const
+const ROLES: { value: UserRole, label: string }[] = [
+  { value: 'ADMIN', label: ROLE_NAMES['ADMIN'] },
+  { value: 'REGION_DIRECTOR', label: ROLE_NAMES['REGION_DIRECTOR'] },
+  { value: 'BRANCH_MANAGER', label: ROLE_NAMES['BRANCH_MANAGER'] },
+  { value: 'DEPT_MANAGER', label: ROLE_NAMES['DEPT_MANAGER'] },
+  { value: 'TEAM_LEAD', label: ROLE_NAMES['TEAM_LEAD'] },
+  { value: 'REGION_LOGISTICIAN', label: ROLE_NAMES['REGION_LOGISTICIAN'] },
+  { value: 'REGION_STOREKEEPER', label: ROLE_NAMES['REGION_STOREKEEPER'] },
+  { value: 'BRANCH_LOGISTICIAN', label: ROLE_NAMES['BRANCH_LOGISTICIAN'] },
+  { value: 'BRANCH_STOREKEEPER', label: ROLE_NAMES['BRANCH_STOREKEEPER'] },
+  { value: 'DEPT_SUPERVISOR', label: ROLE_NAMES['DEPT_SUPERVISOR'] },
+  { value: 'EMPLOYEE', label: ROLE_NAMES['EMPLOYEE'] },
+]
 
 const ROLE_CREATION_MAP: Record<string, string[]> = {
   'ADMIN': [
-    'ADMIN', 'BRIGADE_CMDR', 'BATTALION_CMDR', 'COMPANY_CMDR', 'PLATOON_CMDR',
-    'BRIGADE_LOGIST', 'BRIGADE_STOREKEEPER', 'BATTALION_LOGIST', 'BATTALION_STOREKEEPER', 'COMPANY_SERGEANT'
+    'ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'TEAM_LEAD',
+    'REGION_LOGISTICIAN', 'REGION_STOREKEEPER', 'BRANCH_LOGISTICIAN', 'BRANCH_STOREKEEPER', 'DEPT_SUPERVISOR', 'EMPLOYEE'
   ],
-  'BRIGADE_CMDR': [
-    'BATTALION_CMDR', 'COMPANY_CMDR', 'PLATOON_CMDR',
-    'BRIGADE_LOGIST', 'BRIGADE_STOREKEEPER', 'BATTALION_LOGIST', 'BATTALION_STOREKEEPER', 'COMPANY_SERGEANT'
+  'REGION_DIRECTOR': [
+    'BRANCH_MANAGER', 'DEPT_MANAGER', 'TEAM_LEAD',
+    'REGION_LOGISTICIAN', 'REGION_STOREKEEPER', 'BRANCH_LOGISTICIAN', 'BRANCH_STOREKEEPER', 'DEPT_SUPERVISOR', 'EMPLOYEE'
   ],
-  'BATTALION_CMDR': [
-    'COMPANY_CMDR', 'PLATOON_CMDR',
-    'BATTALION_LOGIST', 'BATTALION_STOREKEEPER', 'COMPANY_SERGEANT'
+  'BRANCH_MANAGER': [
+    'DEPT_MANAGER', 'TEAM_LEAD',
+    'BRANCH_LOGISTICIAN', 'BRANCH_STOREKEEPER', 'DEPT_SUPERVISOR', 'EMPLOYEE'
   ],
-  'COMPANY_CMDR': [
-    'PLATOON_CMDR', 'COMPANY_SERGEANT'
+  'DEPT_MANAGER': [
+    'TEAM_LEAD', 'DEPT_SUPERVISOR', 'EMPLOYEE'
   ],
-  'BRIGADE_LOGIST': [
-    'BRIGADE_STOREKEEPER', 'BATTALION_LOGIST', 'BATTALION_STOREKEEPER'
+  'REGION_LOGISTICIAN': [
+    'REGION_STOREKEEPER', 'BRANCH_LOGISTICIAN', 'BRANCH_STOREKEEPER'
   ],
-  'BATTALION_LOGIST': [
-    'BATTALION_STOREKEEPER'
+  'BRANCH_LOGISTICIAN': [
+    'BRANCH_STOREKEEPER'
   ],
 }
 
@@ -47,24 +48,24 @@ export default function AdminUsers() {
 
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
-  const [availableRoles, setAvailableRoles] = useState<typeof ROLES[number][]>([])
+  const [availableRoles, setAvailableRoles] = useState<typeof ROLES>([])
   
   const [showForm, setShowForm] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   
   const [confirmModal, setConfirmModal] = useState<{ type: 'block' | 'unblock', id: string, name: string } | null>(null)
   
-  const [form, setForm] = useState<Omit<CreateUserRequest, 'role'> & { role: (typeof ROLES)[number]['value'] }>({
+  const [form, setForm] = useState<Omit<CreateUserRequest, 'role'> & { role: UserRole }>({
     email: '',
     full_name: '',
-    role: 'COMPANY_SERGEANT',
+    role: 'DEPT_SUPERVISOR',
   })
   
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
-  const canManagePersonnel = ['ADMIN', 'BRIGADE_CMDR', 'BATTALION_CMDR', 'COMPANY_CMDR', 'PLATOON_CMDR'].includes(currentUserRole || '')
+  const canManagePersonnel = ['ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'TEAM_LEAD'].includes(currentUserRole || '')
 
   const loadUsersAndUnits = () => {
     api.units.list()
@@ -93,7 +94,7 @@ export default function AdminUsers() {
       setAvailableRoles(filtered)
 
       if (filtered.length > 0 && !allowedRoles.includes(form.role) && !editingUser) {
-        setForm(prev => ({ ...prev, role: filtered[0].value as any, unit_id: undefined }))
+        setForm(prev => ({ ...prev, role: filtered[0].value, unit_id: undefined }))
       }
     }
   }, [currentUserRole, editingUser])
@@ -129,8 +130,8 @@ export default function AdminUsers() {
       const res = await api.admin.createUser(body)
       setSuccess(res.message)
       
-      const defaultRole = availableRoles.length > 0 ? availableRoles[0].value : 'COMPANY_SERGEANT'
-      setForm({ email: '', full_name: '', role: defaultRole as any, username: '', phone: '', unit_id: undefined })
+      const defaultRole = availableRoles.length > 0 ? availableRoles[0].value : 'DEPT_SUPERVISOR'
+      setForm({ email: '', full_name: '', role: defaultRole, username: '', phone: '', unit_id: undefined })
       
       loadUsersAndUnits()
       setTimeout(() => { setShowForm(false); setSuccess(null) }, 1500)
@@ -170,10 +171,10 @@ export default function AdminUsers() {
     try {
       if (confirmModal.type === 'block') {
         await api.users.block(confirmModal.id)
-        setSuccess(`Користувача ${confirmModal.name} заблоковано`)
+        setSuccess(`Співробітника ${confirmModal.name} переведено в резерв`)
       } else {
         await api.users.unblock(confirmModal.id)
-        setSuccess(`Користувача ${confirmModal.name} розблоковано`)
+        setSuccess(`Співробітника ${confirmModal.name} розблоковано`)
       }
       
       loadUsersAndUnits() 
@@ -191,7 +192,7 @@ export default function AdminUsers() {
     setForm({
       email: user.email,
       full_name: user.full_name || '',
-      role: user.role as any,
+      role: user.role,
       unit_id: user.unit_id || undefined,
     })
     setSuccess(null)
@@ -202,8 +203,8 @@ export default function AdminUsers() {
     if (currentUserRole !== 'ADMIN' && user.role === 'ADMIN') {
       return false;
     }
-    // Волонтери не є військовим резервом, тому приховуємо їх з цієї вкладки
-    if (activeTab === 'reserve') return !user.unit_id && user.role !== 'ADMIN' && user.role !== 'VOLUNTEER';
+    // Підрядники не є внутрішнім резервом компанії, тому приховуємо їх з цієї вкладки
+    if (activeTab === 'reserve') return !user.unit_id && user.role !== 'ADMIN' && user.role !== 'CONTRACTOR';
     if (activeTab === 'in_unit') return !!user.unit_id;
     return true;
   })
@@ -218,9 +219,9 @@ export default function AdminUsers() {
     <div className="admin-users">
       <div className="page-header page-header-flex">
         <div>
-          <h1>Кадровий облік</h1>
+          <h1>Управління персоналом</h1>
           <p className="page-subtitle">
-            Керування особовим складом та призначення на посади.
+            Керування співробітниками та призначення на посади.
           </p>
         </div>
         {canManagePersonnel && (
@@ -229,8 +230,8 @@ export default function AdminUsers() {
             onClick={() => {
               setSuccess(null); setError(null);
               setEditingUser(null);
-              const defaultRole = availableRoles.length > 0 ? availableRoles[0].value : 'COMPANY_SERGEANT'
-              setForm({ email: '', full_name: '', role: defaultRole as any, unit_id: undefined })
+              const defaultRole = availableRoles.length > 0 ? availableRoles[0].value : 'DEPT_SUPERVISOR'
+              setForm({ email: '', full_name: '', role: defaultRole, unit_id: undefined })
               setShowForm(true);
             }}
             disabled={availableRoles.length === 0}
@@ -245,7 +246,7 @@ export default function AdminUsers() {
            <div className="modal modal-form" onClick={(e) => e.stopPropagation()}>
             <h3>{editingUser ? `Переміщення: ${editingUser.full_name}` : 'Створити обліковий запис'}</h3>
             {!editingUser && (
-              <p className="modal-description">Користувач отримає лист з посиланням для встановлення паролю.</p>
+              <p className="modal-description">Співробітник отримає лист з посиланням для встановлення паролю.</p>
             )}
             
             <form className="admin-form" onSubmit={editingUser ? handleUpdateRole : handleSubmit}>
@@ -283,11 +284,11 @@ export default function AdminUsers() {
               )}
 
               <div className="form-group">
-                <label>{editingUser ? 'Нова посада / Звання' : 'Посада / Звання'}</label>
+                <label>{editingUser ? 'Нова посада' : 'Посада'}</label>
                 <select
                   value={form.role}
                   onChange={(e) => {
-                    const newRole = e.target.value as (typeof ROLES)[number]['value']
+                    const newRole = e.target.value as UserRole
                     setForm({ ...form, role: newRole, unit_id: undefined }) 
                   }}
                   disabled={availableRoles.length === 0}
@@ -299,7 +300,7 @@ export default function AdminUsers() {
               </div>
 
               <div className="form-group">
-                <label>{editingUser ? 'Новий підрозділ' : 'Підрозділ (залиште пустим для Резерву)'}</label>
+                <label>{editingUser ? 'Нова орг. одиниця' : 'Орг. одиниця (залиште пустим для Резерву)'}</label>
                 <select
                   value={form.unit_id ?? ''}
                   onChange={(e) => {
@@ -309,7 +310,7 @@ export default function AdminUsers() {
                   disabled={formUnits.length === 0}
                 >
                   <option value="">
-                    {formUnits.length === 0 ? 'Немає вільних підрозділів (буде в резерві)' : '-- В Резерв --'}
+                    {formUnits.length === 0 ? 'Немає доступних орг. одиниць (буде в резерві)' : '-- В Кадровий резерв --'}
                   </option>
                   {formUnits.map((u) => (
                     <option key={u.id} value={u.id}>{u.name}</option>
@@ -351,8 +352,8 @@ export default function AdminUsers() {
             
             <p className="modal-description" style={{ fontSize: '15px', color: '#495057', marginBottom: '24px' }}>
               {confirmModal.type === 'block' 
-                ? `Ви впевнені, що хочете перевести користувача ${confirmModal.name} в резерв (заблокувати)? Він втратить доступ до системи.`
-                : `Повернути користувача ${confirmModal.name} до активного складу? Він опиниться в Кадровому резерві.`
+                ? `Ви впевнені, що хочете перевести співробітника ${confirmModal.name} в резерв (заблокувати)? Він втратить доступ до системи.`
+                : `Повернути співробітника ${confirmModal.name} до активного персоналу? Він опиниться в Кадровому резерві.`
               }
             </p>
 
@@ -387,10 +388,10 @@ export default function AdminUsers() {
 
       <div className="card card-table card-table-spaced">
         <div className="table-header-with-tabs">
-          <h2>Особовий склад</h2>
+          <h2>Персонал</h2>
           <div className="inventory-tabs">
             <button className={`tab-btn ${activeTab === 'all' ? 'active' : ''}`} onClick={() => setActiveTab('all')}>Всі</button>
-            <button className={`tab-btn ${activeTab === 'in_unit' ? 'active' : ''}`} onClick={() => setActiveTab('in_unit')}>У підрозділах</button>
+            <button className={`tab-btn ${activeTab === 'in_unit' ? 'active' : ''}`} onClick={() => setActiveTab('in_unit')}>В орг. одиницях</button>
             <button className={`tab-btn ${activeTab === 'reserve' ? 'active' : ''}`} onClick={() => setActiveTab('reserve')}>Кадровий резерв</button>
           </div>
         </div>
@@ -405,16 +406,16 @@ export default function AdminUsers() {
               <tr>
                 <th>ПІБ</th>
                 <th>Посада</th>
-                <th>Підрозділ</th>
+                <th>Орг. одиниця</th>
                 <th>Статус</th>
                 {canManagePersonnel && <th>Дії</th>}
               </tr>
             </thead>
             <tbody>
               {filteredUsers.map(u => {
-                const roleLabel = u.role === 'VOLUNTEER' 
-                  ? 'Волонтер' 
-                  : ROLES.find(r => r.value === u.role)?.label || u.role;
+                const roleLabel = u.role === 'CONTRACTOR' 
+                  ? 'Підрядник' 
+                  : ROLE_NAMES[u.role] || u.role;
                   
                 const unitName = getUnitName(u.unit_id);
                 
@@ -423,8 +424,6 @@ export default function AdminUsers() {
 
                 const canManageThisUser = currentUserRole === 'ADMIN' || (ROLE_CREATION_MAP[currentUserRole || '']?.includes(u.role));
                 
-                // ЛОГІКА БЛОКУВАННЯ:
-                // Якщо юзер у загальному резерві (unit_id == null) і ти не Адмін — блокувати заборонено!
                 const isGeneralReserve = u.unit_id == null;
                 const isAdmin = currentUserRole === 'ADMIN';
                 const canChangeStatus = isAdmin || !isGeneralReserve;
@@ -440,8 +439,8 @@ export default function AdminUsers() {
                         <span className="unit-name-cell">{unitName}</span>
                       ) : u.role === 'ADMIN' ? (
                         <span style={{ color: '#6c757d', fontSize: '13px' }}>Системний персонал</span>
-                      ) : u.role === 'VOLUNTEER' ? (
-                        <span style={{ color: '#6c757d', fontSize: '13px' }}>Цивільний</span>
+                      ) : u.role === 'CONTRACTOR' ? (
+                        <span style={{ color: '#6c757d', fontSize: '13px' }}>Зовнішній</span>
                       ) : (
                         <span className="badge badge-neutral">Резерв</span>
                       )}
@@ -460,9 +459,9 @@ export default function AdminUsers() {
                               className="btn-action-small" 
                               onClick={() => openEditModal(u)}
                               disabled={isBlocked} 
-                              title={isBlocked ? "Неможливо змінити звання заблокованому користувачу" : "Перемістити або змінити посаду"}
+                              title={isBlocked ? "Неможливо змінити посаду заблокованому користувачу" : "Перемістити або змінити посаду"}
                             >
-                              Змінити звання
+                              Змінити посаду
                             </button>
                             
                             {isBlocked ? (
@@ -470,7 +469,7 @@ export default function AdminUsers() {
                                 className="btn-action-small btn-success-small" 
                                 onClick={() => setConfirmModal({ type: 'unblock', id: u.id, name: u.full_name || u.email })}
                                 disabled={!canChangeStatus}
-                                title={!canChangeStatus ? "Немає прав: користувач у загальному резерві" : "Повернути до активного складу"}
+                                title={!canChangeStatus ? "Немає прав: користувач у загальному резерві" : "Повернути до активного персоналу"}
                               >
                                 Розблокувати
                               </button>

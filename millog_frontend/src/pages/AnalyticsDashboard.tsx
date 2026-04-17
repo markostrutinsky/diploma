@@ -15,7 +15,7 @@ const AnalyticsDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
 
-  // Стейт для підрозділів
+  // Стейт для орг. одиниць
   const [units, setUnits] = useState<Unit[]>([]);
   const [selectedUnit, setSelectedUnit] = useState<string>('');
 
@@ -28,20 +28,20 @@ const AnalyticsDashboard: React.FC = () => {
   const [startDate, setStartDate] = useState(defaultStart);
   const [endDate, setEndDate] = useState(defaultEnd);
 
-  // Завантажуємо список підрозділів при старті
+  // Завантажуємо список орг. одиниць при старті
   useEffect(() => {
     api.units.list()
-      .then(res => setUnits(res))
-      .catch(err => console.error("Помилка завантаження підрозділів", err));
+      .then(res => setUnits(Array.isArray(res) ? res : []))
+      .catch(err => console.error("Помилка завантаження орг. одиниць", err));
   }, []);
 
   const fetchData = async () => {
     setLoading(true);
     try {
       const result = await api.analytics.getDashboard(startDate, endDate, selectedUnit);
-      setData(result);
+      setData(result || {});
       
-      if (result.deficit_resources) {
+      if (result?.deficit_resources) {
         const initialConfig: Record<string, string> = {};
         result.deficit_resources.forEach((r: any) => {
           initialConfig[r.id] = 'WAREHOUSE';
@@ -50,6 +50,7 @@ const AnalyticsDashboard: React.FC = () => {
       }
     } catch (err: any) {
       toast.error('Помилка синхронізації з сервером');
+      setData({});
     } finally {
       setLoading(false);
     }
@@ -102,7 +103,7 @@ const AnalyticsDashboard: React.FC = () => {
       }
       
       const unitName = selectedUnit ? units.find(u => u.id.toString() === selectedUnit)?.name : 'All';
-      pdf.save(`Millog_Analytics_${unitName}_${endDate}.pdf`);
+      pdf.save(`OmniLog_Analytics_${unitName}_${endDate}.pdf`);
       
       toast.success("Звіт успішно збережено", { id: 'pdf-toast' });
     } catch (e) {
@@ -112,7 +113,6 @@ const AnalyticsDashboard: React.FC = () => {
     }
   };
 
-  // 🔥 НОВА ФУНКЦІЯ: Експорт залишків в Excel
   const handleExportInventory = async () => {
     const toastId = toast.loading('Формування Excel звіту (Залишки)...');
     try {
@@ -134,7 +134,6 @@ const AnalyticsDashboard: React.FC = () => {
     }
   };
 
-  // 🔥 НОВА ФУНКЦІЯ: Експорт пального в Excel
   const handleExportFuel = async () => {
     const toastId = toast.loading('Формування Excel звіту (Пальне)...');
     try {
@@ -156,7 +155,7 @@ const AnalyticsDashboard: React.FC = () => {
   };
 
   const submitSmartReplenish = async () => {
-    const payloadItems = data.deficit_resources
+    const payloadItems = (data?.deficit_resources || [])
       .filter((r: any) => orderConfig[r.id] !== 'NONE')
       .map((r: any) => ({
         resource_id: r.id,
@@ -184,7 +183,9 @@ const AnalyticsDashboard: React.FC = () => {
   if (loading && !data) return <div className="loading-state"><div className="spinner"></div> Завантаження аналітики...</div>;
   if (!data) return <div className="error-state">Немає даних</div>;
 
-  const totalVolRequests = data.volunteer_funnel?.reduce((acc: number, curr: any) => acc + curr.count, 0) || 1;
+  // БЕЗПЕЧНИЙ РОЗРАХУНОК ВОРОНКИ
+  const contractorFunnel = Array.isArray(data?.CONTRACTOR_funnel) ? data.CONTRACTOR_funnel : [];
+  const totalcontractorReqs = contractorFunnel.reduce((acc: number, curr: any) => acc + (curr.count || 0), 0) || 1;
 
   return (
     <div className="analytics-erp-container">
@@ -200,7 +201,7 @@ const AnalyticsDashboard: React.FC = () => {
             </div>
             <div className="modal-body">
               <p className="modal-desc">Оберіть джерело постачання для майна, запаси якого впали нижче критичної норми.</p>
-              {(!data.deficit_resources || data.deficit_resources.length === 0) ? (
+              {(!data?.deficit_resources || data.deficit_resources.length === 0) ? (
                 <div className="empty">Наразі дефіциту майна не виявлено. Всі запаси в нормі.</div>
               ) : (
                 <table className="deficit-table">
@@ -225,7 +226,7 @@ const AnalyticsDashboard: React.FC = () => {
                             onChange={(e) => setOrderConfig(prev => ({ ...prev, [res.id]: e.target.value }))}
                           >
                             <option value="WAREHOUSE">🏢 Зі складу (Внутрішній)</option>
-                            <option value="VOLUNTEER">🤝 Зовнішній запит</option>
+                            <option value="CONTRACTOR">🤝 Зовнішній запит</option>
                             <option value="NONE">❌ Не замовляти зараз</option>
                           </select>
                         </td>
@@ -237,7 +238,7 @@ const AnalyticsDashboard: React.FC = () => {
             </div>
             <div className="modal-footer">
               <button className="btn-secondary" onClick={() => setIsModalOpen(false)}>Скасувати</button>
-              <button className="btn-primary" onClick={submitSmartReplenish} disabled={!data.deficit_resources || data.deficit_resources.length === 0}>
+              <button className="btn-primary" onClick={submitSmartReplenish} disabled={!data?.deficit_resources || data.deficit_resources.length === 0}>
                 Підтвердити формування
               </button>
             </div>
@@ -248,7 +249,7 @@ const AnalyticsDashboard: React.FC = () => {
       {/* ХЕДЕР ДАШБОРДУ З ФІЛЬТРАМИ ТА КНОПКАМИ */}
       <div className="erp-header">
         <div>
-          <h2>Командна панель (Analytics)</h2>
+          <h2>Аналітична панель (Дашборд)</h2>
           <p className="subtitle">Інтелектуальне управління ресурсами та активами</p>
         </div>
         <div className="action-bar">
@@ -273,7 +274,6 @@ const AnalyticsDashboard: React.FC = () => {
             <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="erp-date-input" />
           </div>
           <div className="button-group">
-            {/* Додані кнопки експорту в Excel */}
             <button onClick={handleExportInventory} className="btn-secondary" title="Залишки на складах">📊 Excel (Склади)</button>
             <button onClick={handleExportFuel} className="btn-secondary" title="Історія пального">⛽ Excel (Пальне)</button>
             <button onClick={handleExportPDF} className="btn-secondary">📄 Звіт (А4)</button>
@@ -284,9 +284,9 @@ const AnalyticsDashboard: React.FC = () => {
 
       {/* ТОП МЕТРИКИ */}
       <div className="kpi-row">
-        <div className="kpi-card"><div className="kpi-info"><span className="kpi-label">Експлуатована техніка</span><span className="kpi-val text-blue">{data.active_vehicles}</span></div></div>
-        <div className="kpi-card"><div className="kpi-info"><span className="kpi-label">Дефіцитні позиції ресурсів</span><span className="kpi-val text-warning">{data.critical_resources}</span></div></div>
-        <div className="kpi-card danger-card"><div className="kpi-info"><span className="kpi-label">Інциденти перевитрат (Аномалії)</span><span className="kpi-val text-danger">{data.fuel_anomalies}</span></div></div>
+        <div className="kpi-card"><div className="kpi-info"><span className="kpi-label">Експлуатована техніка</span><span className="kpi-val text-blue">{data?.active_vehicles || 0}</span></div></div>
+        <div className="kpi-card"><div className="kpi-info"><span className="kpi-label">Дефіцитні позиції ресурсів</span><span className="kpi-val text-warning">{data?.critical_resources || 0}</span></div></div>
+        <div className="kpi-card danger-card"><div className="kpi-info"><span className="kpi-label">Інциденти перевитрат (Аномалії)</span><span className="kpi-val text-danger">{data?.fuel_anomalies || 0}</span></div></div>
       </div>
 
       {/* ВКЛАДКИ */}
@@ -294,7 +294,7 @@ const AnalyticsDashboard: React.FC = () => {
         <button className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`} onClick={() => setActiveTab('overview')}>📊 Зведення</button>
         <button className={`tab-btn ${activeTab === 'logistics' ? 'active' : ''}`} onClick={() => setActiveTab('logistics')}>🛡️ Ресурси</button>
         <button className={`tab-btn ${activeTab === 'fleet' ? 'active' : ''}`} onClick={() => setActiveTab('fleet')}>🚙 Активи (Автопарк)</button>
-        <button className={`tab-btn ${activeTab === 'volunteers' ? 'active' : ''}`} onClick={() => setActiveTab('volunteers')}>🤝 Зовнішні запити</button>
+        <button className={`tab-btn ${activeTab === 'CONTRACTORs' ? 'active' : ''}`} onClick={() => setActiveTab('CONTRACTORs')}>🤝 Зовнішні запити</button>
       </div>
 
       {/* ЗМІСТ ВКЛАДОК */}
@@ -303,10 +303,10 @@ const AnalyticsDashboard: React.FC = () => {
         {activeTab === 'overview' && (
           <div className="grid-layout">
             <div className="erp-widget col-span-2">
-              <div className="widget-header"><h3>Рівень забезпечення відділів</h3><span className="info-badge">Готовність</span></div>
+              <div className="widget-header"><h3>Рівень забезпечення орг. одиниць</h3><span className="info-badge">Готовність</span></div>
               <div className="scroll-container">
-                {data.unit_readiness?.length === 0 ? <p className="empty">Немає даних.</p> : (
-                  data.unit_readiness?.map((u: any, idx: number) => {
+                {(!data?.unit_readiness || data.unit_readiness.length === 0) ? <p className="empty">Немає даних.</p> : (
+                  data.unit_readiness.map((u: any, idx: number) => {
                     const score = u.readiness_score;
                     const colorClass = score >= 80 ? 'bg-green-500' : score >= 50 ? 'bg-yellow-500' : 'bg-red-500';
                     return (
@@ -319,13 +319,11 @@ const AnalyticsDashboard: React.FC = () => {
                   })
                 )}
               </div>
-              
             </div>
-
             <div className="erp-widget col-span-1">
               <div className="widget-header"><h3>Критичний дефіцит</h3></div>
               <div className="scroll-container">
-                {(!data.deficit_resources || data.deficit_resources.length === 0) ? (
+                {(!data?.deficit_resources || data.deficit_resources.length === 0) ? (
                    <p className="empty">Всі ресурси в нормі</p>
                 ) : (
                   data.deficit_resources.map((res: any, idx: number) => (
@@ -346,11 +344,12 @@ const AnalyticsDashboard: React.FC = () => {
             <div className="erp-widget col-span-1">
               <div className="widget-header"><h3>Ефективність зовнішніх запитів (SLA)</h3></div>
               <div className="sla-card">
-                <div className="sla-big-number">{data.volunteer_sla?.average_days.toFixed(1)} <span className="sla-unit">днів</span></div>
+                <div className="sla-big-number">{data?.CONTRACTOR_sla?.average_days?.toFixed(1) || 0} <span className="sla-unit">днів</span></div>
                 <p className="sla-desc">Середній час закриття одного запиту зовнішніми постачальниками</p>
-                <div className="sla-footer">Виконано за період: <strong>{data.volunteer_sla?.completed_count} шт</strong></div>
+                <div className="sla-footer">Виконано за період: <strong>{data?.CONTRACTOR_sla?.completed_count || 0} шт</strong></div>
               </div>
             </div>
+            
             <div className="erp-widget col-span-full" style={{ height: 'auto', minHeight: '180px' }}>
               <div className="widget-header">
                 <h3>🔄 Життєвий цикл та рух активів</h3>
@@ -358,35 +357,33 @@ const AnalyticsDashboard: React.FC = () => {
               </div>
               
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginTop: '10px' }}>
-                
                 <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column' }}>
                   <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Списано (Використано)</span>
                   <div style={{ fontSize: '2rem', fontWeight: 700, color: '#0f172a', marginTop: '10px' }}>
-                    {data.written_off_resources || 0} <span style={{fontSize: '1rem', color: '#94a3b8', fontWeight: 500}}>позицій</span>
+                    {data?.written_off_resources || 0} <span style={{fontSize: '1rem', color: '#94a3b8', fontWeight: 500}}>позицій</span>
                   </div>
                 </div>
 
                 <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column' }}>
                   <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Успішні переміщення</span>
                   <div style={{ fontSize: '2rem', fontWeight: 700, color: '#10b981', marginTop: '10px' }}>
-                    {data.completed_requests || 0} <span style={{fontSize: '1rem', color: '#94a3b8', fontWeight: 500}}>заявок</span>
+                    {data?.completed_requests || 0} <span style={{fontSize: '1rem', color: '#94a3b8', fontWeight: 500}}>заявок</span>
                   </div>
                 </div>
 
                 <div style={{ background: '#fffbeb', padding: '20px', borderRadius: '8px', border: '1px solid #fde68a', display: 'flex', flexDirection: 'column' }}>
                   <span style={{ fontSize: '0.85rem', color: '#b45309', fontWeight: 600, textTransform: 'uppercase' }}>Автопарк: В ремонті</span>
                   <div style={{ fontSize: '2rem', fontWeight: 700, color: '#d97706', marginTop: '10px' }}>
-                    {data.in_repair_vehicles || 0} <span style={{fontSize: '1rem', color: '#d97706', opacity: 0.7, fontWeight: 500}}>ТЗ</span>
+                    {data?.in_repair_vehicles || 0} <span style={{fontSize: '1rem', color: '#d97706', opacity: 0.7, fontWeight: 500}}>ТЗ</span>
                   </div>
                 </div>
 
                 <div style={{ background: '#fef2f2', padding: '20px', borderRadius: '8px', border: '1px solid #fecaca', display: 'flex', flexDirection: 'column' }}>
                   <span style={{ fontSize: '0.85rem', color: '#b91c1c', fontWeight: 600, textTransform: 'uppercase' }}>Виведено з експлуатації</span>
                   <div style={{ fontSize: '2rem', fontWeight: 700, color: '#ef4444', marginTop: '10px' }}>
-                    {data.inactive_vehicles || 0} <span style={{fontSize: '1rem', color: '#ef4444', opacity: 0.7, fontWeight: 500}}>ТЗ</span>
+                    {data?.inactive_vehicles || 0} <span style={{fontSize: '1rem', color: '#ef4444', opacity: 0.7, fontWeight: 500}}>ТЗ</span>
                   </div>
                 </div>
-
               </div>
             </div>
           </div>
@@ -396,11 +393,10 @@ const AnalyticsDashboard: React.FC = () => {
         {activeTab === 'logistics' && (
           <div className="grid-layout">
             
-            {/* НОВИЙ ГРАФІК: ЗАВАНТАЖЕНІСТЬ СКЛАДІВ */}
             <div className="erp-widget col-span-2">
               <div className="widget-header"><h3>Завантаженість складів (Топ-5)</h3></div>
               <div className="chart-container">
-                {(!data.warehouse_load || data.warehouse_load.length === 0) ? <p className="empty">Немає майна на складах.</p> : (
+                {(!data?.warehouse_load || data.warehouse_load.length === 0) ? <p className="empty">Немає майна на складах.</p> : (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={data.warehouse_load} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
@@ -414,11 +410,10 @@ const AnalyticsDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* НОВИЙ ГРАФІК: ТОП-5 РЕСУРСІВ */}
             <div className="erp-widget col-span-1">
               <div className="widget-header"><h3>Топ-5 затребуваних ресурсів</h3></div>
               <div className="chart-container">
-                {(!data.top_resources || data.top_resources.length === 0) ? <p className="empty">Замовлення відсутні.</p> : (
+                {(!data?.top_resources || data.top_resources.length === 0) ? <p className="empty">Замовлення відсутні.</p> : (
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie 
@@ -443,11 +438,10 @@ const AnalyticsDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* СТАРИЙ ВІДЖЕТ ПРОГНОЗУ (ТЕПЕР ЗНИЗУ) */}
             <div className="erp-widget col-span-full" style={{ height: '350px' }}>
               <div className="widget-header"><h3>Прогноз вичерпання ресурсів</h3><span className="info-badge">За обраний період</span></div>
               <div className="scroll-container predict-list">
-                {(!data.predictive_burn_rate || data.predictive_burn_rate.length === 0) ? <p className="empty">Немає витрат для прогнозу.</p> : (
+                {(!data?.predictive_burn_rate || data.predictive_burn_rate.length === 0) ? <p className="empty">Немає витрат для прогнозу.</p> : (
                   data.predictive_burn_rate.map((item: any, idx: number) => (
                     <div key={idx} className="predict-item">
                       <div className="predict-info"><strong>{item.resource_name}</strong><span>Залишок: {item.current_stock} шт (Сер. витрата: {item.daily_burn_rate.toFixed(1)}/день)</span></div>
@@ -471,7 +465,7 @@ const AnalyticsDashboard: React.FC = () => {
             <div className="erp-widget col-span-2">
               <div className="widget-header"><h3>Аналіз споживання палива та виявлення аномалій</h3></div>
               <div className="chart-container">
-                {data.fuel_history?.length === 0 ? <p className="empty">Немає транзакцій.</p> : (
+                {(!data?.fuel_history || data.fuel_history.length === 0) ? <p className="empty">Немає транзакцій.</p> : (
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart data={data.fuel_history} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
@@ -490,8 +484,8 @@ const AnalyticsDashboard: React.FC = () => {
             <div className="erp-widget col-span-1">
               <div className="widget-header"><h3>Прогноз Сервісного Обслуговування</h3></div>
               <div className="scroll-container fraud-list">
-                {data.maintenance_predict?.length === 0 ? <p className="empty">Немає активів.</p> : (
-                  data.maintenance_predict?.map((m: any, idx: number) => (
+                {(!data?.maintenance_predict || data.maintenance_predict.length === 0) ? <p className="empty">Немає активів.</p> : (
+                  data.maintenance_predict.map((m: any, idx: number) => (
                     <div key={idx} className="fraud-card">
                       <div className="fraud-head"><h4>{m.vehicle_name}</h4>
                         {m.km_left <= 0 ? <div className="risk-badge bg-red-500">Прострочено!</div> : 
@@ -509,7 +503,7 @@ const AnalyticsDashboard: React.FC = () => {
             <div className="erp-widget col-span-2">
               <div className="widget-header"><h3>Фінансова ефективність (TCO)</h3></div>
               <div className="chart-container">
-                {(!data.fleet_tco || data.fleet_tco.length === 0) ? <p className="empty">Немає витрат на ремонт.</p> : (
+                {(!data?.fleet_tco || data.fleet_tco.length === 0) ? <p className="empty">Немає витрат на ремонт.</p> : (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={data.fleet_tco} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} />
@@ -527,29 +521,31 @@ const AnalyticsDashboard: React.FC = () => {
             <div className="erp-widget col-span-1">
               <div className="widget-header"><h3>Рейтинг ризику перевитрат</h3></div>
               <div className="scroll-container fraud-list">
-                {data.fleet_risk?.map((f: any, idx: number) => (
-                  <div key={idx} className="fraud-card">
-                    <div className="fraud-head"><h4>{f.vehicle_name}</h4><div className={`risk-badge ${f.risk_score > 50 ? 'bg-red-500' : 'bg-orange-500'}`}>Ризик: {f.risk_score}%</div></div>
-                    <div className="fraud-stats">
-                      <div className="stat-line"><span>Транзакцій:</span> <strong>{f.total_refuels}</strong></div>
-                      <div className="stat-line"><span>Підозрілі:</span> <strong className="text-danger">{f.anomalies}</strong></div>
+                {(!data?.fleet_risk || data.fleet_risk.length === 0) ? <p className="empty">Аномалій не зафіксовано</p> : (
+                  data.fleet_risk.map((f: any, idx: number) => (
+                    <div key={idx} className="fraud-card">
+                      <div className="fraud-head"><h4>{f.vehicle_name}</h4><div className={`risk-badge ${f.risk_score > 50 ? 'bg-red-500' : 'bg-orange-500'}`}>Ризик: {f.risk_score}%</div></div>
+                      <div className="fraud-stats">
+                        <div className="stat-line"><span>Транзакцій:</span> <strong>{f.total_refuels}</strong></div>
+                        <div className="stat-line"><span>Підозрілі:</span> <strong className="text-danger">{f.anomalies}</strong></div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </div>
         )}
 
-        {/* ВКЛАДКА 4: ВОЛОНТЕРИ (ЗОВНІШНІ ЗАПИТИ) */}
-        {activeTab === 'volunteers' && (
+        {/* ВКЛАДКА 4: ПІДРЯДНИКИ (ЗОВНІШНІ ЗАПИТИ) */}
+        {activeTab === 'CONTRACTORs' && (
           <div className="grid-layout">
             <div className="erp-widget col-span-1">
               <div className="widget-header"><h3>Статуси запитів</h3></div>
               <div className="scroll-container">
-                {data.volunteer_funnel?.length === 0 ? <p className="empty">Запитів немає.</p> : (
-                  data.volunteer_funnel?.map((item: any, idx: number) => {
-                    const percentage = Math.round((item.count / totalVolRequests) * 100);
+                {contractorFunnel.length === 0 ? <p className="empty">Запитів немає.</p> : (
+                  contractorFunnel.map((item: any, idx: number) => {
+                    const percentage = Math.round((item.count / totalcontractorReqs) * 100);
                     const color = requestColors[item.status] || '#64748b';
                     return (
                       <div key={idx} className="readiness-bar-item">
@@ -564,9 +560,9 @@ const AnalyticsDashboard: React.FC = () => {
             <div className="erp-widget col-span-2">
               <div className="widget-header"><h3>Динаміка формування потреб</h3></div>
               <div className="chart-container">
-                {data.volunteer_timeline?.length === 0 ? <p className="empty">Нових потреб не виникало.</p> : (
+                {(!data?.CONTRACTOR_timeline || data.CONTRACTOR_timeline.length === 0) ? <p className="empty">Нових потреб не виникало.</p> : (
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={data.volunteer_timeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <BarChart data={data.CONTRACTOR_timeline} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                       <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
                       <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
@@ -592,7 +588,7 @@ const AnalyticsDashboard: React.FC = () => {
             <tbody>
               <tr>
                 <td style={{ verticalAlign: 'top', width: '60%' }}>
-                  <strong style={{ fontSize: '14pt' }}>MILLOG - ОПЕРАЦІЙНА ЛОГІСТИКА</strong><br/>
+                  <strong style={{ fontSize: '14pt' }}>OMNILOG - ОПЕРАЦІЙНА ЛОГІСТИКА</strong><br/>
                   <span style={{ fontSize: '10pt', color: '#555' }}>Деталізований аналітичний звіт стану активів</span>
                 </td>
                 <td style={{ verticalAlign: 'top', textAlign: 'right', fontSize: '10pt' }}>
@@ -614,22 +610,22 @@ const AnalyticsDashboard: React.FC = () => {
         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '30px', fontSize: '11pt' }}>
           <tbody>
             <tr>
-              <td style={{ border: '1px solid #ccc', padding: '10px', width: '33%' }}><strong>Експлуатовані активи:</strong><br/>{data.active_vehicles} од.</td>
-              <td style={{ border: '1px solid #ccc', padding: '10px', width: '33%' }}><strong>Критичний дефіцит:</strong><br/>{data.critical_resources} позицій</td>
-              <td style={{ border: '1px solid #ccc', padding: '10px', width: '33%' }}><strong>Аномалії транзакцій:</strong><br/>{data.fuel_anomalies} інцидентів</td>
+              <td style={{ border: '1px solid #ccc', padding: '10px', width: '33%' }}><strong>Експлуатовані активи:</strong><br/>{data?.active_vehicles || 0} од.</td>
+              <td style={{ border: '1px solid #ccc', padding: '10px', width: '33%' }}><strong>Критичний дефіцит:</strong><br/>{data?.critical_resources || 0} позицій</td>
+              <td style={{ border: '1px solid #ccc', padding: '10px', width: '33%' }}><strong>Аномалії транзакцій:</strong><br/>{data?.fuel_anomalies || 0} інцидентів</td>
             </tr>
           </tbody>
         </table>
 
-        {/* СЕКЦІЯ 2: ЖИТТЄВИЙ ЦИКЛ ТА РУХ (НОВИЙ БЛОК) */}
+        {/* СЕКЦІЯ 2: ЖИТТЄВИЙ ЦИКЛ ТА РУХ */}
         <h2 style={{ fontSize: '12pt', backgroundColor: '#f0f0f0', padding: '8px', borderLeft: '4px solid #10b981', marginBottom: '15px' }}>2. РУХ АКТИВІВ ТА СПИСАННЯ (LIFECYCLE)</h2>
         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '30px', fontSize: '11pt' }}>
           <tbody>
             <tr>
-              <td style={{ border: '1px solid #ccc', padding: '10px', width: '25%' }}><strong>Списано майна:</strong><br/>{data.written_off_resources || 0} позицій</td>
-              <td style={{ border: '1px solid #ccc', padding: '10px', width: '25%' }}><strong>Виконано переміщень:</strong><br/>{data.completed_requests || 0} заявок</td>
-              <td style={{ border: '1px solid #ccc', padding: '10px', width: '25%' }}><strong>Техніка в ремонті:</strong><br/>{data.in_repair_vehicles || 0} од.</td>
-              <td style={{ border: '1px solid #ccc', padding: '10px', width: '25%' }}><strong>Списані авто:</strong><br/>{data.inactive_vehicles || 0} од.</td>
+              <td style={{ border: '1px solid #ccc', padding: '10px', width: '25%' }}><strong>Списано майна:</strong><br/>{data?.written_off_resources || 0} позицій</td>
+              <td style={{ border: '1px solid #ccc', padding: '10px', width: '25%' }}><strong>Виконано переміщень:</strong><br/>{data?.completed_requests || 0} заявок</td>
+              <td style={{ border: '1px solid #ccc', padding: '10px', width: '25%' }}><strong>Техніка в ремонті:</strong><br/>{data?.in_repair_vehicles || 0} од.</td>
+              <td style={{ border: '1px solid #ccc', padding: '10px', width: '25%' }}><strong>Списані авто:</strong><br/>{data?.inactive_vehicles || 0} од.</td>
             </tr>
           </tbody>
         </table>
@@ -647,7 +643,7 @@ const AnalyticsDashboard: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {(!data.predictive_burn_rate || data.predictive_burn_rate.length === 0) ? (
+            {(!data?.predictive_burn_rate || data.predictive_burn_rate.length === 0) ? (
               <tr><td colSpan={5} style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center' }}>Показники в межах норми</td></tr>
             ) : (
               data.predictive_burn_rate.map((item: any, idx: number) => (
@@ -675,7 +671,7 @@ const AnalyticsDashboard: React.FC = () => {
             </tr>
           </thead>
           <tbody>
-            {(!data.fleet_risk || data.fleet_risk.length === 0) ? (
+            {(!data?.fleet_risk || data.fleet_risk.length === 0) ? (
               <tr><td colSpan={4} style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center' }}>Аномалій не зафіксовано</td></tr>
             ) : (
               data.fleet_risk.map((risk: any, idx: number) => (

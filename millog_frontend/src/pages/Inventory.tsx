@@ -59,8 +59,8 @@ export default function Inventory() {
     return () => document.removeEventListener('click', closeMenu);
   }, []);
 
-  const canManageResources = ['ADMIN', 'BRIGADE_STOREKEEPER', 'BATTALION_STOREKEEPER', 'COMPANY_SERGEANT', 'BRIGADE_LOGIST'].includes(user?.role || '');
-  const canManageCategories = ['ADMIN', 'BRIGADE_LOGIST', 'BRIGADE_CMDR'].includes(user?.role || '');
+  const canManageResources = ['ADMIN', 'REGION_STOREKEEPER', 'BRANCH_STOREKEEPER', 'DEPT_SUPERVISOR', 'REGION_LOGISTICIAN'].includes(user?.role || '');
+  const canManageCategories = ['ADMIN', 'REGION_LOGISTICIAN', 'REGION_DIRECTOR'].includes(user?.role || '');
   
   const [qrPreviewData, setQrPreviewData] = useState<{ id: string; name: string; url: string } | null>(null);
 
@@ -332,7 +332,7 @@ export default function Inventory() {
   const availableWarehousesForNew = warehouses.filter(w => Number(w.unit_id) === Number(newRes.unit_id));
   
   const allowedUsersForAssignment = assignModalData 
-    ? usersList.filter(u => u.role !== 'VOLUNTEER' && u.unit_id === assignModalData.resource.unit_id)
+    ? usersList.filter(u => u.role !== 'CONTRACTOR' && u.unit_id === assignModalData.resource.unit_id)
     : [];
 
   return (
@@ -348,7 +348,7 @@ export default function Inventory() {
               onChange={(e) => setFilterUnitId(e.target.value ? parseInt(e.target.value, 10) : '')} 
               className="filter-select erp-input"
             >
-              <option value="">Всі підрозділи</option>
+              <option value="">Всі орг. одиниці</option>
               {units.map((u) => (
                 <option key={u.id} value={u.id}>{u.name}</option>
               ))}
@@ -449,14 +449,14 @@ export default function Inventory() {
               
               <div className="form-group">
                 <label>Назва майна <span style={{color: '#ef4444'}}>*</span></label>
-                <input className="erp-input" placeholder="Напр. Бронежилет Корсар М3" value={newRes.name} onChange={(e) => setNewRes({ ...newRes, name: e.target.value })} required />
+                <input className="erp-input" placeholder="Напр. Ноутбук Dell Latitude" value={newRes.name} onChange={(e) => setNewRes({ ...newRes, name: e.target.value })} required />
               </div>
               
               <div className="form-row-2">
                 <div className="form-group">
-                  <label>Власник (Підрозділ) <span style={{color: '#ef4444'}}>*</span></label>
+                  <label>Власник (Орг. одиниця) <span style={{color: '#ef4444'}}>*</span></label>
                   <select className="erp-input" value={newRes.unit_id ?? ''} onChange={(e) => { setNewRes({ ...newRes, unit_id: e.target.value ? parseInt(e.target.value, 10) : undefined, warehouse_id: '' }) }} required>
-                    <option value="" disabled>Оберіть підрозділ</option>
+                    <option value="" disabled>Оберіть орг. одиницю</option>
                     {units.map((u) => (<option key={u.id} value={u.id}>{u.name}</option>))}
                   </select>
                 </div>
@@ -771,7 +771,7 @@ export default function Inventory() {
                 {sortedUnitIds.map(unitId => {
                   const unitResources = groupedResources[unitId];
                   const isOrphan = unitId === 0;
-                  const unitName = isOrphan ? (activeTab === 'active' ? '⚠️ НЕРОЗПОДІЛЕНИЙ ЗАЛИШОК' : '🗄️ Архів') : units.find((u) => u.id === unitId)?.name || 'Невідомий підрозділ';
+                  const unitName = isOrphan ? (activeTab === 'active' ? '⚠️ НЕРОЗПОДІЛЕНИЙ ЗАЛИШОК' : '🗄️ Архів') : units.find((u) => u.id === unitId)?.name || 'Невідома орг. одиниця';
                   const isMyUnit = user?.unit_id === unitId;
                   const isDangerRow = isOrphan && activeTab === 'active';
 

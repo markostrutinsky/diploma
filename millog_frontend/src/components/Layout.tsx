@@ -1,26 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { api } from '../api/client' // ДОДАНО
-import toast from 'react-hot-toast' // ДОДАНО
+import { api, ROLE_NAMES } from '../api/client' // 🔥 Імпортували ROLE_NAMES
+import toast from 'react-hot-toast'
 import './Layout.css'
 
-const USER_CREATOR_ROLES = ['ADMIN', 'BRIGADE_CMDR', 'BATTALION_CMDR', 'COMPANY_CMDR', 'PLATOON_CMDR', 'BRIGADE_LOGIST', 'BATTALION_LOGIST', 'BRIGADE_STOREKEEPER', 'BATTALION_STOREKEEPER', 'COMPANY_SERGEANT']
-const UNIT_MANAGER_ROLES = ['ADMIN', 'BRIGADE_CMDR', 'BATTALION_CMDR', 'COMPANY_CMDR', 'BRIGADE_LOGIST', 'BATTALION_LOGIST', 'BRIGADE_STOREKEEPER', 'BATTALION_STOREKEEPER']
-
-const ROLE_LABELS: Record<string, string> = {
-  ADMIN: 'Адміністратор',
-  BRIGADE_CMDR: 'Командир бригади',
-  BATTALION_CMDR: 'Командир батальйону',
-  COMPANY_CMDR: 'Командир роти',
-  PLATOON_CMDR: 'Командир взводу',
-  BRIGADE_LOGIST: 'Логіст бригади',
-  BRIGADE_STOREKEEPER: 'Комірник бригади',
-  BATTALION_LOGIST: 'Логіст батальйону',
-  BATTALION_STOREKEEPER: 'Комірник батальйону',
-  COMPANY_SERGEANT: 'Старшина роти',
-  VOLUNTEER: 'Волонтер',
-}
+const USER_CREATOR_ROLES = ['ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'TEAM_LEAD', 'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN', 'REGION_STOREKEEPER', 'BRANCH_STOREKEEPER', 'DEPT_SUPERVISOR']
+const UNIT_MANAGER_ROLES = ['ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN', 'REGION_STOREKEEPER', 'BRANCH_STOREKEEPER']
 
 interface LayoutProps {
   children: React.ReactNode
@@ -30,15 +16,15 @@ export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
   const { user, token, loading, logout } = useAuth()
 
-  // --- НОВЕ: Логіка сповіщень ---
+  // --- Логіка сповіщень ---
   const [pendingCount, setPendingCount] = useState(0)
   const prevCountRef = useRef(0)
 
-  // Перевіряємо, чи має поточний користувач права погоджувати заявки (щоб не спамити звичайних солдатів)
-  const canApproveRequests = user?.role && ['ADMIN', 'BRIGADE_CMDR', 'BATTALION_CMDR', 'COMPANY_CMDR', 'BRIGADE_LOGIST', 'BATTALION_LOGIST'].includes(user.role)
+  // Перевіряємо, чи має поточний користувач права погоджувати заявки
+  const canApproveRequests = user?.role && ['ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN'].includes(user.role)
 
   useEffect(() => {
-    // Запускаємо опитування тільки для авторизованих логістів/командирів
+    // Запускаємо опитування тільки для авторизованих логістів/менеджерів
     if (!token || !canApproveRequests) return;
 
     const checkNewRequests = async () => {
@@ -47,7 +33,6 @@ export default function Layout({ children }: LayoutProps) {
         if (Array.isArray(reqs)) {
           const currentPending = reqs.filter(r => r.status === 'PENDING').length;
           
-          // Якщо кількість Очікуючих заявок зросла — викидаємо Пуш-сповіщення (Toast)
           if (currentPending > prevCountRef.current && prevCountRef.current !== 0) {
             toast('Надійшла нова заявка на постачання!', { 
               icon: '🔔', 
@@ -64,8 +49,8 @@ export default function Layout({ children }: LayoutProps) {
       }
     };
 
-    checkNewRequests(); // Перша перевірка при завантаженні
-    const interval = setInterval(checkNewRequests, 15000); // Опитування кожні 15 секунд
+    checkNewRequests();
+    const interval = setInterval(checkNewRequests, 15000); 
     
     return () => clearInterval(interval);
   }, [token, canApproveRequests]);
@@ -83,7 +68,10 @@ export default function Layout({ children }: LayoutProps) {
   const showSidebar = !!token
   const canManageUsers = user?.role && USER_CREATOR_ROLES.includes(user.role)
   const canManageUnits = user?.role && UNIT_MANAGER_ROLES.includes(user.role)
-  const isVolunteer = user?.role === 'VOLUNTEER'
+  
+  const isCONTRACTOR = user?.role === 'CONTRACTOR'
+  // 🔥 НОВЕ: Звичайний співробітник і підрядник не мають доступу до управління логістикою
+  const canManageLogistics = !['CONTRACTOR', 'EMPLOYEE'].includes(user?.role || '')
 
   return (
     <div className={`layout ${showSidebar ? 'with-sidebar' : ''}`}>
@@ -91,7 +79,7 @@ export default function Layout({ children }: LayoutProps) {
         <aside className="sidebar">
           <div className="sidebar-header">
             <Link to="/" className="sidebar-logo">
-              Millog
+              Omnilog
             </Link>
           </div>
           <nav className="sidebar-nav">
@@ -99,11 +87,15 @@ export default function Layout({ children }: LayoutProps) {
               Головна
             </Link>
 
-            {!isVolunteer && (
+            {!isCONTRACTOR && (
+              <Link to="/my-equipment" className={location.pathname === '/my-equipment' ? 'active' : ''}>
+                Профіль
+              </Link>
+            )}
+
+            {/* 🔥 Показуємо ці пункти тільки тим, хто має доступ до логістики */}
+            {canManageLogistics && (
               <>
-                <Link to="/my-equipment" className={location.pathname === '/profile' ? 'active' : ''}>
-                  Профіль
-                </Link>
                 <Link to="/analytics" className={location.pathname === '/analytics' ? 'active' : ''}>
                   Аналітика
                 </Link>
@@ -111,7 +103,6 @@ export default function Layout({ children }: LayoutProps) {
                   Ресурси
                 </Link>
                 
-                {/* НОВЕ: Бейдж з кількістю заявок */}
                 <Link 
                   to="/requests" 
                   className={location.pathname === '/requests' ? 'active' : ''}
@@ -120,13 +111,13 @@ export default function Layout({ children }: LayoutProps) {
                   <span>Заявки</span>
                   {pendingCount > 0 && (
                     <span style={{
-                      backgroundColor: '#ef4444', // Червоний колір
+                      backgroundColor: '#ef4444',
                       color: 'white',
                       fontSize: '11px',
                       fontWeight: 'bold',
                       padding: '2px 8px',
                       borderRadius: '12px',
-                      boxShadow: '0 0 8px rgba(239, 68, 68, 0.4)' // Легке світіння
+                      boxShadow: '0 0 8px rgba(239, 68, 68, 0.4)'
                     }}>
                       {pendingCount}
                     </span>
@@ -142,13 +133,13 @@ export default function Layout({ children }: LayoutProps) {
               </>
             )}
 
-            <Link to="/volunteer-requests" className={location.pathname === '/volunteer-requests' ? 'active' : ''}>
-              {isVolunteer ? 'Відкриті потреби' : 'Для волонтерів'}
+            <Link to="/contractor-requests" className={location.pathname === '/contractor-requests' ? 'active' : ''}>
+              {isCONTRACTOR ? 'Відкриті завдання' : 'Заявки підрядникам'}
             </Link>
 
             {canManageUnits && (
               <Link to="/units" className={location.pathname === '/units' ? 'active' : ''}>
-                Підрозділи
+                Оргструктура
               </Link>
             )}
             {canManageUsers && (
@@ -167,7 +158,7 @@ export default function Layout({ children }: LayoutProps) {
           <div className="sidebar-footer">
             <div className="user-badge">
               <span className="user-name">{user?.full_name}</span>
-              <span className="user-role">{user?.role ? ROLE_LABELS[user.role] || user.role : ''}</span>
+              <span className="user-role">{user?.role ? ROLE_NAMES[user.role] || user.role : ''}</span>
             </div>
             <button className="btn btn-secondary btn-sm btn-block" onClick={logout}>
               Вийти
@@ -179,7 +170,7 @@ export default function Layout({ children }: LayoutProps) {
       <div className="main-content">
         {!showSidebar && (
           <header className="top-bar">
-            <Link to="/" className="logo-text">Millog</Link>
+            <Link to="/" className="logo-text">Omnilog</Link>
             <Link to="/login" className="btn btn-primary">Увійти</Link>
           </header>
         )}

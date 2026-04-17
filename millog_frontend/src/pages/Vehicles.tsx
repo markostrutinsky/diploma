@@ -78,7 +78,7 @@ export default function Vehicles() {
     return () => document.removeEventListener('click', closeMenu);
   }, []);
 
-  const canManageVehicles = ['ADMIN', 'BRIGADE_CMDR', 'BRIGADE_LOGIST', 'BATTALION_LOGIST', 'COMPANY_SERGEANT'].includes(user?.role || '')
+  const canManageVehicles = ['ADMIN', 'REGION_DIRECTOR', 'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN', 'DEPT_SUPERVISOR'].includes(user?.role || '')
 
   const loadData = () => {
     setLoading(true)
@@ -171,7 +171,7 @@ export default function Vehicles() {
       await api.vehicles.performMaintenance(maintenanceModalVehicle.id, formData as any)
       
       const msg = maintenanceModalVehicle.status === 'IN_REPAIR' 
-        ? 'Ремонт завершено! Машина знову в строю.' 
+        ? 'Ремонт завершено! Машина знову на лінії.' 
         : 'Акт ТО успішно зафіксовано!'
       
       toast.success(msg)
@@ -212,7 +212,7 @@ export default function Vehicles() {
     try {
       const driverIdToSubmit = driverForm.driver_id === '' ? null : driverForm.driver_id
       await api.vehicles.assignDriver(driverModalVehicle.id, driverIdToSubmit)
-      toast.success('Екіпаж успішно оновлено!')
+      toast.success('Водія успішно призначено!')
       loadData()
       setDriverModalVehicle(null)
     } catch (err) {
@@ -311,7 +311,7 @@ export default function Vehicles() {
     <div className="vehicles-page">
       <Toaster position="top-right" />
       <div className="page-header">
-        <h1>Автопарк та ГСМ</h1>
+        <h1>Автопарк та ПММ</h1>
         <div className="page-actions">
           {canManageVehicles && (
             <button className="btn btn-primary" onClick={() => setShowVehicleForm(true)}>
@@ -349,7 +349,7 @@ export default function Vehicles() {
             <h3>Новий транспорт</h3>
             <form onSubmit={handleCreateVehicle}>
               <div className="form-group">
-                <label>Марка (напр., Nissan, КрАЗ)</label>
+                <label>Марка (напр., Ford, Renault)</label>
                 <input value={newVehicle.brand} onChange={(e) => setNewVehicle({ ...newVehicle, brand: e.target.value })} required className="erp-input" />
               </div>
               <div className="form-row-2">
@@ -390,7 +390,7 @@ export default function Vehicles() {
               </div>
 
               <div className="form-group">
-                <label>Закріплений водій (Екіпаж)</label>
+                <label>Закріплений водій</label>
                 <select value={newVehicle.driver_id} onChange={(e) => setNewVehicle({ ...newVehicle, driver_id: e.target.value })} className="erp-input">
                   <option value="">-- Без закріплення --</option>
                   {usersList.map(u => <option key={u.id} value={u.id}>{u.full_name} ({u.role})</option>)}
@@ -462,12 +462,12 @@ export default function Vehicles() {
                 <label>Новий статус</label>
                 <select value={statusForm.status} onChange={(e) => setStatusForm({...statusForm, status: e.target.value})} className="erp-input" disabled={isProcessing}>
                   {statusModalVehicle.status !== 'IN_REPAIR' && <option value="IN_REPAIR">🛠 Відправити в ремонт</option>}
-                  <option value="INACTIVE">🔥 Списати (Безповоротна втрата)</option>
+                  <option value="INACTIVE">🔥 Списати (Тотал / Повна втрата)</option>
                 </select>
               </div>
               <div className="form-group">
                 <label>Причина <span style={{color: '#ef4444'}}>*</span></label>
-                <textarea rows={3} placeholder={statusForm.status === 'IN_REPAIR' ? "Напр., Поломка двигуна / ДТП" : "Напр., Знищено внаслідок бойових дій"} value={statusForm.reason} onChange={(e) => setStatusForm({...statusForm, reason: e.target.value})} required disabled={isProcessing} className="erp-input" />
+                <textarea rows={3} placeholder={statusForm.status === 'IN_REPAIR' ? "Напр., Поломка двигуна / ДТП" : "Напр., Авто не підлягає відновленню після ДТП"} value={statusForm.reason} onChange={(e) => setStatusForm({...statusForm, reason: e.target.value})} required disabled={isProcessing} className="erp-input" />
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setStatusModalVehicle(null)} disabled={isProcessing}>Скасувати</button>
@@ -481,9 +481,9 @@ export default function Vehicles() {
       {driverModalVehicle && (
         <div className="modal-overlay vehicles-modal" onClick={() => !isProcessing && setDriverModalVehicle(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Екіпаж: {driverModalVehicle.brand} ({driverModalVehicle.plate_number})</h3>
+            <h3>Водій: {driverModalVehicle.brand} ({driverModalVehicle.plate_number})</h3>
             <form onSubmit={handleAssignDriver}>
-              <p className="modal-description">Виберіть військовослужбовця, за яким буде закріплено даний транспортний засіб.</p>
+              <p className="modal-description">Виберіть співробітника, за яким буде закріплено даний транспортний засіб.</p>
               <div className="form-group">
                 <label>Відповідальний водій</label>
                 <select value={driverForm.driver_id} onChange={(e) => setDriverForm({...driverForm, driver_id: e.target.value})} className="erp-input" disabled={isProcessing}>
@@ -543,8 +543,8 @@ export default function Vehicles() {
                   <input type="number" min={maintenanceModalVehicle.last_maintenance_odometer} value={maintenanceForm.odometer_km || ''} onChange={(e) => setMaintenanceForm({...maintenanceForm, odometer_km: parseInt(e.target.value, 10)})} required disabled={isProcessing} className="erp-input" />
                 </div>
                 <div className="form-group">
-                  <label>Виконавець (Свої сили / СТО)</label>
-                  <input type="text" placeholder="Напр. Ремрота або СТО 'Гараж'" value={maintenanceForm.performed_by} onChange={(e) => setMaintenanceForm({...maintenanceForm, performed_by: e.target.value})} disabled={isProcessing} className="erp-input" />
+                  <label>Виконавець (Власний сервіс / СТО)</label>
+                  <input type="text" placeholder="Напр. Внутрішній сервіс або СТО 'Гараж'" value={maintenanceForm.performed_by} onChange={(e) => setMaintenanceForm({...maintenanceForm, performed_by: e.target.value})} disabled={isProcessing} className="erp-input" />
                 </div>
               </div>
               <div className="form-group">
@@ -566,7 +566,7 @@ export default function Vehicles() {
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setMaintenanceModalVehicle(null)} disabled={isProcessing}>Скасувати</button>
-                <button type="submit" className={maintenanceModalVehicle.status === 'IN_REPAIR' ? "btn btn-success" : "btn btn-primary"} disabled={isProcessing}>{maintenanceModalVehicle.status === 'IN_REPAIR' ? 'Повернути в стрій' : 'Зафіксувати ТО'}</button>
+                <button type="submit" className={maintenanceModalVehicle.status === 'IN_REPAIR' ? "btn btn-success" : "btn btn-primary"} disabled={isProcessing}>{maintenanceModalVehicle.status === 'IN_REPAIR' ? 'Повернути на лінію' : 'Зафіксувати ТО'}</button>
               </div>
             </form>
           </div>
@@ -576,7 +576,7 @@ export default function Vehicles() {
       {historyVehicle && (
         <div className="modal-overlay vehicles-modal" onClick={() => setHistoryVehicle(null)}>
           <div className="modal history-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Паспорт машини: {historyVehicle.brand} ({historyVehicle.plate_number})</h3>
+            <h3>Картка автомобіля: {historyVehicle.brand} ({historyVehicle.plate_number})</h3>
             
             <div className="vehicle-info-cards">
               <div className="v-card">
@@ -593,7 +593,7 @@ export default function Vehicles() {
               <div className="v-card">
                 <span className="v-card-label">Статус</span>
                 <span className={`badge ${historyVehicle.status === 'ACTIVE' ? 'badge-success' : historyVehicle.status === 'IN_REPAIR' ? 'badge-warning' : 'badge-critical'}`}>
-                  {historyVehicle.status === 'ACTIVE' ? 'В строю' : historyVehicle.status === 'IN_REPAIR' ? 'В ремонті' : historyVehicle.status === 'ON_MISSION' ? 'У рейсі' : 'Списане'}
+                  {historyVehicle.status === 'ACTIVE' ? 'На лінії' : historyVehicle.status === 'IN_REPAIR' ? 'В ремонті' : historyVehicle.status === 'ON_MISSION' ? 'У рейсі' : 'Списане'}
                 </span>
               </div>
               
@@ -625,7 +625,7 @@ export default function Vehicles() {
             <div className="history-tabs">
               <button className={`history-tab ${historyTab === 'FUEL' ? 'active' : ''}`} onClick={() => setHistoryTab('FUEL')}>⛽ Історія пального</button>
               <button className={`history-tab ${historyTab === 'MAINTENANCE' ? 'active' : ''}`} onClick={() => setHistoryTab('MAINTENANCE')}>🛠 Акти виконаних робіт</button>
-              <button className={`history-tab ${historyTab === 'DRIVERS' ? 'active' : ''}`} onClick={() => setHistoryTab('DRIVERS')}>👥 Історія екіпажів</button>
+              <button className={`history-tab ${historyTab === 'DRIVERS' ? 'active' : ''}`} onClick={() => setHistoryTab('DRIVERS')}>👥 Історія водіїв</button>
             </div>
 
             {historyLoading ? (
@@ -674,7 +674,7 @@ export default function Vehicles() {
                       <thead>
                         <tr>
                           <th>Дата ТО</th>
-                          <th>Екіпаж</th>
+                          <th>Водій</th>
                           <th>Одометр</th>
                           <th>Опис виконаних робіт</th>
                           <th>Виконавець</th>
@@ -718,13 +718,13 @@ export default function Vehicles() {
 
                 {historyTab === 'DRIVERS' && (
                   driverRecords.length === 0 ? (
-                    <p className="history-empty">Історія екіпажів порожня.</p>
+                    <p className="history-empty">Історія водіїв порожня.</p>
                   ) : (
                     <table className="data-table">
                       <thead>
                         <tr>
                           <th>Дата призначення</th>
-                          <th>Військовослужбовець (Екіпаж)</th>
+                          <th>Співробітник (Водій)</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -774,7 +774,7 @@ export default function Vehicles() {
                 <th>Марка / Модель</th>
                 <th>Номерний знак</th>
                 <th>Тип та Вантаж</th>
-                <th>Екіпаж / Водій</th>
+                <th>Закріплений водій</th>
                 <th>Бак (Норма)</th>
                 <th>Статус</th>
                 {viewTab === 'ACTIVE' && <th>До ТО</th>}
@@ -801,7 +801,7 @@ export default function Vehicles() {
                     
                     <td>
                       <span className={`badge ${v.status === 'ACTIVE' ? 'badge-success' : v.status === 'IN_REPAIR' ? 'badge-warning' : v.status === 'ON_MISSION' ? 'badge-primary' : 'badge-critical'}`}>
-                        {v.status === 'ACTIVE' ? 'В строю' : v.status === 'IN_REPAIR' ? 'В ремонті' : v.status === 'ON_MISSION' ? 'У рейсі' : 'Списане'}
+                        {v.status === 'ACTIVE' ? 'На лінії' : v.status === 'IN_REPAIR' ? 'В ремонті' : v.status === 'ON_MISSION' ? 'У рейсі' : 'Списане'}
                       </span>
                     </td>
                     
@@ -825,13 +825,13 @@ export default function Vehicles() {
                         {activeMenuId === v.id && (
                           <div className="actions-dropdown-menu">
                             <button onClick={() => { handleViewHistory(v); setActiveMenuId(null); }}>
-                              📊 Паспорт авто
+                              📊 Картка авто
                             </button>
                             
                             {canManageVehicles && viewTab === 'ACTIVE' && (
                               <>
                                 <button onClick={() => { setDriverModalVehicle(v); setDriverForm({ driver_id: v.driver_id || '' }); setActiveMenuId(null); }}>
-                                  👤 Змінити екіпаж
+                                  👤 Призначити водія
                                 </button>
                                 
                                 {v.status === 'ACTIVE' && (

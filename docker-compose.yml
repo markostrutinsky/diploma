@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: millog
+      POSTGRES_DB: omnilog
     ports:
       - "5432:5432"
     volumes:
@@ -21,12 +21,12 @@ services:
       context: ./millog_backend
       dockerfile: Dockerfile
     env_file:
-      - /home/melkor/study/diploma/millog_backend/.env
+      - ./millog_backend/.env
     ports:
       - "8080:8080"
     environment:
       PORT: 8080
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/millog?sslmode=disable
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/omnilog?sslmode=disable
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       ALLOW_BOOTSTRAP_OVERRIDE: ${ALLOW_BOOTSTRAP_OVERRIDE:-}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}

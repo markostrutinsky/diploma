@@ -50,7 +50,7 @@ func NewAuthService(
 
 func (s *AuthService) RegisterUser(ctx context.Context, request *models.CreateUserRequest, creatorRole models.UserRole) (*models.CreateUserResponse, error) {
 	role := s.parseRole(request.Role)
-	if role == models.RoleVolunteer {
+	if role == models.RoleContractor {
 		return nil, fmt.Errorf("волонтери реєструються самостійно через сторінку реєстрації")
 	}
 
@@ -129,7 +129,7 @@ func (s *AuthService) RegisterUser(ctx context.Context, request *models.CreateUs
 	}, nil
 }
 
-func (s *AuthService) RegisterVolunteer(ctx context.Context, email, password, fullName string) (*models.CreateUserResponse, error) {
+func (s *AuthService) RegisterCONTRACTOR(ctx context.Context, email, password, fullName string) (*models.CreateUserResponse, error) {
 	existing, _ := s.userRepository.GetByEmail(ctx, s.dbPool, email)
 	if existing != nil {
 		return nil, fmt.Errorf("користувач з таким email вже існує")
@@ -148,7 +148,7 @@ func (s *AuthService) RegisterVolunteer(ctx context.Context, email, password, fu
 		Email:        email,
 		FullName:     fullName,
 		PasswordHash: &hashStr,
-		Role:         models.RoleVolunteer,
+		Role:         models.RoleContractor,
 		Status:       models.StatusActive,
 		CreatedAt:    now,
 		UpdatedAt:    now,
@@ -226,28 +226,28 @@ func (s *AuthService) parseRole(r string) models.UserRole {
 	switch r {
 	case "ADMIN":
 		return models.RoleAdmin
-	case "BRIGADE_CMDR":
-		return models.RoleBrigadeCmdr
-	case "BATTALION_CMDR":
-		return models.RoleBattalionCmdr
-	case "COMPANY_CMDR":
-		return models.RoleCompanyCmdr
-	case "PLATOON_CMDR":
-		return models.RolePlatoonCmdr
-	case "BRIGADE_LOGIST":
-		return models.RoleBrigadeLogist
-	case "BRIGADE_STOREKEEPER":
-		return models.RoleBrigadeStorekeeper
-	case "BATTALION_LOGIST":
-		return models.RoleBattalionLogist
-	case "BATTALION_STOREKEEPER":
-		return models.RoleBattalionStorekeeper
-	case "COMPANY_SERGEANT":
-		return models.RoleCompanySergeant
-	case "VOLUNTEER":
-		return models.RoleVolunteer
+	case "REGION_DIRECTOR":
+		return models.RoleRegionDirector
+	case "BRANCH_MANAGER":
+		return models.RoleBranchManager
+	case "DEPT_MANAGER":
+		return models.RoleDeptManager
+	case "TEAM_LEAD":
+		return models.RoleTeamLead
+	case "REGION_LOGISTICIAN":
+		return models.RoleRegionLogistician
+	case "REGION_STOREKEEPER":
+		return models.RoleRegionStorekeeper
+	case "BRANCH_LOGISTICIAN":
+		return models.RoleBranchLogistician
+	case "BRANCH_STOREKEEPER":
+		return models.RoleBranchStorekeeper
+	case "DEPT_SUPERVISOR":
+		return models.RoleDeptSupervisor
+	case "CONTRACTOR":
+		return models.RoleContractor
 	default:
-		return models.RoleVolunteer
+		return models.RoleContractor
 	}
 }
 

@@ -36,8 +36,8 @@ export default function Requests() {
   const [cancelModalData, setCancelModalData] = useState<SupplyRequest | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
 
-  const canCreate = ['ADMIN', 'BRIGADE_CMDR', 'BATTALION_CMDR', 'COMPANY_CMDR', 'PLATOON_CMDR', 'BRIGADE_LOGIST', 'BATTALION_LOGIST', 'COMPANY_SERGEANT'].includes(user?.role || '')
-  const canApprove = ['ADMIN', 'BRIGADE_CMDR', 'BATTALION_CMDR', 'COMPANY_CMDR', 'BRIGADE_LOGIST', 'BATTALION_LOGIST'].includes(user?.role || '')
+  const canCreate = ['ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'TEAM_LEAD', 'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN', 'DEPT_SUPERVISOR'].includes(user?.role || '')
+  const canApprove = ['ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN'].includes(user?.role || '')
 
   const loadData = async () => {
     setLoading(true)
@@ -222,7 +222,6 @@ export default function Requests() {
     } catch (err) { toast.error(err instanceof Error ? err.message : 'Помилка') } 
   }
 
-  // Окремі функції для погодження, відхилення та скасування
   const handleApprove = async (id: string) => { 
     try { 
       await (api.requests.approve as any)(id, true); 
@@ -278,7 +277,6 @@ export default function Requests() {
   return (
     <div className="requests-page">
       
-      {/* 🔥 ОНОВЛЕНА ШАПКА (Відцентрована та з відступами) */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', paddingTop: '16px' }}>
         <div>
           <h1 style={{ margin: '0 0 6px 0', fontSize: '1.75rem', fontWeight: 'bold', color: '#0f172a' }}>
@@ -569,7 +567,7 @@ export default function Requests() {
               {localAlternatives.length > 0 && (
                 <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', fontSize: '13px', color: '#b45309' }}>
                   <strong style={{ display: 'block', marginBottom: '6px' }}>💡 Знайдено внутрішні резерви!</strong>
-                  У вашому підрозділі вже є цей ресурс на сусідніх складах:
+                  У вашій орг. структурі вже є цей ресурс на сусідніх складах:
                   <ul style={{ margin: '6px 0 0 20px', padding: 0 }}>
                     {localAlternatives.map(alt => (
                       <li key={alt.warehouse.id} style={{ marginBottom: '4px' }}>
@@ -578,7 +576,7 @@ export default function Requests() {
                     ))}
                   </ul>
                   <div style={{ marginTop: '8px', fontSize: '11px', fontStyle: 'italic', color: '#92400e', lineHeight: '1.4' }}>
-                    * Замість того, щоб турбувати старший штаб, можливо, варто попросити комірника цього складу просто передати майно вам.
+                    * Замість того, щоб замовляти майно з центрального складу, можливо, варто попросити завідувача цього складу просто перемістити його вам.
                   </div>
                 </div>
               )}
