@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"context"
+	"fmt"
 	"millog_backend/internal/models"
 	"millog_backend/internal/services"
 	"net/http"
@@ -9,7 +11,8 @@ import (
 )
 
 type FuelHandler struct {
-	FuelService *services.FuelService
+	FuelService  *services.FuelService
+	auditService *services.AuditService
 }
 
 type CreateFuelRequest struct {
@@ -18,14 +21,13 @@ type CreateFuelRequest struct {
 	RecordType string  `json:"record_type" binding:"required,oneof=REFUEL EXPENSE"`
 }
 
-func NewFuelHandler(fuelService *services.FuelService) *FuelHandler {
-	return &FuelHandler{FuelService: fuelService}
+func NewFuelHandler(fuelService *services.FuelService, auditService *services.AuditService) *FuelHandler {
+	return &FuelHandler{FuelService: fuelService, auditService: auditService}
 }
 
 func (h *FuelHandler) CreateRecord(c *gin.Context) {
 	vehicleID := c.Param("id")
-
-	userID := c.GetString("userID")
+	userID := c.GetString("user_id")
 
 	var req CreateFuelRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -49,6 +51,11 @@ func (h *FuelHandler) CreateRecord(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	go func(uID string, vID string, rType string, liters float64) {
+		actionDesc := fmt.Sprintf("Додано запис про пальне (Тип: %s, Літри: %.2f)", rType, liters)
+		_ = h.auditService.LogAction(context.Background(), uID, "CREATE", "FUEL_RECORD", vID, actionDesc)
+	}(userID, vehicleID, req.RecordType, req.Liters)
 
 	c.JSON(http.StatusCreated, record)
 }

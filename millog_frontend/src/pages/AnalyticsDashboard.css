@@ -393,3 +393,130 @@
   justify-content: center;
   padding: 8px 16px;
 }
+
+/* --- Горизонтальний SLA Банер (Очищений дизайн) --- */
+.sla-banner {
+  display: flex;
+  align-items: center;
+  gap: 2.5rem;
+  padding: 0.5rem 0 1rem 0; /* Повітря всередині білого віджета */
+}
+
+.sla-banner-left {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.sla-banner-value {
+  font-size: 4.5rem; /* Ще солідніша та більша цифра */
+  font-weight: 700;
+  color: #10b981;
+  line-height: 1;
+  letter-spacing: -2px;
+}
+
+.sla-banner-unit {
+  font-size: 1.25rem;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.sla-banner-divider {
+  width: 1px;
+  height: 70px;
+  background: #e2e8f0; /* Легка та непомітна лінія розмежування */
+  flex-shrink: 0;
+}
+
+.sla-banner-right {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.sla-banner-desc {
+  margin: 0;
+  font-size: 1rem;
+  color: #475569;
+  line-height: 1.5;
+}
+
+.sla-banner-stats {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #f0fdf4; /* Світло-зелена плашка під колір головної цифри */
+  color: #166534;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  border: 1px solid #bbf7d0;
+  width: fit-content;
+}
+
+.sla-banner-stats strong {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+/* Адаптивність для мобільних пристроїв */
+@media (max-width: 768px) {
+  .sla-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.25rem;
+  }
+  .sla-banner-divider {
+    width: 100%;
+    height: 1px;
+  }
+}
+
+/* --- Додаткові SLA Метрики (Нижній ряд) --- */
+.sla-extra-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-top: 30px;
+  padding-top: 25px;
+  border-top: 1px dashed #cbd5e1; /* Гарна лінія розділення */
+}
+
+.sla-metric-box {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sla-metric-title {
+  font-size: 0.85rem;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 600;
+}
+
+.sla-metric-val {
+  font-size: 1.85rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1;
+  margin: 4px 0;
+}
+
+.sla-metric-sub {
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.text-blue { color: #3b82f6; }
+
+/* Адаптивність для мобільних */
+@media (max-width: 768px) {
+  .sla-extra-metrics {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}

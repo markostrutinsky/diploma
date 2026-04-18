@@ -12,10 +12,11 @@ const (
 // Unit залишаємо як назву структури (від "Business Unit" або "Організаційна одиниця"),
 // щоб не переписувати половину бекенду, де використовується models.Unit
 type Unit struct {
-	ID       int64    `json:"id"`
-	ParentID *int64   `json:"parent_id"`
-	Name     string   `json:"name"`
-	UnitType UnitType `json:"unit_type"`
+	ID               int64    `json:"id"`
+	ParentID         *int64   `json:"parent_id"`
+	Name             string   `json:"name"`
+	UnitType         UnitType `json:"unit_type"`
+	SubscriptionTier string   `json:"subscription_tier"`
 }
 
 type CreateUnitRequest struct {

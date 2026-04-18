@@ -50,6 +50,11 @@ func (h *WarehouseHandler) Create(c *gin.Context) {
 		return
 	}
 
+	// 🛡️ Аудит
+	go func(u, w string) {
+		_ = h.auditService.LogAction(context.Background(), u, "CREATE", "WAREHOUSE", w, "Створено склад")
+	}(claims.UserID, w.ID)
+
 	c.JSON(http.StatusCreated, w)
 }
 
@@ -63,8 +68,6 @@ func (h *WarehouseHandler) List(c *gin.Context) {
 
 	var targetUnitID int64
 
-	// ГОЛОВНА ЛОГІКА ВІДОБРАЖЕННЯ:
-	// Адмін бачить усі склади (передаємо 0). Інші — тільки свої.
 	if claims.Role == models.RoleAdmin {
 		targetUnitID = 0
 	} else {
@@ -87,6 +90,12 @@ func (h *WarehouseHandler) List(c *gin.Context) {
 // Додай цей метод до WarehouseHandler
 func (h *WarehouseHandler) UpdateLocation(c *gin.Context) {
 	warehouseID := c.Param("id")
+	claimsVal, exists := c.Get("claims")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Не авторизовано"})
+		return
+	}
+	claims := claimsVal.(*middleware.Claims)
 
 	// Структура для парсингу JSON
 	var req struct {
@@ -104,6 +113,18 @@ func (h *WarehouseHandler) UpdateLocation(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка оновлення дислокації: " + err.Error()})
 		return
 	}
+
+	// 🛡️ Ауди
+	go func(userID string, warehouseID string) {
+		_ = h.auditService.LogAction(
+			context.Background(),
+			userID,
+			"UPDATE",
+			"WAREHOUSE",
+			warehouseID,
+			"Оновлено дислокацію складу",
+		)
+	}(claims.UserID, warehouseID)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Дислокацію успішно оновлено"})
 }

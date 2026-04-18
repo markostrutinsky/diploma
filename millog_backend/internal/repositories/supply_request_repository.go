@@ -112,3 +112,54 @@ func (r *SupplyRequestRepository) UpdateStatus(ctx context.Context, db DBExecuto
 	_, err := db.Exec(ctx, query, status, comment, id)
 	return err
 }
+
+// GetRequestsForDispatch витягує вибрані заявки та розраховує їхню загальну вагу
+func (r *SupplyRequestRepository) GetRequestsForDispatch(ctx context.Context, db DBExecutor, reqIDs []string) ([]models.RequestItem, error) {
+	query := `
+		SELECT sr.id::text, res.name, (res.weight_kg * sr.quantity) as weight_kg
+		FROM supply_requests sr
+		JOIN resources res ON sr.resource_id = res.id
+		WHERE sr.id = ANY($1) AND sr.status IN ('PENDING', 'APPROVED')
+	`
+	rows, err := db.Query(ctx, query, reqIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var items []models.RequestItem
+	for rows.Next() {
+		var item models.RequestItem
+		if err := rows.Scan(&item.ID, &item.Name, &item.WeightKg); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	return items, nil
+}
+
+// GetAvailableVehicles витягує всі вільні фургони та вантажівки
+func (r *SupplyRequestRepository) GetAvailableVehicles(ctx context.Context, db DBExecutor) ([]models.VehicleBin, error) {
+	query := `
+		SELECT id::text, brand || ' ' || COALESCE(plate_number, ''), capacity_kg
+		FROM vehicles
+		WHERE status = 'ACTIVE' AND type IN ('VAN', 'TRUCK', 'PICKUP')
+	`
+	rows, err := db.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var vehicles []models.VehicleBin
+	for rows.Next() {
+		var v models.VehicleBin
+		if err := rows.Scan(&v.ID, &v.Name, &v.MaxWeight); err != nil {
+			return nil, err
+		}
+		v.UsedWeight = 0
+		v.Items = make([]models.RequestItem, 0) // Ініціалізуємо порожній масив
+		vehicles = append(vehicles, v)
+	}
+	return vehicles, nil
+}

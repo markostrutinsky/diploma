@@ -55,6 +55,7 @@ type Resource struct {
 	Quantity       int               `json:"quantity"`
 	UnitType       UnitMeasurement   `json:"unit_type"`
 	SerialNumber   string            `json:"serial_number"`
+	Barcode        string            `json:"barcode"`
 	Condition      ResourceCondition `json:"condition"`
 	MinQuantity    int               `json:"min_quantity"`
 	IssuedQuantity int               `json:"issued_quantity"`
@@ -77,6 +78,7 @@ type CreateResourceRequest struct {
 	Quantity     int               `json:"quantity"`
 	UnitType     UnitMeasurement   `json:"unit_type" binding:"required,oneof=PCS KIT KG L"`
 	SerialNumber string            `json:"serial_number"`
+	Barcode      string            `json:"barcode"`
 	Condition    ResourceCondition `json:"condition" binding:"omitempty,oneof=NEW USED WRITTEN_OFF"`
 	MinQuantity  int               `json:"min_quantity"`
 	WeightKg     float64           `json:"weight_kg"`

@@ -151,15 +151,47 @@ func (r *AnalyticsRepository) GetDashboardStats(ctx context.Context, db DBExecut
 		stats.MaintenancePredict = append(stats.MaintenancePredict, m)
 	}
 
-	// 7. ЕФЕКТИВНІСТЬ ВОЛОНТЕРІВ (Якщо тут теж треба APPROVED, зміни COMPLETED на APPROVED)
+	// ====================================================================
+	// 7. ЕФЕКТИВНІСТЬ ПІДРЯДНИКІВ (SLA) - Enterprise SQL Logic
+	// ====================================================================
+
+	// 7.1. Рахуємо статистику по виконаних завданнях (Середній час, Найшвидший час, OTD)
+	// Якщо в базі немає колонки deadline, ми розумно припускаємо базовий SLA у 7 днів (created_at + INTERVAL '7 days')
 	querySLA := fmt.Sprintf(`
 		SELECT 
 			COALESCE(AVG(EXTRACT(EPOCH FROM (completed_at - created_at))/86400), 0) as avg_days,
-			COUNT(id)
-		FROM CONTRACTOR_requests WHERE status = 'COMPLETED' AND completed_at IS NOT NULL AND created_at BETWEEN $1 AND $2 %s
+			COUNT(id) as completed_count,
+			COALESCE(MIN(EXTRACT(EPOCH FROM (completed_at - created_at))/86400), 0) as fastest_days,
+			COALESCE(
+				ROUND(
+					(COUNT(id) FILTER (WHERE completed_at <= COALESCE(deadline, created_at + INTERVAL '7 days'))::numeric 
+					/ NULLIF(COUNT(id), 0)) * 100
+				), 0
+			) as otd_percentage
+		FROM CONTRACTOR_requests 
+		WHERE status = 'COMPLETED' AND completed_at IS NOT NULL AND created_at BETWEEN $1 AND $2 %s
 	`, volFilter)
-	db.QueryRow(ctx, querySLA, startDate, endDate).Scan(&stats.CONTRACTORSLA.AverageDays, &stats.CONTRACTORSLA.CompletedCount)
 
+	var otd float64
+	errSLA := db.QueryRow(ctx, querySLA, startDate, endDate).Scan(
+		&stats.CONTRACTORSLA.AverageDays,
+		&stats.CONTRACTORSLA.CompletedCount,
+		&stats.CONTRACTORSLA.FastestDays,
+		&otd,
+	)
+	if errSLA == nil {
+		stats.CONTRACTORSLA.OTDPercentage = int(otd)
+	}
+
+	// 7.2. Рахуємо прострочені завдання (ті, що досі в роботі, але дедлайн вже минув)
+	queryOverdue := fmt.Sprintf(`
+		SELECT COUNT(id) 
+		FROM CONTRACTOR_requests 
+		WHERE status IN ('OPEN', 'IN_PROGRESS', 'TAKEN') 
+		  AND COALESCE(deadline, created_at + INTERVAL '7 days') < NOW() %s
+	`, volFilter)
+
+	_ = db.QueryRow(ctx, queryOverdue).Scan(&stats.CONTRACTORSLA.OverdueCount)
 	// 8. ВИТРАТИ НА РЕМОНТИ
 	queryTCO := `
 		SELECT COALESCE(v.brand, 'Інше'), SUM(m.cost_amount) as total_cost

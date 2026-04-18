@@ -1,0 +1,87 @@
+.billing-page {
+  padding: 20px 0;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.plans-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 30px;
+  margin-top: 40px;
+}
+
+.plan-card {
+  background: white;
+  border-radius: 12px;
+  padding: 30px;
+  border: 1px solid #e2e8f0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.plan-card.pro {
+  border: 2px solid #8b5cf6;
+  box-shadow: 0 10px 25px -5px rgba(139, 92, 246, 0.15);
+  transform: scale(1.02); /* Трохи збільшуємо PRO картку для акценту */
+  z-index: 1;
+}
+
+.plan-card.current {
+  background: #f8fafc;
+}
+
+.popular-badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  padding: 4px 16px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.plan-header h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.25rem;
+}
+
+.price {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 15px 0;
+}
+
+.price span {
+  font-size: 1rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.features-list {
+  list-style: none;
+  padding: 0;
+  margin: 20px 0 30px 0;
+  flex-grow: 1;
+}
+
+.features-list li {
+  margin-bottom: 12px;
+  color: #475569;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.features-list li strong {
+  color: #0f172a;
+}

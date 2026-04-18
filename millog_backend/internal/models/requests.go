@@ -36,3 +36,26 @@ type ApproveRequest struct {
 	Approved bool   `json:"approved"`
 	Comment  string `json:"comment"`
 }
+
+type SmartDispatchReq struct {
+	RequestIDs []string `json:"request_ids" binding:"required,min=1"`
+}
+
+type RequestItem struct {
+	ID       string  `json:"id"`
+	Name     string  `json:"name"`
+	WeightKg float64 `json:"weight_kg"`
+}
+
+type VehicleBin struct {
+	ID         string        `json:"id"`
+	Name       string        `json:"name"`
+	MaxWeight  float64       `json:"max_weight"`
+	UsedWeight float64       `json:"used_weight"`
+	Items      []RequestItem `json:"items"`
+}
+
+type SmartDispatchResult struct {
+	OptimizedRoutes []VehicleBin  `json:"routes"`
+	Unassigned      []RequestItem `json:"unassigned"`
+}

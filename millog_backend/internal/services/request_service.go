@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 
 	"millog_backend/internal/models"
 	"millog_backend/internal/repositories"
@@ -123,4 +124,75 @@ func (s *RequestService) Cancel(ctx context.Context, id string, userID string) e
 	}
 
 	return s.requestRepo.UpdateStatus(ctx, s.dbPool, id, "CANCELLED", "Скасовано ініціатором")
+}
+
+// GetSmartDispatchPreview виконує розрахунок пакування
+func (s *RequestService) GetSmartDispatchPreview(ctx context.Context, reqIDs []string) (*models.SmartDispatchResult, error) {
+	// 1. Отримуємо заявки з БД
+	requests, err := s.requestRepo.GetRequestsForDispatch(ctx, s.dbPool, reqIDs)
+	if err != nil {
+		return nil, fmt.Errorf("помилка отримання заявок: %v", err)
+	}
+	if len(requests) == 0 {
+		return nil, fmt.Errorf("не знайдено валідних заявок для обробки")
+	}
+
+	// 2. Отримуємо доступні авто з БД
+	vehicles, err := s.requestRepo.GetAvailableVehicles(ctx, s.dbPool)
+	if err != nil {
+		return nil, fmt.Errorf("помилка отримання автопарку: %v", err)
+	}
+	if len(vehicles) == 0 {
+		return nil, fmt.Errorf("наразі немає вільних вантажних автомобілів")
+	}
+
+	// 3. АЛГОРИТМ First-Fit Decreasing
+
+	// Сортуємо заявки за вагою (від найважчих до найлегших)
+	sort.Slice(requests, func(i, j int) bool {
+		return requests[i].WeightKg > requests[j].WeightKg
+	})
+
+	// Сортуємо авто за вантажопідйомністю (від найбільших до найменших)
+	sort.Slice(vehicles, func(i, j int) bool {
+		return vehicles[i].MaxWeight > vehicles[j].MaxWeight
+	})
+
+	var unassigned []models.RequestItem
+
+	// Розподіляємо вантаж
+	for _, req := range requests {
+		placed := false
+		for i := range vehicles {
+			if vehicles[i].UsedWeight+req.WeightKg <= vehicles[i].MaxWeight {
+				vehicles[i].Items = append(vehicles[i].Items, req)
+				vehicles[i].UsedWeight += req.WeightKg
+				placed = true
+				break
+			}
+		}
+		if !placed {
+			unassigned = append(unassigned, req)
+		}
+	}
+
+	// 4. Фільтруємо авто, щоб повернути тільки ті, що отримали вантаж
+	var activeRoutes []models.VehicleBin
+	for _, v := range vehicles {
+		if v.UsedWeight > 0 {
+			activeRoutes = append(activeRoutes, v)
+		}
+	}
+
+	// Якщо жодне авто не задіяно (наприклад, вантажі занадто важкі)
+	if len(activeRoutes) == 0 {
+		return nil, fmt.Errorf("жодна з машин не може вмістити обраний вантаж (перевищення лімітів)")
+	}
+
+	result := models.SmartDispatchResult{
+		OptimizedRoutes: activeRoutes,
+		Unassigned:      unassigned,
+	}
+
+	return &result, nil
 }

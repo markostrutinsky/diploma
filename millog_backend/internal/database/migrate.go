@@ -328,6 +328,10 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
             difference INTEGER GENERATED ALWAYS AS (actual_quantity - book_quantity) STORED,
             verified_at TIMESTAMP WITH TIME ZONE
         );`,
+
+		`ALTER TABLE units ADD COLUMN IF NOT EXISTS subscription_tier VARCHAR(20) DEFAULT 'BASIC';`,
+
+		`ALTER TABLE resources ADD COLUMN IF NOT EXISTS barcode VARCHAR(255) DEFAULT '';`,
 	}
 
 	for i, m := range migrations {

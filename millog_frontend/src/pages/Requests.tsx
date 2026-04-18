@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react'
-import { api, type SupplyRequest, type Resource, type Vehicle, type Warehouse, type User, type Unit } from '../api/client'
+import { api, type SupplyRequest, type Resource, type Vehicle, type Warehouse, type User, type Unit, type VehicleBin, type RequestItem } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
 import './Requests.css'
@@ -20,6 +20,7 @@ export default function Requests() {
 
   const [filterStatus, setFilterStatus] = useState<string>('ALL')
   const [filterWarehouseId, setFilterWarehouseId] = useState<string>('ALL')
+  const [searchQuery, setSearchQuery] = useState('')
 
   const [selectedReqIds, setSelectedReqIds] = useState<Set<string>>(new Set())
   const [showDispatchModal, setShowDispatchModal] = useState(false)
@@ -30,7 +31,11 @@ export default function Requests() {
     priority: 'NORMAL'
   })
 
-  // Стейти для відхилення та скасування
+  // --- СТЕЙТИ ДЛЯ SMART РОЗПОДІЛУ (AI) ---
+  const [showSmartPreview, setShowSmartPreview] = useState(false)
+  const [smartRoutes, setSmartRoutes] = useState<VehicleBin[]>([])
+  const [unassignedItems, setUnassignedItems] = useState<RequestItem[]>([])
+
   const [rejectModalData, setRejectModalData] = useState<SupplyRequest | null>(null)
   const [rejectComment, setRejectComment] = useState('')
   const [cancelModalData, setCancelModalData] = useState<SupplyRequest | null>(null)
@@ -47,6 +52,7 @@ export default function Requests() {
         api.requests.list().catch(() => []),
         api.inventory.listResources(undefined).catch(() => []),
         api.warehouses.list().catch(() => []),
+        // Залишаємо фолбеки для тих методів, які ти ще не переніс в клієнт (якщо такі є)
         (api as any).vehicles?.list().catch(() => fetch('/api/vehicles', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => [])) || [],
         api.users.getVisible().catch(() => fetch('/api/users', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => [])),
         api.units.list().catch(() => []) 
@@ -85,7 +91,20 @@ export default function Requests() {
   const filteredRequests = requests.filter(r => {
     const matchStatus = filterStatus === 'ALL' || r.status === filterStatus;
     const matchWarehouse = filterWarehouseId === 'ALL' || r.target_warehouse_id === filterWarehouseId;
-    return matchStatus && matchWarehouse;
+    
+    const query = searchQuery.toLowerCase().trim();
+    let matchSearch = true;
+    
+    if (query !== '') {
+      const resourceName = (resources.find(res => res.id === r.resource_id)?.name || '').toLowerCase();
+      const authorName = (users.find(u => u.id === r.created_by)?.full_name || '').toLowerCase();
+      const warehouseName = (warehouses.find(w => w.id === r.target_warehouse_id)?.name || '').toLowerCase();
+      const reqId = (r.id || '').toLowerCase();
+
+      matchSearch = resourceName.includes(query) || authorName.includes(query) || warehouseName.includes(query) || reqId.includes(query);
+    }
+
+    return matchStatus && matchWarehouse && matchSearch;
   })
 
   const selectedRequestsDetails = requests.filter(r => selectedReqIds.has(r.id))
@@ -167,6 +186,7 @@ export default function Requests() {
     setShowDispatchModal(true)
   }
 
+  // --- 1. ВІДПРАВКА РУЧНОГО РЕЙСУ ЧЕРЕЗ КЛІЄНТ ---
   const handleDispatchSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (selectedReqIds.size === 0) return toast.error('Не вибрано жодної заявки!')
@@ -178,7 +198,6 @@ export default function Requests() {
     toast.loading('Формуємо збірний рейс...', { id: toastId })
 
     try {
-      const token = localStorage.getItem('token')
       const payloadItems = selectedRequestsDetails.map(req => ({
         resource_id: req.resource_id,
         quantity: req.quantity,
@@ -193,13 +212,7 @@ export default function Requests() {
         items: payloadItems 
       }
 
-      const response = await fetch('/api/inventory/shipments', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(payload)
-      })
-
-      if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Помилка сервера')
+      await (api as any).inventory.createShipment(payload)
 
       toast.success(`🚚 Збірний рейс відправлено!`, { id: toastId, duration: 4000 })
       setShowDispatchModal(false)
@@ -209,6 +222,41 @@ export default function Requests() {
       toast.error(error.message || 'Не вдалося створити рейс', { id: toastId, duration: 5000 }) 
     }
   }
+
+  // --- 2. ВИКЛИК SMART РОЗПОДІЛУ ЧЕРЕЗ КЛІЄНТ ---
+  const handleSmartDispatchPreview = async () => {
+    if (selectedReqIds.size === 0) return toast.error('Виберіть хоча б одну заявку!');
+    
+    const toastId = toast.loading('🧠 Алгоритм First-Fit Decreasing аналізує вантаж...');
+    
+    try {
+      const data = await (api as any).inventory.smartDispatchPreview(Array.from(selectedReqIds));
+      
+      setSmartRoutes(data.routes || []);
+      setUnassignedItems(data.unassigned || []);
+      setShowSmartPreview(true);
+      
+      toast.success('Оптимальний розподіл знайдено!', { id: toastId });
+    } catch (error: any) {
+      toast.error(error.message || 'Не вдалося прорахувати маршрути', { id: toastId });
+    }
+  };
+
+  // --- 3. ПІДТВЕРДЖЕННЯ SMART РОЗПОДІЛУ ЧЕРЕЗ КЛІЄНТ ---
+  const confirmSmartRoutes = async () => {
+    const toastId = toast.loading('🚀 Формуємо серію рейсів...');
+    
+    try {
+      await (api as any).inventory.smartDispatchConfirm(smartRoutes);
+
+      toast.success('Всі рейси успішно відправлено!', { id: toastId });
+      setShowSmartPreview(false);
+      setSelectedReqIds(new Set());
+      loadData();
+    } catch (error: any) {
+      toast.error(error.message || 'Помилка при збереженні рейсів', { id: toastId });
+    }
+  };
 
   const handleCreate = async (e: React.FormEvent) => { 
     e.preventDefault(); 
@@ -277,7 +325,7 @@ export default function Requests() {
   return (
     <div className="requests-page">
       
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', paddingTop: '16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', paddingTop: '16px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h1 style={{ margin: '0 0 6px 0', fontSize: '1.75rem', fontWeight: 'bold', color: '#0f172a' }}>
             Заявки на постачання
@@ -288,9 +336,18 @@ export default function Requests() {
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           {selectedReqIds.size > 0 && canApprove && (
-            <button className="btn" style={{ backgroundColor: '#8b5cf6', color: 'white', border: 'none' }} onClick={handleOpenDispatchModal}>
-              🚚 Сформувати рейс ({selectedReqIds.size})
-            </button>
+            <>
+              <button className="btn btn-secondary" onClick={handleOpenDispatchModal}>
+                🚚 Ручний рейс ({selectedReqIds.size})
+              </button>
+              
+              <button 
+                className="btn btn-smart" 
+                onClick={handleSmartDispatchPreview}
+              >
+                ✨ Smart Розподіл (AI)
+              </button>
+            </>
           )}
           {canCreate && (
             <button className="btn btn-primary" onClick={() => setShowForm(true)}>
@@ -300,8 +357,34 @@ export default function Requests() {
         </div>
       </div>
 
-      <div className="filters-bar" style={{ display: 'flex', gap: '16px', marginBottom: '24px', backgroundColor: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-        <div style={{ flex: 1 }}>
+      <div className="filters-bar" style={{ display: 'flex', gap: '16px', marginBottom: '24px', backgroundColor: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0', flexWrap: 'wrap' }}>
+        
+        <div style={{ flex: '1 1 250px' }}>
+          <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#64748b', marginBottom: '4px' }}>Пошук</label>
+          <div style={{ position: 'relative' }}>
+            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '14px' }}>
+              🔍
+            </span>
+            <input
+              type="text"
+              className="erp-input"
+              placeholder="ID, Ресурс, Автор..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ paddingLeft: '35px' }}
+            />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 0 }}
+              >
+                ✖
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div style={{ flex: '1 1 200px' }}>
           <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#64748b', marginBottom: '4px' }}>Статус заявки</label>
           <select className="erp-input" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
             <option value="ALL">Всі статуси</option>
@@ -313,7 +396,8 @@ export default function Requests() {
             <option value="CANCELLED">🚫 Скасовані ініціатором</option>
           </select>
         </div>
-        <div style={{ flex: 2 }}>
+        
+        <div style={{ flex: '1 1 200px' }}>
           <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#64748b', marginBottom: '4px' }}>Цільовий Склад</label>
           <select className="erp-input" value={filterWarehouseId} onChange={e => setFilterWarehouseId(e.target.value)}>
             <option value="ALL">Всі склади</option>
@@ -322,7 +406,86 @@ export default function Requests() {
         </div>
       </div>
 
-      {/* Модалка Відхилення */}
+      {/* --- МОДАЛКА SMART РОЗПОДІЛУ --- */}
+      {showSmartPreview && (
+        <div className="modal-overlay" onClick={() => setShowSmartPreview(false)}>
+          <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '24px' }}>
+              <div style={{ fontSize: '2.5rem', background: '#f5f3ff', padding: '10px', borderRadius: '12px' }}>🧠</div>
+              <div>
+                <h3 className="modal-title" style={{ margin: 0, fontSize: '1.4rem' }}>Інтелектуальна маршрутизація</h3>
+                <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '13px' }}>
+                  Алгоритм оптимального пакування (First-Fit Decreasing) розподілив вантаж
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '30px', maxHeight: '50vh', overflowY: 'auto', paddingRight: '5px' }}>
+              {smartRoutes.map((route, idx) => {
+                const fillPercentage = Math.min(100, (route.used_weight / route.max_weight) * 100);
+                const isOverweight = fillPercentage >= 100;
+
+                return (
+                  <div key={idx} className="smart-route-card">
+                    <div className="smart-route-header">
+                      <strong style={{ color: '#0f172a', fontSize: '1.1rem' }}>🚛 {route.name}</strong>
+                      <span className={`badge ${isOverweight ? 'badge-critical' : 'badge-success'}`}>
+                        Завантажено: {Math.round(fillPercentage)}%
+                      </span>
+                    </div>
+                    
+                    {/* Прогрес-бар */}
+                    <div className="smart-route-progress-bg">
+                      <div 
+                        className={`smart-route-progress-fill ${isOverweight ? 'bg-red' : 'bg-purple'}`} 
+                        style={{ width: `${fillPercentage}%` }}
+                      ></div>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', marginBottom: '12px' }}>
+                      <span>0 кг</span>
+                      <span>{route.used_weight.toFixed(1)} / {route.max_weight} кг</span>
+                    </div>
+
+                    <ul className="smart-route-items">
+                      {route.items.map((item: any) => (
+                        <li key={item.id}>📦 {item.name} <span className="smart-item-weight">— {item.weight_kg} кг</span></li>
+                      ))}
+                    </ul>
+                  </div>
+                )
+              })}
+
+              {unassignedItems.length > 0 && (
+                <div className="smart-unassigned-card">
+                  <strong style={{ color: '#b91c1c', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    ⚠️ Не вистачило вільних машин для:
+                  </strong>
+                  <ul className="smart-route-items mt-2">
+                    {unassignedItems.map((item: any) => (
+                      <li key={item.id} style={{ color: '#991b1b' }}>
+                        {item.name} <span className="smart-item-weight" style={{ color: '#b91c1c' }}>({item.weight_kg} кг)</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+
+            <div className="modal-actions">
+              <button type="button" className="btn btn-secondary" onClick={() => setShowSmartPreview(false)}>Скасувати</button>
+              <button 
+                type="button" 
+                className="btn btn-success" 
+                onClick={confirmSmartRoutes}
+                disabled={smartRoutes.length === 0}
+              >
+                ✅ Затвердити та відправити рейси
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {rejectModalData && (
         <div className="modal-overlay" onClick={() => !isProcessing && setRejectModalData(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -352,7 +515,6 @@ export default function Requests() {
         </div>
       )}
 
-      {/* Модалка Скасування */}
       {cancelModalData && (
         <div className="modal-overlay" onClick={() => !isProcessing && setCancelModalData(null)}>
           <div className="modal confirm-modal" onClick={(e) => e.stopPropagation()}>
@@ -369,7 +531,7 @@ export default function Requests() {
       {showDispatchModal && (
         <div className="modal-overlay" onClick={() => setShowDispatchModal(false)}>
           <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
-            <h3 className="modal-title">🚚 Логістика: Рейс на склад</h3>
+            <h3 className="modal-title">🚚 Логістика: Ручний рейс на склад</h3>
             <div className="dispatch-summary">
               <div className="summary-title">Вантаж до відправки ({selectedReqIds.size} позицій):</div>
               <ul className="summary-list">
@@ -428,9 +590,12 @@ export default function Requests() {
         </div>
       )}
 
+      {/* Таблиця Заявок */}
       <div className="card">
         {filteredRequests.length === 0 ? (
-          <p className="empty-state">Заявок не знайдено</p>
+          <div className="empty-state">
+            {searchQuery ? `За запитом "${searchQuery}" нічого не знайдено` : 'Заявок не знайдено'}
+          </div>
         ) : (
           <table className="data-table">
             <thead>
@@ -469,7 +634,12 @@ export default function Requests() {
                       ) : null}
                     </td>
                   )}
-                  <td className="font-medium">{resources.find((res) => res.id === r.resource_id)?.name || r.resource_id}</td>
+                  <td className="font-medium">
+                    {resources.find((res) => res.id === r.resource_id)?.name || r.resource_id}
+                    <div style={{fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px', fontWeight: 'normal'}}>
+                      ID: {r.id.split('-')[0].toUpperCase()}
+                    </div>
+                  </td>
                   <td style={{ fontWeight: 600 }}>{r.quantity} шт</td>
                   <td className="text-muted" style={{ fontSize: '13px' }}>
                     <div style={{ fontWeight: 600, color: '#334155' }}>📍 {targetWarehouse?.name || 'Не вказано'}</div>
@@ -488,7 +658,6 @@ export default function Requests() {
                   </td>
                   <td className="text-muted">{new Date(r.created_at).toLocaleDateString('uk-UA')}</td>
                   
-                  {/* 🔥 ОНОВЛЕНИЙ БЛОК ДІЙ */}
                   {showActionsColumn && (
                     <td>
                       {r.status === 'PENDING' ? (

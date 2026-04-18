@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"millog_backend/internal/middleware"
 	"millog_backend/internal/models"
 	"millog_backend/internal/services"
@@ -22,6 +23,8 @@ func NewUnitHandler(svc *services.UnitService, auditService *services.AuditServi
 }
 
 func (h *UnitHandler) Create(c *gin.Context) {
+	userID := c.GetString("user_id")
+
 	var req models.CreateUnitRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -50,6 +53,10 @@ func (h *UnitHandler) Create(c *gin.Context) {
 		return
 	}
 
+	go func(uID string, entityID string, name string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "CREATE", "UNIT", entityID, "Створено новий відділ: "+name)
+	}(userID, fmt.Sprintf("%v", u.ID), req.Name)
+
 	c.JSON(http.StatusCreated, u)
 }
 
@@ -77,7 +84,7 @@ func (h *UnitHandler) List(c *gin.Context) {
 func (h *UnitHandler) GetAvailableForRole(c *gin.Context) {
 	role := c.Query("role")
 	if role == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "role parameter is required"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "параметр role є обов'язковим"})
 		return
 	}
 
@@ -90,17 +97,18 @@ func (h *UnitHandler) GetAvailableForRole(c *gin.Context) {
 	c.JSON(http.StatusOK, units)
 }
 
-func (h *UnitHandler) ChangeCommander(c *gin.Context) {
+func (h *UnitHandler) ChangeManager(c *gin.Context) {
+	userID := c.GetString("user_id")
 	unitIDStr := c.Param("id")
 	targetUnitID, err := strconv.ParseInt(unitIDStr, 10, 64)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Невалідний ID підрозділу"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Невалідний ID відділу"})
 		return
 	}
 
 	var req models.ChangeManagerRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Не вказано нового командира"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Не вказано нового керівника"})
 		return
 	}
 
@@ -113,7 +121,7 @@ func (h *UnitHandler) ChangeCommander(c *gin.Context) {
 
 	err = h.svc.ChangeCommander(c.Request.Context(), targetUnitID, req.NewManagerID, string(claims.Role), claims.UnitID)
 	if err != nil {
-		if err.Error() == "відмовлено в доступі: ви не можете змінити командира цього підрозділу" {
+		if err.Error() == "відмовлено в доступі: ви не можете змінити керівника цього відділу" {
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 			return
 		}
@@ -121,7 +129,11 @@ func (h *UnitHandler) ChangeCommander(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Командира успішно змінено"})
+	go func(uID string, entityID string, newMgr string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "UPDATE", "UNIT", entityID, "Змінено керівника відділу на користувача: "+newMgr)
+	}(userID, unitIDStr, req.NewManagerID)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Керівника успішно змінено"})
 }
 
 func (h *UnitHandler) GetMyHierarchyForRole(c *gin.Context) {
@@ -152,7 +164,6 @@ func (h *UnitHandler) GetMyHierarchyForRole(c *gin.Context) {
 	c.JSON(http.StatusOK, units)
 }
 
-// UpdateUnit оновлює дані підрозділу
 func (h *UnitHandler) UpdateUnit(c *gin.Context) {
 	unitID := c.Param("id")
 	userID := c.GetString("user_id")
@@ -168,31 +179,30 @@ func (h *UnitHandler) UpdateUnit(c *gin.Context) {
 
 	err := h.svc.UpdateUnit(c.Request.Context(), unitID, req.Name)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка оновлення підрозділу"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка оновлення відділу"})
 		return
 	}
 
 	go func(uID, unID, name string) {
-		_ = h.auditService.LogAction(context.Background(), uID, "UPDATE", "UNIT", unID, "Оновлено назву підрозділу на: "+name)
+		_ = h.auditService.LogAction(context.Background(), uID, "UPDATE", "UNIT", unID, "Оновлено назву відділу на: "+name)
 	}(userID, unitID, req.Name)
 
-	c.JSON(http.StatusOK, gin.H{"message": "Підрозділ оновлено"})
+	c.JSON(http.StatusOK, gin.H{"message": "Відділ оновлено"})
 }
 
-// DeleteUnit видаляє підрозділ
 func (h *UnitHandler) DeleteUnit(c *gin.Context) {
 	unitID := c.Param("id")
 	userID := c.GetString("user_id")
 
 	err := h.svc.DeleteUnit(c.Request.Context(), unitID)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Неможливо видалити: до підрозділу прив'язані люди або майно"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Неможливо видалити: до відділу прив'язані люди або майно"})
 		return
 	}
 
 	go func(uID, unID string) {
-		_ = h.auditService.LogAction(context.Background(), uID, "DELETE", "UNIT", unID, "Видалено підрозділ (організаційно-штатна структура)")
+		_ = h.auditService.LogAction(context.Background(), uID, "DELETE", "UNIT", unID, "Видалено відділ")
 	}(userID, unitID)
 
-	c.JSON(http.StatusOK, gin.H{"message": "Підрозділ ліквідовано"})
+	c.JSON(http.StatusOK, gin.H{"message": "Відділ видалено"})
 }

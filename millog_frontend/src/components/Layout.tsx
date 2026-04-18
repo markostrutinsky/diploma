@@ -154,6 +154,12 @@ export default function Layout({ children }: LayoutProps) {
               </Link>
             )}
 
+            {!isCONTRACTOR && (
+              <Link to="/billing" className={location.pathname === '/billing' ? 'active' : ''}>
+                💎 Тарифні плани
+              </Link>
+            )}
+
           </nav>
           <div className="sidebar-footer">
             <div className="user-badge">

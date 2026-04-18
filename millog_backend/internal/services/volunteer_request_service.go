@@ -10,47 +10,47 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-type CONTRACTORRequestService struct {
-	repo   *repositories.CONTRACTORRequestRepository
+type ContractorRequestService struct {
+	repo   *repositories.ContractorRequestRepository
 	dbPool *pgxpool.Pool
 }
 
-func NewCONTRACTORRequestService(repo *repositories.CONTRACTORRequestRepository, db *pgxpool.Pool) *CONTRACTORRequestService {
-	return &CONTRACTORRequestService{repo: repo, dbPool: db}
+func NewContractorRequestService(repo *repositories.ContractorRequestRepository, db *pgxpool.Pool) *ContractorRequestService {
+	return &ContractorRequestService{repo: repo, dbPool: db}
 }
 
-func (s *CONTRACTORRequestService) Create(ctx context.Context, userID string, unitID int64, req *models.CreateCONTRACTORRequest) (*models.CONTRACTORRequest, error) {
+func (s *ContractorRequestService) Create(ctx context.Context, userID string, unitID int64, req *models.CreateContractorRequest) (*models.ContractorRequest, error) {
 	var finalUnitID *int64
 	if unitID != 0 {
 		id := unitID
 		finalUnitID = &id
 	}
 
-	vr := &models.CONTRACTORRequest{
+	vr := &models.ContractorRequest{
 		CreatedBy:   userID,
 		UnitID:      finalUnitID,
 		Title:       req.Title,
 		Description: req.Description,
-		Status:      models.CONTRACTOROpen,
+		Status:      models.ContractorOpen,
 	}
 
 	if err := s.repo.Create(ctx, s.dbPool, vr); err != nil {
-		return nil, fmt.Errorf("failed to create CONTRACTOR request: %w", err)
+		return nil, fmt.Errorf("failed to create Contractor request: %w", err)
 	}
 	return vr, nil
 }
 
 // Отримання списку заявок (з фільтром по статусу)
-func (s *CONTRACTORRequestService) List(ctx context.Context, status models.CONTRACTORRequestStatus) ([]models.CONTRACTORRequest, error) {
+func (s *ContractorRequestService) List(ctx context.Context, status models.ContractorRequestStatus) ([]models.ContractorRequest, error) {
 	return s.repo.List(ctx, s.dbPool, status)
 }
 
 // Універсальний метод для оновлення статусів (Взяти в роботу, Доставити, Скасувати, Відхилити)
-func (s *CONTRACTORRequestService) UpdateStatus(ctx context.Context, requestID string, userID string, newStatus models.CONTRACTORRequestStatus) error {
+func (s *ContractorRequestService) UpdateStatus(ctx context.Context, requestID string, userID string, newStatus models.ContractorRequestStatus) error {
 	return s.repo.UpdateStatus(ctx, s.dbPool, requestID, userID, newStatus)
 }
 
-func (s *CONTRACTORRequestService) AcceptAndStore(ctx context.Context, requestID string, commanderID string, unitID int64, payload models.AcceptCONTRACTORPayload) error {
+func (s *ContractorRequestService) AcceptAndStore(ctx context.Context, requestID string, commanderID string, unitID int64, payload models.AcceptContractorPayload) error {
 
 	// 1. Починаємо транзакцію
 	tx, err := s.dbPool.Begin(ctx)
@@ -59,7 +59,7 @@ func (s *CONTRACTORRequestService) AcceptAndStore(ctx context.Context, requestID
 	}
 	defer tx.Rollback(ctx)
 
-	err = s.repo.UpdateStatus(ctx, tx, requestID, commanderID, models.CONTRACTORAccepted)
+	err = s.repo.UpdateStatus(ctx, tx, requestID, commanderID, models.ContractorAccepted)
 	if err != nil {
 		return fmt.Errorf("не вдалося оновити статус заявки: %w", err)
 	}

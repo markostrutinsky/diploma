@@ -32,11 +32,15 @@ func (h *RequestHandler) Create(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	go func(uID string, entityID string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "CREATE", "SUPPLY_REQUEST", entityID, "Створено нову заявку на забезпечення")
+	}(userID, fmt.Sprintf("%v", sr.ID))
+
 	c.JSON(http.StatusCreated, sr)
 }
 
 func (h *RequestHandler) List(c *gin.Context) {
-	// 1. Дістаємо дані з токена
 	claimsVal, exists := c.Get("claims")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Не знайдено токен авторизації"})
@@ -84,15 +88,26 @@ func (h *RequestHandler) Approve(c *gin.Context) {
 		return
 	}
 
+	go func(uID string, entityID string, isApproved bool) {
+		actionDesc := "Відхилено заявку (на етапі погодження)"
+		if isApproved {
+			actionDesc = "Погоджено заявку"
+		}
+		_ = h.auditService.LogAction(context.Background(), uID, "UPDATE", "SUPPLY_REQUEST", entityID, actionDesc)
+	}(userID, id, req.Approved)
+
 	c.JSON(http.StatusOK, gin.H{"message": "Заявку успішно оброблено"})
 }
 
 func (h *RequestHandler) GetByID(c *gin.Context) {
-	req, err := h.reqService.GetByID(c.Request.Context(), c.Param("id"))
+	id := c.Param("id")
+
+	req, err := h.reqService.GetByID(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Заявку не знайдено"})
 		return
 	}
+
 	c.JSON(http.StatusOK, req)
 }
 
@@ -113,9 +128,8 @@ func (h *RequestHandler) Reject(c *gin.Context) {
 		return
 	}
 
-	// 🛡️ Аудит
-	go func(u, r, c string) {
-		_ = h.auditService.LogAction(context.Background(), u, "REJECT", "SUPPLY_REQUEST", r, "Відхилено заявку: "+c)
+	go func(u, r, comment string) {
+		_ = h.auditService.LogAction(context.Background(), u, "REJECT", "SUPPLY_REQUEST", r, "Відхилено заявку: "+comment)
 	}(userID, reqID, req.Comment)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Заявку відхилено"})
@@ -130,10 +144,30 @@ func (h *RequestHandler) Cancel(c *gin.Context) {
 		return
 	}
 
-	// 🛡️ Аудит
 	go func(u, r string) {
 		_ = h.auditService.LogAction(context.Background(), u, "CANCEL", "SUPPLY_REQUEST", r, "Скасовано власну заявку")
 	}(userID, reqID)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Заявку скасовано"})
+}
+
+// SmartDispatchPreview відповідає за генерацію прев'ю розумного пакування
+func (h *RequestHandler) SmartDispatchPreview(c *gin.Context) {
+	var req models.SmartDispatchReq
+
+	// Валідація вхідного JSON
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Некоректний запит: необхідно передати масив request_ids"})
+		return
+	}
+
+	// Виклик сервісу
+	result, err := h.reqService.GetSmartDispatchPreview(c.Request.Context(), req.RequestIDs)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Повертаємо готовий результат
+	c.JSON(http.StatusOK, result)
 }

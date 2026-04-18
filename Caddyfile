@@ -1,0 +1,11 @@
+localhost {
+    # 1. Всі запити до API направляємо на бекенд
+    handle /api/* {
+        reverse_proxy backend:8080
+    }
+
+    # 2. Всі інші запити (сторінки, картинки) йдуть на фронтенд
+    handle {
+        reverse_proxy frontend:80
+    }
+}

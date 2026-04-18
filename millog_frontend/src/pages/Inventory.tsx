@@ -52,6 +52,11 @@ export default function Inventory() {
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  
+  // ---------------------------------------------------------
+  // НОВИЙ СТЕЙТ ДЛЯ ПОШУКУ
+  // ---------------------------------------------------------
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const closeMenu = () => setActiveMenuId(null);
@@ -306,12 +311,22 @@ export default function Inventory() {
     );
   }
 
+  // ---------------------------------------------------------
+  // ОНОВЛЕНА ЛОГІКА ФІЛЬТРАЦІЇ (Додано пошук)
+  // ---------------------------------------------------------
   const filteredResources = resources.filter(r => {
     const isDeleted = r.condition === 'WRITTEN_OFF';
     const matchesTab = activeTab === 'active' ? !isDeleted : isDeleted;
     const matchesCategory = selectedCategoryId ? r.category_id === selectedCategoryId : true;
     const isOrphanEmpty = (r.unit_id === 0 || r.unit_id == null) && r.quantity === 0 && !isDeleted;
-    return matchesTab && matchesCategory && !isOrphanEmpty;
+    
+    // Перевірка пошукового запиту
+    const query = searchQuery.toLowerCase().trim();
+    const matchesSearch = query === '' || 
+                          r.name.toLowerCase().includes(query) || 
+                          r.id.toLowerCase().includes(query); // Дозволяє знайти по шматку UUID
+
+    return matchesTab && matchesCategory && !isOrphanEmpty && matchesSearch;
   });
 
   const groupedResources = filteredResources.reduce((acc, resource) => {
@@ -373,6 +388,7 @@ export default function Inventory() {
       </div>
 
       {/* ============================== МОДАЛКИ КАТЕГОРІЙ ============================== */}
+      {/* ... (Модалки категорій залишені без змін) ... */}
       {showCategoryForm && canManageCategories && (
         <div className="modal-overlay inventory-modal" onClick={() => setShowCategoryForm(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -434,6 +450,7 @@ export default function Inventory() {
       )}
 
       {/* ============================== ІНШІ МОДАЛКИ (Майно) ============================== */}
+      {/* ... (Всі інші модалки залишені без змін) ... */}
       {showResourceForm && canManageResources && (
         <div className="modal-overlay inventory-modal" onClick={() => setShowResourceForm(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -691,7 +708,10 @@ export default function Inventory() {
         </div>
       )}
 
+      {/* ============================== ОСНОВНИЙ КОНТЕНТ (СІТКА) ============================== */}
       <div className="content-grid">
+        
+        {/* КАТЕГОРІЇ (Сайдбар) */}
         <div className="card">
           <h2>Категорії</h2>
           {categories.length === 0 ? (
@@ -744,17 +764,73 @@ export default function Inventory() {
           )}
         </div>
         
+        {/* ТАБЛИЦЯ МАЙНА */}
         <div className={`card card-table ${isRefreshing ? 'refreshing-fade' : ''}`}>
-          <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px'}}>
-            <h2 style={{margin: 0}}>Ресурси {selectedCategoryId && `(${categories.find(c => c.id === selectedCategoryId)?.name})`}</h2>
-            <div style={{display: 'flex', gap: '8px', borderBottom: '2px solid #e2e8f0'}}>
-              <button style={{background: 'none', border: 'none', padding: '8px 16px', fontWeight: 600, cursor: 'pointer', color: activeTab === 'active' ? '#2563eb' : '#64748b', borderBottom: activeTab === 'active' ? '2px solid #2563eb' : '2px solid transparent', marginBottom: '-2px'}} onClick={() => setActiveTab('active')}>На балансі</button>
-              <button style={{background: 'none', border: 'none', padding: '8px 16px', fontWeight: 600, cursor: 'pointer', color: activeTab === 'written_off' ? '#2563eb' : '#64748b', borderBottom: activeTab === 'written_off' ? '2px solid #2563eb' : '2px solid transparent', marginBottom: '-2px'}} onClick={() => setActiveTab('written_off')}>Списані</button>
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '15px' }}>
+            
+            {/* Ліва частина: Заголовок + Пошук */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+              <h2 style={{ margin: 0 }}>
+                Ресурси {selectedCategoryId && `(${categories.find(c => c.id === selectedCategoryId)?.name})`}
+              </h2>
+              
+              {/* ПОЛЕ ПОШУКУ */}
+              <div style={{ position: 'relative', width: '260px' }}>
+                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '14px' }}>
+                  🔍
+                </span>
+                <input
+                  type="text"
+                  className="erp-input"
+                  placeholder="Пошук"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{ 
+                    paddingLeft: '35px', 
+                    borderRadius: '20px', 
+                    paddingTop: '6px', 
+                    paddingBottom: '6px', 
+                    height: 'auto',
+                    border: '1px solid #cbd5e1'
+                  }}
+                />
+                {searchQuery && (
+                  <button 
+                    onClick={() => setSearchQuery('')}
+                    style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 0 }}
+                  >
+                    ✖
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Права частина: Вкладки (Таби) */}
+            <div style={{ display: 'flex', gap: '8px', borderBottom: '2px solid #e2e8f0' }}>
+              <button 
+                style={{ background: 'none', border: 'none', padding: '8px 16px', fontWeight: 600, cursor: 'pointer', color: activeTab === 'active' ? '#2563eb' : '#64748b', borderBottom: activeTab === 'active' ? '2px solid #2563eb' : '2px solid transparent', marginBottom: '-2px' }} 
+                onClick={() => setActiveTab('active')}
+              >
+                На балансі
+              </button>
+              <button 
+                style={{ background: 'none', border: 'none', padding: '8px 16px', fontWeight: 600, cursor: 'pointer', color: activeTab === 'written_off' ? '#2563eb' : '#64748b', borderBottom: activeTab === 'written_off' ? '2px solid #2563eb' : '2px solid transparent', marginBottom: '-2px' }} 
+                onClick={() => setActiveTab('written_off')}
+              >
+                Списані
+              </button>
             </div>
           </div>
 
+          {/* Відображення результатів */}
           {filteredResources.length === 0 ? (
-            <p className="empty-state">{activeTab === 'active' ? 'Немає ресурсів' : 'Списаних ресурсів немає'}</p>
+            <div className="empty-state">
+              {searchQuery 
+                ? `За запитом "${searchQuery}" нічого не знайдено` 
+                : (activeTab === 'active' ? 'Немає ресурсів' : 'Списаних ресурсів немає')
+              }
+            </div>
           ) : (
           <table className="data-table table-inventory">
             <thead>
@@ -796,7 +872,12 @@ export default function Inventory() {
 
                         return (
                           <tr key={r.id} style={{opacity: isWrittenOff ? 0.7 : 1}}>
-                            <td style={{fontWeight: 500}}>{r.name}</td>
+                            <td style={{fontWeight: 500}}>
+                              {r.name}
+                              <div style={{fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px', fontWeight: 'normal'}}>
+                                ID: {r.id.split('-')[0].toUpperCase()}
+                              </div>
+                            </td>
                             <td>
                               <div className="location-stack">
                                 <span className="stock-info">🏢 Склад: <strong>{r.quantity}</strong> ({warehouseNameStr})</span>

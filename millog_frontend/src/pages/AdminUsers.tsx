@@ -50,6 +50,11 @@ export default function AdminUsers() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [availableRoles, setAvailableRoles] = useState<typeof ROLES>([])
   
+  // ---------------------------------------------------------
+  // НОВИЙ СТЕЙТ ДЛЯ ПОШУКУ
+  // ---------------------------------------------------------
+  const [searchQuery, setSearchQuery] = useState('')
+
   const [showForm, setShowForm] = useState(false)
   const [editingUser, setEditingUser] = useState<User | null>(null)
   
@@ -199,21 +204,42 @@ export default function AdminUsers() {
     setError(null)
   }
 
-  const filteredUsers = usersList.filter(user => {
-    if (currentUserRole !== 'ADMIN' && user.role === 'ADMIN') {
-      return false;
-    }
-    // Підрядники не є внутрішнім резервом компанії, тому приховуємо їх з цієї вкладки
-    if (activeTab === 'reserve') return !user.unit_id && user.role !== 'ADMIN' && user.role !== 'CONTRACTOR';
-    if (activeTab === 'in_unit') return !!user.unit_id;
-    return true;
-  })
-
   const getUnitName = (unitId?: number | null) => {
     if (!unitId) return null;
     const unit = allUnits.find(u => u.id === unitId);
     return unit ? unit.name : `ID: ${unitId}`;
   }
+
+  // ---------------------------------------------------------
+  // ЛОГІКА ФІЛЬТРАЦІЇ ПОШУКУ
+  // ---------------------------------------------------------
+  const filteredUsers = usersList.filter(user => {
+    // Базові правила вкладок і ролей
+    if (currentUserRole !== 'ADMIN' && user.role === 'ADMIN') {
+      return false;
+    }
+    if (activeTab === 'reserve') {
+      if (user.unit_id || user.role === 'ADMIN' || user.role === 'CONTRACTOR') return false;
+    }
+    if (activeTab === 'in_unit' && !user.unit_id) {
+      return false;
+    }
+
+    // Логіка пошуку
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase().trim();
+      const fullName = (user.full_name || '').toLowerCase();
+      const email = (user.email || '').toLowerCase();
+      const roleLabel = (ROLE_NAMES[user.role] || user.role).toLowerCase();
+      const unitName = (getUnitName(user.unit_id) || '').toLowerCase();
+
+      if (!fullName.includes(query) && !email.includes(query) && !roleLabel.includes(query) && !unitName.includes(query)) {
+        return false;
+      }
+    }
+
+    return true;
+  })
 
   return (
     <div className="admin-users">
@@ -246,7 +272,7 @@ export default function AdminUsers() {
            <div className="modal modal-form" onClick={(e) => e.stopPropagation()}>
             <h3>{editingUser ? `Переміщення: ${editingUser.full_name}` : 'Створити обліковий запис'}</h3>
             {!editingUser && (
-              <p className="modal-description">Співробітник отримає лист з посиланням для встановлення паролю.</p>
+              <p className="modal-description">Співробіттник отримає лист з посиланням для встановлення паролю.</p>
             )}
             
             <form className="admin-form" onSubmit={editingUser ? handleUpdateRole : handleSubmit}>
@@ -387,8 +413,38 @@ export default function AdminUsers() {
       )}
 
       <div className="card card-table card-table-spaced">
-        <div className="table-header-with-tabs">
-          <h2>Персонал</h2>
+        <div className="table-header-with-tabs" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '16px' }}>
+          <h2 style={{ margin: 0 }}>Персонал</h2>
+          
+          {/* НОВЕ ПОЛЕ ПОШУКУ */}
+          <div style={{ position: 'relative', width: '280px' }}>
+            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '14px' }}>
+              🔍
+            </span>
+            <input
+              type="text"
+              className="erp-input"
+              placeholder="Пошук"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ 
+                paddingLeft: '35px', 
+                borderRadius: '20px', 
+                paddingBottom: '6px', 
+                paddingTop: '6px',
+                border: '1px solid #cbd5e1'
+              }}
+            />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 0 }}
+              >
+                ✖
+              </button>
+            )}
+          </div>
+
           <div className="inventory-tabs">
             <button className={`tab-btn ${activeTab === 'all' ? 'active' : ''}`} onClick={() => setActiveTab('all')}>Всі</button>
             <button className={`tab-btn ${activeTab === 'in_unit' ? 'active' : ''}`} onClick={() => setActiveTab('in_unit')}>В орг. одиницях</button>
@@ -398,7 +454,7 @@ export default function AdminUsers() {
 
         {filteredUsers.length === 0 ? (
           <p className="empty-state">
-            {activeTab === 'reserve' ? 'Кадровий резерв порожній' : 'Немає користувачів'}
+            {searchQuery ? `За запитом "${searchQuery}" нічого не знайдено` : (activeTab === 'reserve' ? 'Кадровий резерв порожній' : 'Немає користувачів')}
           </p>
         ) : (
           <table className="data-table">
@@ -432,6 +488,7 @@ export default function AdminUsers() {
                   <tr key={u.id}>
                     <td>
                       <div className="user-name-cell">{u.full_name || '-'}</div>
+                      <div style={{fontSize: '0.8rem', color: '#64748b', marginTop: '2px'}}>{u.email}</div>
                     </td>
                     <td>{roleLabel}</td>
                     <td>

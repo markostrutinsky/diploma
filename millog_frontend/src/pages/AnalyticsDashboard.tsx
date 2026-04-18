@@ -320,6 +320,7 @@ const AnalyticsDashboard: React.FC = () => {
                 )}
               </div>
             </div>
+            
             <div className="erp-widget col-span-1">
               <div className="widget-header"><h3>Критичний дефіцит</h3></div>
               <div className="scroll-container">
@@ -341,12 +342,64 @@ const AnalyticsDashboard: React.FC = () => {
               </div>
             </div>
 
-            <div className="erp-widget col-span-1">
-              <div className="widget-header"><h3>Ефективність зовнішніх запитів (SLA)</h3></div>
-              <div className="sla-card">
-                <div className="sla-big-number">{data?.CONTRACTOR_sla?.average_days?.toFixed(1) || 0} <span className="sla-unit">днів</span></div>
-                <p className="sla-desc">Середній час закриття одного запиту зовнішніми постачальниками</p>
-                <div className="sla-footer">Виконано за період: <strong>{data?.CONTRACTOR_sla?.completed_count || 0} шт</strong></div>
+            {/* ОНОВЛЕНИЙ ВІДЖЕТ SLA (З додатковими метриками) */}
+            <div className="erp-widget col-span-full">
+              <div className="widget-header">
+                <h3>Ефективність зовнішніх запитів (SLA)</h3>
+                <span className="info-badge">Швидкість постачання</span>
+              </div>
+              
+              <div className="sla-banner">
+                <div className="sla-banner-left">
+                  <span className="sla-banner-value">
+                    {data?.CONTRACTOR_sla?.average_days?.toFixed(1) || "0.0"}
+                  </span>
+                  <span className="sla-banner-unit">днів</span>
+                </div>
+                
+                <div className="sla-banner-divider"></div>
+                
+                <div className="sla-banner-right">
+                  <p className="sla-banner-desc">
+                    Середній час закриття одного запиту зовнішніми постачальниками (від моменту створення до статусу "Виконані").
+                  </p>
+                  <div className="sla-banner-stats">
+                    <span>Успішно виконано за обраний період:</span>
+                    <strong>{data?.CONTRACTOR_sla?.completed_count || 0} шт</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* НОВИЙ БЛОК: Динамічні метрики SLA */}
+              <div className="sla-extra-metrics">
+                <div className="sla-metric-box">
+                  <span className="sla-metric-title">On-Time Delivery (OTD)</span>
+                  <span className={`sla-metric-val ${
+                    (data?.CONTRACTOR_sla?.otd_percentage || 0) >= 90 ? 'text-success' : 
+                    (data?.CONTRACTOR_sla?.otd_percentage || 0) >= 75 ? 'text-warning' : 'text-danger'
+                  }`}>
+                    {data?.CONTRACTOR_sla?.otd_percentage || 0}%
+                  </span>
+                  <span className="sla-metric-sub">Рівень вчасного виконання</span>
+                </div>
+                
+                <div className="sla-metric-box">
+                  <span className="sla-metric-title">Прострочені завдання</span>
+                  <span className={`sla-metric-val ${
+                    (data?.CONTRACTOR_sla?.overdue_count || 0) > 0 ? 'text-danger' : 'text-success'
+                  }`}>
+                    {data?.CONTRACTOR_sla?.overdue_count || 0}
+                  </span>
+                  <span className="sla-metric-sub">Критичні порушення дедлайнів</span>
+                </div>
+                
+                <div className="sla-metric-box">
+                  <span className="sla-metric-title">Найшвидше виконання</span>
+                  <span className="sla-metric-val text-blue">
+                    {data?.CONTRACTOR_sla?.fastest_days?.toFixed(1) || "0.0"} дн
+                  </span>
+                  <span className="sla-metric-sub">Рекорд за поточний період</span>
+                </div>
               </div>
             </div>
             

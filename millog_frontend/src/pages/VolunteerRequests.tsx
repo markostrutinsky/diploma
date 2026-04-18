@@ -37,6 +37,11 @@ export default function ContractorRequests() {
   
   const [nameMismatchWarning, setNameMismatchWarning] = useState(false)
 
+  // ---------------------------------------------------------
+  // НОВИЙ СТЕЙТ ДЛЯ ПОШУКУ
+  // ---------------------------------------------------------
+  const [searchQuery, setSearchQuery] = useState('')
+
   const inventoryRoles = [
     'ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 
     'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN', 'REGION_STOREKEEPER', 
@@ -59,11 +64,9 @@ export default function ContractorRequests() {
     return match ? parseInt(match[0], 10) : null;
   }
 
-  // --- РОЗУМНЕ ОЧИЩЕННЯ НАЗВИ ---
   const getCleanResourceName = (title: string) => {
     return title.replace(/^\s*\d+\s*(шт\.?|штук|пар|пари|-)?\s*/i, '').trim();
   }
-  // --------------------------------------------
 
   const loadData = () => {
     setLoading(true)
@@ -144,7 +147,6 @@ export default function ContractorRequests() {
 
     const originalRequest = requests.find(r => r.id === acceptModalId);
     if (originalRequest) {
-      
       const planned = getPlannedQuantity(originalRequest.title);
       if (planned !== null && planned !== acceptForm.quantity) {
         const confirmText = acceptForm.quantity > planned 
@@ -185,8 +187,21 @@ export default function ContractorRequests() {
     }
   }
 
-  const myActiveTasks = requests.filter((r) => r.taken_by === user?.id && r.status === 'TAKEN')
-  const displayedRequests = isCONTRACTOR ? requests.filter((r) => r.status === 'OPEN') : requests
+  // ---------------------------------------------------------
+  // ЛОГІКА ФІЛЬТРАЦІЇ ПОШУКУ
+  // ---------------------------------------------------------
+  const filteredRequests = requests.filter(r => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase().trim();
+    const title = (r.title || '').toLowerCase();
+    const desc = (r.description || '').toLowerCase();
+    const unitName = ((r as any).unit_name || '').toLowerCase(); // as any на випадок, якщо тип строго не описує unit_name
+    
+    return title.includes(query) || desc.includes(query) || unitName.includes(query);
+  });
+
+  const myActiveTasks = filteredRequests.filter((r) => r.taken_by === user?.id && r.status === 'TAKEN');
+  const displayedRequests = isCONTRACTOR ? filteredRequests.filter((r) => r.status === 'OPEN') : filteredRequests;
 
   const getBadgeClass = (status: string) => {
     switch(status?.toUpperCase()) {
@@ -218,6 +233,31 @@ export default function ContractorRequests() {
             + Створити заявку
           </button>
         )}
+      </div>
+
+      {/* НОВИЙ БЛОК ПОШУКУ */}
+      <div className="filters-bar" style={{ marginBottom: '24px', backgroundColor: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+        <div style={{ position: 'relative', width: '100%', maxWidth: '400px' }}>
+          <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '14px' }}>
+            🔍
+          </span>
+          <input
+            type="text"
+            className="erp-input"
+            placeholder="Пошук"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{ paddingLeft: '35px', width: '100%' }}
+          />
+          {searchQuery && (
+            <button 
+              onClick={() => setSearchQuery('')}
+              style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 0 }}
+            >
+              ✖
+            </button>
+          )}
+        </div>
       </div>
 
       {showCreateForm && (
@@ -416,36 +456,46 @@ export default function ContractorRequests() {
         </div>
       )}
 
-      {isCONTRACTOR && myActiveTasks.length > 0 && (
+      {isCONTRACTOR && (
         <div className="card my-tasks-card" style={{ marginBottom: '24px' }}>
           <h2>Мої завдання в роботі</h2>
-          <ul className="request-list">
-            {myActiveTasks.map((r) => (
-              <li key={r.id}>
-                <div className="request-info">
-                  <strong>{r.title}</strong>
-                  {r.unit_name && <span className="unit-badge">🏢 {r.unit_name}</span>}
-                  {r.description && <p className="request-desc">{r.description}</p>}
-                </div>
-                <button className="btn btn-success btn-sm" onClick={() => handleDeliver(r.id)}>
-                  Позначити доставленим
-                </button>
-              </li>
-            ))}
-          </ul>
+          {myActiveTasks.length === 0 ? (
+            <p className="empty-state">
+              {searchQuery ? `За запитом "${searchQuery}" активних завдань не знайдено` : 'У вас немає завдань в роботі'}
+            </p>
+          ) : (
+            <ul className="request-list">
+              {myActiveTasks.map((r) => (
+                <li key={r.id}>
+                  <div className="request-info">
+                    <strong>{r.title}</strong>
+                    {/* @ts-ignore */}
+                    {r.unit_name && <span className="unit-badge">🏢 {r.unit_name}</span>}
+                    {r.description && <p className="request-desc">{r.description}</p>}
+                  </div>
+                  <button className="btn btn-success btn-sm" onClick={() => handleDeliver(r.id)}>
+                    Позначити доставленим
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
       <div className="card">
         <h2>{isCONTRACTOR ? 'Відкриті завдання' : 'Історія та статус заявок'}</h2>
         {displayedRequests.length === 0 ? (
-          <p className="empty-state">Наразі немає записів</p>
+          <p className="empty-state">
+            {searchQuery ? `За запитом "${searchQuery}" нічого не знайдено` : 'Наразі немає записів'}
+          </p>
         ) : (
           <ul className="request-list">
             {displayedRequests.map((r) => (
               <li key={r.id}>
                 <div className="request-info">
                   <strong>{r.title}</strong>
+                  {/* @ts-ignore */}
                   {r.unit_name && <span className="unit-badge">🏢 {r.unit_name}</span>}
                   {r.description && <p className="request-desc">{r.description}</p>}
                   

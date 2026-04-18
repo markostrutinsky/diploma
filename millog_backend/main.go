@@ -88,7 +88,7 @@ func main() {
 	resRepo := repositories.NewResourceRepository()
 	reqRepo := repositories.NewSupplyRequestRepository()
 	unitRepo := repositories.NewUnitRepository()
-	volReqRepo := repositories.NewCONTRACTORRequestRepository()
+	volReqRepo := repositories.NewContractorRequestRepository()
 	vehicleRepo := repositories.NewVehicleRepository()
 	fuelRepo := repositories.NewFuelRepository()
 	warehouseRepo := repositories.NewWarehouseRepository()
@@ -98,7 +98,7 @@ func main() {
 	invService := services.NewInventoryService(catRepo, resRepo, userRepo, dbPool)
 	reqService := services.NewRequestService(reqRepo, resRepo, userRepo, dbPool)
 	unitService := services.NewUnitService(unitRepo, userRepo, dbPool)
-	volReqService := services.NewCONTRACTORRequestService(volReqRepo, dbPool)
+	volReqService := services.NewContractorRequestService(volReqRepo, dbPool)
 	warehouseService := services.NewWarehouseService(warehouseRepo, dbPool)
 	analyticsService := services.NewAnalyticsService(analyticsRepo, dbPool)
 	auditService := services.NewAuditService(auditRepo, dbPool)
@@ -106,14 +106,14 @@ func main() {
 	invHandler := handlers.NewInventoryHandler(invService, auditService)
 	reqHandler := handlers.NewRequestHandler(reqService, auditService)
 	unitHandler := handlers.NewUnitHandler(unitService, auditService)
-	volReqHandler := handlers.NewCONTRACTORRequestHandler(volReqService)
-	analyticsHandler := handlers.NewAnalyticsHandler(analyticsService)
+	volReqHandler := handlers.NewContractorRequestHandler(volReqService, auditService)
+	analyticsHandler := handlers.NewAnalyticsHandler(analyticsService, auditService)
 	warehouseHandler := handlers.NewWarehouseHandler(warehouseService, auditService)
 
 	authService := services.NewAuthService(userRepo, unitRepo, tokenRepo, refreshTokenRepo, dbPool, emailService, jwtSecret)
-	authHandler := handlers.NewAuthHandler(authService)
+	authHandler := handlers.NewAuthHandler(authService, auditService)
 	fuelService := services.NewFuelService(fuelRepo, dbPool)
-	fuelHandler := handlers.NewFuelHandler(fuelService)
+	fuelHandler := handlers.NewFuelHandler(fuelService, auditService)
 
 	vehicleService := services.NewVehicleService(vehicleRepo, dbPool)
 	vehicleHandler := handlers.NewVehicleHandler(vehicleService, auditService)
@@ -131,7 +131,7 @@ func main() {
 		{
 			auth.POST("/login", authHandler.Login)
 			auth.POST("/refresh", authHandler.Refresh)
-			auth.POST("/register", authHandler.RegisterCONTRACTOR)
+			auth.POST("/register", authHandler.RegisterContractor)
 			auth.POST("/setup-password", authHandler.SetupPassword)
 			auth.POST("/forgot-password", authHandler.RequestPasswordReset)
 			auth.GET("/me", middleware.AuthMiddleware(jwtSecret, dbPool), authHandler.Me)
@@ -165,7 +165,7 @@ func main() {
 			units.GET("", unitHandler.List)
 			units.GET("/available", unitHandler.GetAvailableForRole)
 			units.POST("", middleware.RequireAnyRole(models.UnitManagerRoles), unitHandler.Create)
-			units.POST("/:id/change-commander", middleware.RequireAnyRole(models.UnitManagerRoles), unitHandler.ChangeCommander)
+			units.POST("/:id/change-commander", middleware.RequireAnyRole(models.UnitManagerRoles), unitHandler.ChangeManager)
 			units.GET("/my-hierarchy", unitHandler.GetMyHierarchyForRole)
 			//units.GET("/:id", unitHandler.GetByID) // Якщо в тебе ще немає отримання одного підрозділу
 			units.PATCH("/:id", middleware.RequireAnyRole(models.UnitManagerRoles), unitHandler.UpdateUnit)
@@ -208,6 +208,7 @@ func main() {
 			requests.POST("/:id/reject", middleware.RequireAnyRole(models.SupplyRequestApproverRoles), reqHandler.Reject) // 👈 НОВЕ (відмова логіста)
 			requests.POST("/:id/cancel", reqHandler.Cancel)
 			requests.GET("/:id", reqHandler.GetByID)
+			requests.POST("/smart-dispatch-preview", reqHandler.SmartDispatchPreview)
 
 		}
 

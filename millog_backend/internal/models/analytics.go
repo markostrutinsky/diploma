@@ -34,9 +34,13 @@ type MaintenancePredictStat struct {
 	KmLeft      int    `json:"km_left"`
 }
 
-type CONTRACTORSLAStat struct {
+type ContractorSLA struct {
 	AverageDays    float64 `json:"average_days"`
 	CompletedCount int     `json:"completed_count"`
+	// --- ДОДАЄМО НОВІ ПОЛЯ ---
+	OTDPercentage int     `json:"otd_percentage"` // On-Time Delivery (%)
+	OverdueCount  int     `json:"overdue_count"`  // Прострочені завдання (шт)
+	FastestDays   float64 `json:"fastest_days"`   // Найшвидше виконання (днів)
 }
 
 type FleetTCOStat struct {
@@ -108,7 +112,7 @@ type DashboardAnalytics struct {
 	UnitReadiness      []UnitReadinessStat      `json:"unit_readiness"`
 	FuelHistory        []FuelMonthlyStat        `json:"fuel_history"`
 	MaintenancePredict []MaintenancePredictStat `json:"maintenance_predict"`
-	CONTRACTORSLA      CONTRACTORSLAStat        `json:"CONTRACTOR_sla"`
+	CONTRACTORSLA      ContractorSLA            `json:"CONTRACTOR_sla"`
 	FleetTCO           []FleetTCOStat           `json:"fleet_tco"`
 
 	CONTRACTORFunnel   []CONTRACTORRequestStat  `json:"CONTRACTOR_funnel"`

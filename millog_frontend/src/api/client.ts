@@ -208,6 +208,26 @@ export const api = {
 
       return response.json();
     },
+
+    createShipment: (body: any) =>
+      // Зверни увагу: URL на бекенді залишається /inventory/shipments (або можеш змінити його і там)
+      // Але на фронті метод викликатиметься через api.requests.createShipment
+      request<{ message: string }>('/inventory/shipments', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
+
+    smartDispatchPreview: (requestIds: string[]) =>
+      request<SmartDispatchResult>('/inventory/smart-dispatch-preview', {
+        method: 'POST',
+        body: JSON.stringify({ request_ids: requestIds }),
+      }),
+
+    smartDispatchConfirm: (routes: VehicleBin[]) =>
+      request<{ message: string }>('/inventory/smart-dispatch-confirm', {
+        method: 'POST',
+        body: JSON.stringify({ routes }),
+      }),
   },
   requests: {
     list: () => request<SupplyRequest[]>('/requests'),
@@ -487,12 +507,15 @@ export interface CreateWarehouseData {
   longitude?: number;
 }
 
+export type SubscriptionTier = 'BASIC' | 'PRO' | 'ENTERPRISE';  
+
 // 🔥 Оновлено інтерфейс
 export interface Unit {
   id: number
   parent_id?: number
   name: string
   unit_type: 'REGION' | 'BRANCH' | 'DEPARTMENT' | 'TEAM'; 
+  subscription_tier: SubscriptionTier;
 }
 
 export interface ContractorRequest {
@@ -529,6 +552,7 @@ export interface User {
   unit_id?: number | null;       
   created_at: string;            
   updated_at: string;
+  effective_subscription_tier?: SubscriptionTier;
 }
 
 export interface UpdateProfileData {
@@ -772,3 +796,22 @@ export const UNIT_TYPE_NAMES: Record<string, string> = {
   'DEPARTMENT': 'Відділ',
   'TEAM': 'Команда / Група'
 };
+
+export interface RequestItem {
+  id: string;
+  name: string;
+  weight_kg: number;
+}
+
+export interface VehicleBin {
+  id: string;
+  name: string;
+  max_weight: number;
+  used_weight: number;
+  items: RequestItem[];
+}
+
+export interface SmartDispatchResult {
+  routes: VehicleBin[];
+  unassigned: RequestItem[];
+}

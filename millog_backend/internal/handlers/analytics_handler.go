@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -13,11 +14,15 @@ import (
 )
 
 type AnalyticsHandler struct {
-	service *services.AnalyticsService
+	service      *services.AnalyticsService
+	auditService *services.AuditService
 }
 
-func NewAnalyticsHandler(s *services.AnalyticsService) *AnalyticsHandler {
-	return &AnalyticsHandler{service: s}
+func NewAnalyticsHandler(s *services.AnalyticsService, auditService *services.AuditService) *AnalyticsHandler {
+	return &AnalyticsHandler{
+		service:      s,
+		auditService: auditService,
+	}
 }
 
 func (h *AnalyticsHandler) GetDashboard(c *gin.Context) {
@@ -68,11 +73,17 @@ func (h *AnalyticsHandler) AutoReplenish(c *gin.Context) {
 		return
 	}
 
+	go func(uID string, requestsCount int) {
+		_ = h.auditService.LogAction(context.Background(), uID, "CREATE", "SMART_REPLENISH", "", fmt.Sprintf("Сформовано автоматичні заявки на поповнення (%d шт)", requestsCount))
+	}(userID, count)
+
 	c.JSON(http.StatusOK, gin.H{"message": "Successfully created requests", "count": count})
 }
 
 // ExportInventory віддає XLSX файл із залишками
 func (h *AnalyticsHandler) ExportInventory(c *gin.Context) {
+	userID := c.GetString("user_id")
+
 	// Дозволяємо фільтрувати по філії (опціонально)
 	var unitID *int
 	if idStr := c.Query("unit_id"); idStr != "" {
@@ -88,6 +99,10 @@ func (h *AnalyticsHandler) ExportInventory(c *gin.Context) {
 		return
 	}
 
+	go func(uID string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "EXPORT", "INVENTORY", "", "Експорт звіту залишків на складах (Excel)")
+	}(userID)
+
 	fileName := fmt.Sprintf("Inventory_Report_%s.xlsx", time.Now().Format("2006-01-02"))
 
 	c.Header("Content-Description", "File Transfer")
@@ -98,6 +113,7 @@ func (h *AnalyticsHandler) ExportInventory(c *gin.Context) {
 
 // ExportFuel віддає XLSX файл з витратами пального
 func (h *AnalyticsHandler) ExportFuel(c *gin.Context) {
+	userID := c.GetString("user_id")
 	startStr := c.Query("start")
 	endStr := c.Query("end")
 
@@ -121,6 +137,10 @@ func (h *AnalyticsHandler) ExportFuel(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Не вдалося згенерувати звіт"})
 		return
 	}
+
+	go func(uID string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "EXPORT", "FUEL", "", "Експорт звіту витрат пального (Excel)")
+	}(userID)
 
 	fileName := fmt.Sprintf("Fuel_Report_%s.xlsx", time.Now().Format("2006-01-02"))
 

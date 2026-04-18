@@ -2,38 +2,38 @@ package models
 
 import "time"
 
-type CONTRACTORRequestStatus string
+type ContractorRequestStatus string
 
 const (
-	CONTRACTOROpen      CONTRACTORRequestStatus = "OPEN"
-	CONTRACTORTaken     CONTRACTORRequestStatus = "TAKEN"
-	CONTRACTORDelivered CONTRACTORRequestStatus = "DELIVERED"
-	CONTRACTORRejected  CONTRACTORRequestStatus = "REJECTED"
-	CONTRACTORAccepted  CONTRACTORRequestStatus = "ACCEPTED"
-	CONTRACTORCanceled  CONTRACTORRequestStatus = "CANCELED"
+	ContractorOpen      ContractorRequestStatus = "OPEN"
+	ContractorTaken     ContractorRequestStatus = "TAKEN"
+	ContractorDelivered ContractorRequestStatus = "DELIVERED"
+	ContractorRejected  ContractorRequestStatus = "REJECTED"
+	ContractorAccepted  ContractorRequestStatus = "ACCEPTED"
+	ContractorCanceled  ContractorRequestStatus = "CANCELED"
 )
 
-type CONTRACTORRequest struct {
+type ContractorRequest struct {
 	ID          string                  `json:"id"`
 	CreatedBy   string                  `json:"created_by"`
 	UnitID      *int64                  `json:"unit_id"`
 	UnitName    *string                 `json:"unit_name"`
 	Title       string                  `json:"title"`
 	Description string                  `json:"description"`
-	Status      CONTRACTORRequestStatus `json:"status"`
+	Status      ContractorRequestStatus `json:"status"`
 	TakenBy     *string                 `json:"taken_by"`
 	TakenAt     *time.Time              `json:"taken_at"`
 	CompletedAt *time.Time              `json:"completed_at"`
 	CreatedAt   time.Time               `json:"created_at"`
 }
 
-type CreateCONTRACTORRequest struct {
+type CreateContractorRequest struct {
 	Title       string `json:"title" binding:"required"`
 	Description string `json:"description"`
 	UnitID      *int64 `json:"unit_id"`
 }
 
-type AcceptCONTRACTORPayload struct {
+type AcceptContractorPayload struct {
 	ResourceID *string         `json:"resource_id"`
 	CategoryID string          `json:"category_id" binding:"required"`
 	Name       string          `json:"name" binding:"required"`

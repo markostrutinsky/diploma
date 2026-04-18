@@ -17,6 +17,7 @@ import Warehouses from './pages/Warehouses'
 import AnalyticsDashboard from './pages/AnalyticsDashboard'
 import Profile from './pages/Profile'
 import AuditLogs from './pages/AuditLogs'
+import Billing from './pages/Billing';
 import { Toaster } from 'react-hot-toast'
 
 function App() {
@@ -79,6 +80,11 @@ function App() {
           <Route 
             path="/CONTRACTOR-requests" 
             element={<ProtectedRoute><VolunteerRequests /></ProtectedRoute>} 
+          />
+
+          <Route 
+            path="/billing" 
+            element={<ProtectedRoute forbidRoles={['CONTRACTOR']}><Billing /></ProtectedRoute>} 
           />
 
           {/* Редирект для всього іншого */}

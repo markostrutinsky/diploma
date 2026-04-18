@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"millog_backend/internal/middleware"
 	"millog_backend/internal/models"
@@ -12,16 +13,20 @@ import (
 )
 
 type AuthHandler struct {
-	authService *services.AuthService
+	authService  *services.AuthService
+	auditService *services.AuditService
 }
 
-func NewAuthHandler(authService *services.AuthService) *AuthHandler {
+func NewAuthHandler(authService *services.AuthService, auditService *services.AuditService) *AuthHandler {
 	return &AuthHandler{
-		authService: authService,
+		authService:  authService,
+		auditService: auditService,
 	}
 }
 
 func (h *AuthHandler) RegisterUser(c *gin.Context) {
+	userID := c.GetString("user_id")
+
 	var request models.CreateUserRequest
 	if err := c.ShouldBindJSON(&request); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -42,6 +47,11 @@ func (h *AuthHandler) RegisterUser(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	go func(uID string, entityID string, newUserName string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "CREATE", "USER", entityID, "Зареєстровано нового користувача: "+newUserName)
+	}(userID, response.ID, request.FullName)
+
 	c.JSON(http.StatusCreated, gin.H{
 		"id":      response.ID,
 		"message": "User registered successfully. Please wait for admin approval.",
@@ -59,13 +69,18 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
+
+	go func(email string) {
+		_ = h.auditService.LogAction(context.Background(), "SYSTEM", "LOGIN", "USER", email, "Успішна авторизація користувача")
+	}(request.Email)
+
 	c.JSON(http.StatusOK, response)
 }
 
 func (h *AuthHandler) ListCommanders(c *gin.Context) {
 	commanders, err := h.authService.GetCommanders(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Не вдалося завантажити список командирів"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Не вдалося завантажити список керівників"})
 		return
 	}
 
@@ -113,6 +128,11 @@ func (h *AuthHandler) BootstrapAdmin(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	go func(email string) {
+		_ = h.auditService.LogAction(context.Background(), "SYSTEM", "CREATE", "USER", email, "Ініціалізація головного адміністратора")
+	}(request.Email)
+
 	c.JSON(http.StatusCreated, gin.H{"message": "Admin created. You can now log in."})
 }
 
@@ -123,6 +143,7 @@ func (h *AuthHandler) Me(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
 	}
+
 	c.JSON(http.StatusOK, user)
 }
 
@@ -136,6 +157,11 @@ func (h *AuthHandler) SetupPassword(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	go func(token string) {
+		_ = h.auditService.LogAction(context.Background(), "SYSTEM", "UPDATE", "USER", "", "Встановлення пароля за токеном: "+token)
+	}(request.Token)
+
 	c.JSON(http.StatusOK, gin.H{"message": "Password set successfully. You can now log in."})
 }
 
@@ -150,10 +176,15 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
+
+	go func() {
+		_ = h.auditService.LogAction(context.Background(), "SYSTEM", "REFRESH", "TOKEN", "", "Оновлення токена доступу")
+	}()
+
 	c.JSON(http.StatusOK, response)
 }
 
-func (h *AuthHandler) RegisterCONTRACTOR(c *gin.Context) {
+func (h *AuthHandler) RegisterContractor(c *gin.Context) {
 	var request struct {
 		Email    string `json:"email" binding:"required,email"`
 		Password string `json:"password" binding:"required,min=8"`
@@ -168,12 +199,16 @@ func (h *AuthHandler) RegisterCONTRACTOR(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	go func(email string) {
+		_ = h.auditService.LogAction(context.Background(), "SYSTEM", "CREATE", "USER", email, "Реєстрація зовнішнього підрядника")
+	}(request.Email)
+
 	c.JSON(http.StatusCreated, response)
 }
 
 func (h *AuthHandler) UpdateRoleAndUnit(c *gin.Context) {
 	targetUserID := c.Param("id")
-
 	commanderID := c.GetString("user_id")
 
 	var req models.UpdateRoleRequest
@@ -188,10 +223,15 @@ func (h *AuthHandler) UpdateRoleAndUnit(c *gin.Context) {
 		return
 	}
 
+	go func(uID string, entityID string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "UPDATE", "USER", entityID, "Оновлено посаду/відділ користувача")
+	}(commanderID, targetUserID)
+
 	c.JSON(http.StatusOK, gin.H{"message": "Кадрове переміщення виконано успішно"})
 }
 
 func (h *AuthHandler) BlockUser(c *gin.Context) {
+	userID := c.GetString("user_id")
 	targetUserID := c.Param("id")
 
 	claimsVal, exists := c.Get("claims")
@@ -208,9 +248,21 @@ func (h *AuthHandler) BlockUser(c *gin.Context) {
 
 	isAuthorized := false
 
-	if claims.Role == "ADMIN" {
+	// 1. Визначаємо, чи є поточна роль керівною
+	isManager := false
+	switch models.UserRole(claims.Role) {
+	case models.RoleRegionDirector,
+		models.RoleBranchManager,
+		models.RoleDeptManager,
+		models.RoleDeptSupervisor,
+		models.RoleTeamLead:
+		isManager = true
+	}
+
+	// 2. Перевіряємо права на блокування
+	if claims.Role == models.RoleAdmin {
 		isAuthorized = true
-	} else if strings.HasSuffix(string(claims.Role), "_CMDR") {
+	} else if isManager {
 		if claims.UnitID != 0 {
 			isSubordinate, err := h.authService.CheckSubordination(c.Request.Context(), claims.UnitID, targetUserID)
 			if err != nil {
@@ -234,10 +286,15 @@ func (h *AuthHandler) BlockUser(c *gin.Context) {
 		return
 	}
 
+	go func(uID string, entityID string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "UPDATE", "USER", entityID, "Заблоковано обліковий запис користувача")
+	}(userID, targetUserID)
+
 	c.JSON(http.StatusOK, gin.H{"message": "Користувача переведено в резерв (заблоковано)"})
 }
 
 func (h *AuthHandler) UnblockUser(c *gin.Context) {
+	userID := c.GetString("user_id")
 	targetUserID := c.Param("id")
 
 	claimsVal, exists := c.Get("claims")
@@ -248,7 +305,7 @@ func (h *AuthHandler) UnblockUser(c *gin.Context) {
 	claims := claimsVal.(*middleware.Claims)
 
 	if claims.Role != "ADMIN" && claims.Role != "REGION_DIRECTOR" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Тільки Адміністратор або Командир бригади може повертати людей з резерву"})
+		c.JSON(http.StatusForbidden, gin.H{"error": "Тільки Адміністратор або Керівник регіону може розблоковувати людей"})
 		return
 	}
 
@@ -257,6 +314,10 @@ func (h *AuthHandler) UnblockUser(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Не вдалося розблокувати користувача"})
 		return
 	}
+
+	go func(uID string, entityID string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "UPDATE", "USER", entityID, "Розблоковано обліковий запис користувача")
+	}(userID, targetUserID)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Користувача розблоковано та переведено в кадровий резерв"})
 }
@@ -287,6 +348,10 @@ func (h *AuthHandler) UpdateMyProfile(c *gin.Context) {
 		return
 	}
 
+	go func(uID string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "UPDATE", "USER", uID, "Оновлено власний профіль")
+	}(userID)
+
 	c.JSON(http.StatusOK, gin.H{"message": "Профіль успішно оновлено"})
 }
 
@@ -314,6 +379,10 @@ func (h *AuthHandler) UpdateMyPassword(c *gin.Context) {
 		return
 	}
 
+	go func(uID string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "UPDATE", "USER", uID, "Змінено власний пароль")
+	}(claims.UserID)
+
 	c.JSON(http.StatusOK, gin.H{"message": "Пароль успішно змінено"})
 }
 
@@ -327,10 +396,12 @@ func (h *AuthHandler) RequestPasswordReset(c *gin.Context) {
 		return
 	}
 
-	// Викликаємо сервіс. Він завжди повертає nil (з міркувань безпеки)
 	_ = h.authService.RequestPasswordReset(c.Request.Context(), req.Email)
 
-	// Завжди повертаємо успіх
+	go func(email string) {
+		_ = h.auditService.LogAction(context.Background(), "SYSTEM", "UPDATE", "USER", email, "Запит на скидання пароля")
+	}(req.Email)
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Якщо цей email зареєстрований у системі, ми надіслали на нього інструкції з відновлення пароля.",
 	})

@@ -265,3 +265,36 @@ func (r *UnitRepository) Delete(ctx context.Context, db *pgxpool.Pool, id string
 	_, err := db.Exec(ctx, query, id)
 	return err
 }
+
+// GetEffectiveTier шукає тариф орг. одиниці з урахуванням ієрархії
+func (r *UnitRepository) GetEffectiveTier(ctx context.Context, db DBExecutor, unitID int) (string, error) {
+	query := `
+		WITH RECURSIVE unit_hierarchy AS (
+			-- Початкова точка (наш відділ)
+			SELECT id, parent_id, subscription_tier, 1 as depth
+			FROM units
+			WHERE id = $1
+			
+			UNION ALL
+			
+			-- Рекурсивно піднімаємося до батьків
+			SELECT u.id, u.parent_id, u.subscription_tier, uh.depth + 1
+			FROM units u
+			JOIN unit_hierarchy uh ON u.id = uh.parent_id
+		)
+		-- Вибираємо PRO, якщо він є хоча б десь в ієрархії. 
+		-- Сортуємо так, щоб PRO був пріоритетним над BASIC.
+		SELECT subscription_tier 
+		FROM unit_hierarchy 
+		ORDER BY (CASE WHEN subscription_tier = 'PRO' THEN 1 WHEN subscription_tier = 'ENTERPRISE' THEN 0 ELSE 2 END) ASC
+		LIMIT 1;
+	`
+
+	var tier string
+	err := db.QueryRow(ctx, query, unitID).Scan(&tier)
+	if err != nil {
+		return "BASIC", nil // Якщо щось пішло не так, повертаємо базовий тариф
+	}
+
+	return tier, nil
+}

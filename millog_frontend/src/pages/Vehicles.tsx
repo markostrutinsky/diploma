@@ -12,6 +12,11 @@ export default function Vehicles() {
 
   const [viewTab, setViewTab] = useState<'ACTIVE' | 'ARCHIVE'>('ACTIVE')
 
+  // ---------------------------------------------------------
+  // НОВИЙ СТЕЙТ ДЛЯ ПОШУКУ
+  // ---------------------------------------------------------
+  const [searchQuery, setSearchQuery] = useState('')
+
   const [showVehicleForm, setShowVehicleForm] = useState(false)
   const [fuelModalVehicle, setFuelModalVehicle] = useState<Vehicle | null>(null)
   
@@ -294,10 +299,6 @@ export default function Vehicles() {
     return <span>{driver.full_name}</span>;
   }
 
-  const activeVehicles = vehicles.filter(v => v.status !== 'INACTIVE')
-  const archivedVehicles = vehicles.filter(v => v.status === 'INACTIVE')
-  const displayedVehicles = viewTab === 'ACTIVE' ? activeVehicles : archivedVehicles
-
   if (loading) {
     return (
       <div className="page-loading">
@@ -306,6 +307,27 @@ export default function Vehicles() {
       </div>
     )
   }
+
+  // ---------------------------------------------------------
+  // ЛОГІКА ФІЛЬТРАЦІЇ ПОШУКУ
+  // ---------------------------------------------------------
+  const filteredVehicles = vehicles.filter(v => {
+    if (!searchQuery) return true;
+    
+    const query = searchQuery.toLowerCase().trim();
+    const brandModel = `${v.brand} ${v.model || ''}`.toLowerCase();
+    const plate = (v.plate_number || '').toLowerCase();
+    
+    // Шукаємо ім'я водія
+    const driver = usersList.find(u => u.id === v.driver_id);
+    const driverName = (driver?.full_name || '').toLowerCase();
+
+    return brandModel.includes(query) || plate.includes(query) || driverName.includes(query);
+  });
+
+  const activeVehicles = filteredVehicles.filter(v => v.status !== 'INACTIVE')
+  const archivedVehicles = filteredVehicles.filter(v => v.status === 'INACTIVE')
+  const displayedVehicles = viewTab === 'ACTIVE' ? activeVehicles : archivedVehicles
 
   return (
     <div className="vehicles-page">
@@ -756,17 +778,48 @@ export default function Vehicles() {
 
       {/* ТАБЛИЦЯ АВТОПАРКУ */}
       <div className="card">
-        <div className="table-header-flex">
-          <h2>{viewTab === 'ACTIVE' ? 'Автомобілі на балансі' : 'Архів списаної техніки'}</h2>
+        <div className="table-header-flex" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '16px' }}>
+          <h2 style={{ margin: 0 }}>{viewTab === 'ACTIVE' ? 'Автомобілі на балансі' : 'Архів списаної техніки'}</h2>
           
-          <div className="table-header-actions">
+          {/* НОВЕ ПОЛЕ ПОШУКУ */}
+          <div style={{ position: 'relative', width: '260px' }}>
+            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '14px' }}>
+              🔍
+            </span>
+            <input
+              type="text"
+              className="erp-input"
+              placeholder="Пошук"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ 
+                paddingLeft: '35px', 
+                borderRadius: '20px', 
+                paddingBottom: '6px', 
+                paddingTop: '6px',
+                border: '1px solid #cbd5e1'
+              }}
+            />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 0 }}
+              >
+                ✖
+              </button>
+            )}
+          </div>
+
+          <div className="table-header-actions" style={{ display: 'flex', gap: '8px' }}>
             <button className={`tab-toggle-btn ${viewTab === 'ACTIVE' ? 'active' : ''}`} onClick={() => setViewTab('ACTIVE')}>Активні авто ({activeVehicles.length})</button>
             <button className={`tab-toggle-btn archive ${viewTab === 'ARCHIVE' ? 'active' : ''}`} onClick={() => setViewTab('ARCHIVE')}>Списані ({archivedVehicles.length})</button>
           </div>
         </div>
 
         {displayedVehicles.length === 0 ? (
-          <p className="history-empty" style={{marginTop: '20px'}}>{viewTab === 'ACTIVE' ? 'Активний автопарк порожній' : 'Немає списаної техніки'}</p>
+          <p className="history-empty" style={{marginTop: '20px'}}>
+            {searchQuery ? `За запитом "${searchQuery}" нічого не знайдено` : (viewTab === 'ACTIVE' ? 'Активний автопарк порожній' : 'Немає списаної техніки')}
+          </p>
         ) : (
           <table className="data-table">
             <thead>

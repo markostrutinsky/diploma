@@ -22,6 +22,7 @@ func NewInventoryHandler(inv *services.InventoryService, audit *services.AuditSe
 }
 
 func (h *InventoryHandler) CreateCategory(c *gin.Context) {
+	userID := c.GetString("user_id")
 	var req models.CreateCategoryRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -32,6 +33,11 @@ func (h *InventoryHandler) CreateCategory(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	go func(uID string, entityID string, name string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "CREATE", "CATEGORY", entityID, "Створено нову категорію: "+name)
+	}(userID, fmt.Sprintf("%v", cat.ID), req.Name)
+
 	c.JSON(http.StatusCreated, cat)
 }
 
@@ -41,10 +47,12 @@ func (h *InventoryHandler) ListCategories(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
 	c.JSON(http.StatusOK, list)
 }
 
 func (h *InventoryHandler) CreateResource(c *gin.Context) {
+	userID := c.GetString("user_id")
 	var req models.CreateResourceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -55,6 +63,11 @@ func (h *InventoryHandler) CreateResource(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	go func(uID string, entityID string, name string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "CREATE", "RESOURCE", entityID, "Створено нову картку майна: "+name)
+	}(userID, fmt.Sprintf("%v", res.ID), req.Name)
+
 	c.JSON(http.StatusCreated, res)
 }
 
@@ -74,6 +87,7 @@ func (h *InventoryHandler) GetResource(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
 	c.JSON(http.StatusOK, res)
 }
 
@@ -131,14 +145,13 @@ func (h *InventoryHandler) WriteOff(c *gin.Context) {
 	}
 
 	go func(uID string, rID string) {
-		// Використовуємо context.Background(), бо контекст запиту 'c' вмирає після відповіді
 		_ = h.auditService.LogAction(
 			context.Background(),
 			uID,
 			"WRITE_OFF",
 			"RESOURCE",
 			rID,
-			"Списання майна зі складу", // Можна додати кількість, якщо вона є в змінній
+			"Списання майна зі складу",
 		)
 	}(userID, resourceID)
 
@@ -146,6 +159,7 @@ func (h *InventoryHandler) WriteOff(c *gin.Context) {
 }
 
 func (h *InventoryHandler) UpdateResource(c *gin.Context) {
+	userID := c.GetString("user_id")
 	id := c.Param("id")
 	if id == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "resource id is required"})
@@ -169,6 +183,10 @@ func (h *InventoryHandler) UpdateResource(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "internal server error"})
 		return
 	}
+
+	go func(uID string, rID string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "UPDATE", "RESOURCE", rID, "Оновлено дані картки майна")
+	}(userID, id)
 
 	c.JSON(http.StatusOK, gin.H{"message": "resource successfully updated"})
 }
@@ -200,6 +218,7 @@ func (h *InventoryHandler) Delete(c *gin.Context) {
 }
 
 func (h *InventoryHandler) Assign(c *gin.Context) {
+	userID := c.GetString("user_id")
 	resourceID := c.Param("id")
 	var req models.AssignResourceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -212,6 +231,11 @@ func (h *InventoryHandler) Assign(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	go func(uID string, rID string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "UPDATE", "RESOURCE", rID, "Майно видано користувачу")
+	}(userID, resourceID)
+
 	c.JSON(http.StatusOK, gin.H{"message": "Майно успішно видано"})
 }
 
@@ -222,8 +246,6 @@ func (h *InventoryHandler) GetMyEquipment(c *gin.Context) {
 		return
 	}
 	claims := claimsVal.(*middleware.Claims)
-
-	// ФІКС: Беремо правильне поле з токена
 	userID := claims.UserID
 
 	items, err := h.invService.GetMyEquipment(c.Request.Context(), userID)
@@ -239,15 +261,14 @@ func (h *InventoryHandler) GetMyEquipment(c *gin.Context) {
 	c.JSON(http.StatusOK, items)
 }
 
-// POST /api/inventory/issue
 func (h *InventoryHandler) IssueResource(c *gin.Context) {
+	userID := c.GetString("user_id")
 	var req models.IssueResourceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Невірний формат даних: " + err.Error()})
 		return
 	}
 
-	// Дістаємо дані командира з JWT токена
 	claimsVal, exists := c.Get("claims")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Не авторизовано"})
@@ -261,18 +282,21 @@ func (h *InventoryHandler) IssueResource(c *gin.Context) {
 		unitID = &val
 	}
 
-	// Виконуємо видачу
 	err := h.invService.IssueResource(c.Request.Context(), unitID, req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Майно успішно видано військовослужбовцю"})
+	go func(uID string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "UPDATE", "RESOURCE", "", "Майно видано користувачу")
+	}(userID)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Майно успішно видано користувачу"})
 }
 
-// POST /api/shipments
 func (h *InventoryHandler) CreateShipment(c *gin.Context) {
+	userID := c.GetString("user_id")
 	var req models.CreateShipmentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Невірний формат даних: " + err.Error()})
@@ -284,6 +308,10 @@ func (h *InventoryHandler) CreateShipment(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	go func(uID string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "CREATE", "SHIPMENT", "", "Сформовано новий рейс")
+	}(userID)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Рейс успішно сформовано, транспорт відправлено"})
 }
@@ -297,7 +325,6 @@ func (h *InventoryHandler) GetByWarehouse(c *gin.Context) {
 		return
 	}
 
-	// Якщо товарів немає, віддаємо порожній масив замість null
 	if items == nil {
 		items = []models.InventoryItem{}
 	}
@@ -311,41 +338,48 @@ func (h *InventoryHandler) ListShipments(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
 	c.JSON(http.StatusOK, list)
 }
 
 func (h *InventoryHandler) ReceiveShipment(c *gin.Context) {
+	userID := c.GetString("user_id")
 	shipmentID := c.Param("id")
 	err := h.invService.ReceiveShipment(c.Request.Context(), shipmentID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	go func(uID string, sID string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "UPDATE", "SHIPMENT", sID, "Вантаж прийнято на склад")
+	}(userID, shipmentID)
+
 	c.JSON(http.StatusOK, gin.H{"message": "Вантаж успішно прийнято на склад!"})
 }
 
-// DownloadShipmentPDF віддає згенеровану ТТН у форматі PDF
 func (h *InventoryHandler) DownloadShipmentPDF(c *gin.Context) {
+	userID := c.GetString("user_id")
 	shipmentID := c.Param("id")
 
-	// Викликаємо сервіс
 	pdfBytes, err := h.invService.GenerateShipmentPDF(c.Request.Context(), shipmentID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	// Кажемо браузеру завантажити цей файл з конкретною назвою
+	go func(uID string, sID string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "READ", "SHIPMENT", sID, "Завантажено ТТН рейсу")
+	}(userID, shipmentID)
+
 	filename := fmt.Sprintf("Waybill_%s.pdf", shipmentID)
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
 	c.Header("Content-Type", "application/pdf")
-
-	// Віддаємо байти (HTTP статус 200)
 	c.Data(http.StatusOK, "application/pdf", pdfBytes)
 }
 
-// DownloadResourceQR віддає згенерований QR-код у форматі PNG
 func (h *InventoryHandler) DownloadResourceQR(c *gin.Context) {
+	userID := c.GetString("user_id")
 	resourceID := c.Param("id")
 
 	pngBytes, err := h.invService.GenerateResourceQR(resourceID)
@@ -354,6 +388,10 @@ func (h *InventoryHandler) DownloadResourceQR(c *gin.Context) {
 		return
 	}
 
+	go func(uID string, rID string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "READ", "RESOURCE", rID, "Завантажено QR-код майна")
+	}(userID, resourceID)
+
 	fileName := fmt.Sprintf("QR_%s.png", resourceID)
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", fileName))
 	c.Header("Content-Type", "image/png")
@@ -361,7 +399,6 @@ func (h *InventoryHandler) DownloadResourceQR(c *gin.Context) {
 	c.Data(http.StatusOK, "image/png", pngBytes)
 }
 
-// UpdateCategory оновлює назву або опис категорії
 func (h *InventoryHandler) UpdateCategory(c *gin.Context) {
 	categoryID := c.Param("id")
 	userID := c.GetString("user_id")
@@ -389,7 +426,6 @@ func (h *InventoryHandler) UpdateCategory(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Категорію успішно оновлено"})
 }
 
-// DeleteCategory видаляє категорію (якщо вона порожня)
 func (h *InventoryHandler) DeleteCategory(c *gin.Context) {
 	categoryID := c.Param("id")
 	userID := c.GetString("user_id")
@@ -411,7 +447,6 @@ func (h *InventoryHandler) DeleteCategory(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Категорію видалено"})
 }
 
-// POST /api/inventory/audit
 func (h *InventoryHandler) SubmitAudit(c *gin.Context) {
 	var req models.SubmitAuditRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -431,7 +466,6 @@ func (h *InventoryHandler) SubmitAudit(c *gin.Context) {
 		return
 	}
 
-	// Логуємо дію в Аудит
 	go func(uID, wID string) {
 		_ = h.auditService.LogAction(
 			context.Background(),
