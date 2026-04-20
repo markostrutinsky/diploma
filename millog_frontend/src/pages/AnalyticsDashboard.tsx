@@ -7,8 +7,8 @@ import './AnalyticsDashboard.css';
 import { api, Unit } from '../api/client';
 
 const TCO_COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#6366f1', '#ec4899'];
-const requestLabels: Record<string, string> = { 'OPEN': 'Відкриті', 'IN_PROGRESS': 'В роботі', 'COMPLETED': 'Виконані', 'CANCELLED': 'Скасовані' };
-const requestColors: Record<string, string> = { 'OPEN': '#3b82f6', 'IN_PROGRESS': '#f59e0b', 'COMPLETED': '#10b981', 'CANCELLED': '#ef4444' };
+const requestLabels: Record<string, string> = { 'OPEN': 'Відкриті', 'IN_PROGRESS': 'В роботі', 'COMPLETED': 'Виконані', 'CANCELLED': 'Скасовані', 'ESCALATED': 'Ескальовані (SLA)' };
+const requestColors: Record<string, string> = { 'OPEN': '#3b82f6', 'IN_PROGRESS': '#f59e0b', 'COMPLETED': '#10b981', 'CANCELLED': '#ef4444', 'ESCALATED': '#9f1239' };
 
 const AnalyticsDashboard: React.FC = () => {
   const [data, setData] = useState<any>(null);
@@ -27,6 +27,8 @@ const AnalyticsDashboard: React.FC = () => {
   const defaultStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
   const [startDate, setStartDate] = useState(defaultStart);
   const [endDate, setEndDate] = useState(defaultEnd);
+
+  const [isSlaChecking, setIsSlaChecking] = useState(false);
 
   // Завантажуємо список орг. одиниць при старті
   useEffect(() => {
@@ -153,6 +155,23 @@ const AnalyticsDashboard: React.FC = () => {
       toast.error(error.message || 'Не вдалося завантажити звіт', { id: toastId });
     }
   };
+  const handleTriggerSLA = async () => {
+  setIsSlaChecking(true);
+  const toastId = toast.loading("Перевірка термінів виконання...");
+  try {
+    const res = await api.admin.triggerSLACheck();
+    if (res.escalated_count > 0) {
+      toast.success(`Знайдено та ескальовано ${res.escalated_count} заявок!`, { id: toastId });
+    } else {
+      toast.success("Всі заявки в межах норми SLA", { id: toastId });
+    }
+    fetchData(); // Оновлюємо цифри на дашборді
+  } catch (err) {
+    toast.error("Не вдалося запустити монітор", { id: toastId });
+  } finally {
+    setIsSlaChecking(false);
+  }
+};
 
   const submitSmartReplenish = async () => {
     const payloadItems = (data?.deficit_resources || [])
@@ -277,6 +296,13 @@ const AnalyticsDashboard: React.FC = () => {
             <button onClick={handleExportInventory} className="btn-secondary" title="Залишки на складах">📊 Excel (Склади)</button>
             <button onClick={handleExportFuel} className="btn-secondary" title="Історія пального">⛽ Excel (Пальне)</button>
             <button onClick={handleExportPDF} className="btn-secondary">📄 Звіт (А4)</button>
+            <button 
+    onClick={handleTriggerSLA} 
+    className="btn-danger-action" 
+    disabled={isSlaChecking}
+  >
+    {isSlaChecking ? '⌛ Перевірка...' : '⚡ Перевірити SLA'}
+  </button>
             <button onClick={() => setIsModalOpen(true)} className="btn-primary">⚡ Smart Поповнення</button>
           </div>
         </div>
@@ -302,6 +328,29 @@ const AnalyticsDashboard: React.FC = () => {
         {/* ВКЛАДКА 1: ЗВЕДЕННЯ */}
         {activeTab === 'overview' && (
           <div className="grid-layout">
+            <div className="erp-widget col-span-full sla-control-panel">
+              <div className="widget-header">
+                <h3>🛠️ Панель оперативного контролю</h3>
+              </div>
+              
+              <div className="sla-control-body">
+                <div className="sla-control-text">
+                  <p className="sla-control-title">Моніторинг «завислих» заявок</p>
+                  <p className="sla-control-desc">
+                    Система автоматично перевіряє заявки кожну годину. Натисніть кнопку, щоб запустити перевірку та ескалацію негайно.
+                  </p>
+                </div>
+                
+                <button 
+                  onClick={handleTriggerSLA} 
+                  className="btn-danger-action" 
+                  disabled={isSlaChecking}
+                >
+                  Запустити монітор
+                </button>
+              </div>
+            </div>
+
             <div className="erp-widget col-span-2">
               <div className="widget-header"><h3>Рівень забезпечення орг. одиниць</h3><span className="info-badge">Готовність</span></div>
               <div className="scroll-container">

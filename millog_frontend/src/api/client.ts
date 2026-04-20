@@ -72,6 +72,9 @@ export const api = {
         body: JSON.stringify(body),
       }),
     getAuditLogs: () => request<any[]>('/admin/audit-logs'),
+    triggerSLACheck: () => request<{ message: string; escalated_count: number }>('/admin/sla/trigger', {
+      method: 'POST',
+    }),
   },
   users: {
     // Змінено з commanders на managers
@@ -228,6 +231,40 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ routes }),
       }),
+
+    downloadImportTemplate: async () => {
+      const token = getToken();
+      const response = await fetch(`${API_BASE}/inventory/resources/import/template`, {
+        method: 'GET',
+        headers: { 'Authorization': token ? `Bearer ${token}` : '' },
+      });
+      if (!response.ok) throw new Error('Помилка завантаження шаблону');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'OmniLog_Import_Template.xlsx');
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    },
+
+    importExcel: async (unitId: number, warehouseId: string, file: File) => {
+      const token = getToken();
+      const formData = new FormData();
+      formData.append('unit_id', unitId.toString());
+      formData.append('warehouse_id', warehouseId);
+      formData.append('file', file);
+
+      const response = await fetch(`${API_BASE}/inventory/resources/import`, {
+        method: 'POST',
+        headers: { 'Authorization': token ? `Bearer ${token}` : '' },
+        body: formData,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Помилка імпорту');
+      return data;
+    },
   },
   requests: {
     list: () => request<SupplyRequest[]>('/requests'),
@@ -553,6 +590,9 @@ export interface User {
   created_at: string;            
   updated_at: string;
   effective_subscription_tier?: SubscriptionTier;
+  unit?: {
+    subscription_tier?: string;
+  };
 }
 
 export interface UpdateProfileData {
@@ -614,6 +654,7 @@ export interface Resource {
   description: string
   quantity: number
   serial_number: string
+  barcode?: string
   unit_type: 'PCS' | 'KIT' | 'KG' | 'L';
   condition: 'NEW' | 'USED' | 'WRITTEN_OFF';
   min_quantity: number
@@ -635,6 +676,7 @@ export interface CreateResourceRequest {
   quantity: number;
   unit_type: 'PCS' | 'KIT' | 'KG' | 'L';
   serial_number?: string;
+  barcode?: string
   condition?: 'NEW' | 'USED' | 'WRITTEN_OFF';
   min_quantity: number;
   weight_kg: number;
@@ -676,6 +718,8 @@ export interface Vehicle {
   type: VehicleType;
   capacity_kg: number;
   driver_name?: string;
+  avg_km_per_day?: number;
+  predicted_maint_date?: string;
 }
 
 export interface FuelRecord {

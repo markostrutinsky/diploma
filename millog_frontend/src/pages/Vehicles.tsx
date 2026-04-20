@@ -76,6 +76,8 @@ export default function Vehicles() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  // Припускаємо, що subscription_tier лежить у unit користувача
+  const isPro = user?.unit?.subscription_tier === 'PRO' || user?.role === 'ADMIN';
 
   useEffect(() => {
     const closeMenu = () => setActiveMenuId(null);
@@ -329,6 +331,16 @@ export default function Vehicles() {
   const archivedVehicles = filteredVehicles.filter(v => v.status === 'INACTIVE')
   const displayedVehicles = viewTab === 'ACTIVE' ? activeVehicles : archivedVehicles
 
+  const assignedDriverIds = vehicles
+    .filter(v => v.status !== 'INACTIVE' && v.driver_id)
+    .map(v => v.driver_id);
+
+  const availableDriversForNew = usersList.filter(u => !assignedDriverIds.includes(u.id));
+
+  const availableDriversForAssign = usersList.filter(u => 
+    !assignedDriverIds.includes(u.id) || u.id === driverModalVehicle?.driver_id
+  );
+
   return (
     <div className="vehicles-page">
       <Toaster position="top-right" />
@@ -412,12 +424,15 @@ export default function Vehicles() {
               </div>
 
               <div className="form-group">
-                <label>Закріплений водій</label>
-                <select value={newVehicle.driver_id} onChange={(e) => setNewVehicle({ ...newVehicle, driver_id: e.target.value })} className="erp-input">
-                  <option value="">-- Без закріплення --</option>
-                  {usersList.map(u => <option key={u.id} value={u.id}>{u.full_name} ({u.role})</option>)}
-                </select>
-              </div>
+    <label>Закріплений водій</label>
+    <select value={newVehicle.driver_id} onChange={(e) => setNewVehicle({ ...newVehicle, driver_id: e.target.value })} className="erp-input">
+      <option value="">-- Без закріплення --</option>
+      {availableDriversForNew.map(u => <option key={u.id} value={u.id}>{u.full_name} ({u.role})</option>)}
+    </select>
+    <span style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', display: 'block' }}>
+      У списку відображаються лише вільні співробітники.
+    </span>
+  </div>
 
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowVehicleForm(false)} disabled={isProcessing}>Скасувати</button>
@@ -507,12 +522,12 @@ export default function Vehicles() {
             <form onSubmit={handleAssignDriver}>
               <p className="modal-description">Виберіть співробітника, за яким буде закріплено даний транспортний засіб.</p>
               <div className="form-group">
-                <label>Відповідальний водій</label>
-                <select value={driverForm.driver_id} onChange={(e) => setDriverForm({...driverForm, driver_id: e.target.value})} className="erp-input" disabled={isProcessing}>
-                  <option value="">-- Зняти закріплення (Без водія) --</option>
-                  {usersList.map(u => <option key={u.id} value={u.id}>{u.full_name} ({u.role})</option>)}
-                </select>
-              </div>
+    <label>Відповідальний водій</label>
+    <select value={driverForm.driver_id} onChange={(e) => setDriverForm({...driverForm, driver_id: e.target.value})} className="erp-input" disabled={isProcessing}>
+      <option value="">-- Зняти закріплення (Без водія) --</option>
+      {availableDriversForAssign.map(u => <option key={u.id} value={u.id}>{u.full_name} ({u.role})</option>)}
+    </select>
+  </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setDriverModalVehicle(null)} disabled={isProcessing}>Скасувати</button>
                 <button type="submit" className="btn btn-primary" disabled={isProcessing}>Зберегти зміни</button>
@@ -859,12 +874,36 @@ export default function Vehicles() {
                     </td>
                     
                     {viewTab === 'ACTIVE' && (
-                      <td>
-                        {v.maintenance_status === 'OVERDUE' && <span className="badge badge-critical" title={`Інтервал: ${v.maintenance_interval_km} км`}>Прострочено на {Math.abs(v.km_to_next_maintenance)} км</span>}
-                        {v.maintenance_status === 'WARNING' && <span className="badge badge-warning" title={`Інтервал: ${v.maintenance_interval_km} км`}>Залишилось {v.km_to_next_maintenance} км</span>}
-                        {v.maintenance_status === 'OK' && <span className="text-muted" title={`Інтервал: ${v.maintenance_interval_km} км`}>Ще {v.km_to_next_maintenance} км</span>}
-                      </td>
-                    )}
+  <td>
+    {v.maintenance_status === 'OVERDUE' ? (
+      <span className="badge badge-critical">🚨 Прострочено</span>
+    ) : (
+      <div className="maint-cell">
+        {/* PRO ВАРІАНТ: Дата + темп пробігу */}
+        {isPro && v.predicted_maint_date ? (
+          <div className="pro-prediction" title={`Середній пробіг: ${Math.round(v.avg_km_per_day || 0)} км/день`}>
+            <span className={v.maintenance_status === 'WARNING' ? 'text-warning' : 'text-success'} style={{fontWeight: 600}}>
+              📅 {new Date(v.predicted_maint_date).toLocaleDateString('uk-UA')}
+            </span>
+            <div className="pro-badge">PRO прогноз</div>
+          </div>
+        ) : (
+          /* BASIC ВАРІАНТ: Просто кілометри */
+          <div className="basic-maint">
+            <span className={v.maintenance_status === 'WARNING' ? 'text-warning' : 'text-muted'}>
+              Залишок: {v.km_to_next_maintenance} км
+            </span>
+            {!isPro && (
+              <div className="upsell-link" onClick={() => toast.error("Прогноз дати доступний лише у PRO тарифі")}>
+                🔒 Дізнатись дату
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    )}
+  </td>
+)}
 
                     <td className="col-actions-menu">
                       <div className="dropdown-container" onClick={(e) => e.stopPropagation()}>

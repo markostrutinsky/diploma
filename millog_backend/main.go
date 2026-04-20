@@ -102,9 +102,10 @@ func main() {
 	warehouseService := services.NewWarehouseService(warehouseRepo, dbPool)
 	analyticsService := services.NewAnalyticsService(analyticsRepo, dbPool)
 	auditService := services.NewAuditService(auditRepo, dbPool)
+	slaMonitor := services.NewSLAMonitor(dbPool, reqRepo, auditRepo, emailService)
 
 	invHandler := handlers.NewInventoryHandler(invService, auditService)
-	reqHandler := handlers.NewRequestHandler(reqService, auditService)
+	reqHandler := handlers.NewRequestHandler(reqService, auditService, slaMonitor)
 	unitHandler := handlers.NewUnitHandler(unitService, auditService)
 	volReqHandler := handlers.NewContractorRequestHandler(volReqService, auditService)
 	analyticsHandler := handlers.NewAnalyticsHandler(analyticsService, auditService)
@@ -118,6 +119,8 @@ func main() {
 	vehicleService := services.NewVehicleService(vehicleRepo, dbPool)
 	vehicleHandler := handlers.NewVehicleHandler(vehicleService, auditService)
 	auditHandler := handlers.NewAuditHandler(auditService)
+
+	slaMonitor.Start(context.Background())
 
 	r := gin.Default()
 
@@ -156,6 +159,7 @@ func main() {
 		{
 			admin.POST("/users", authHandler.RegisterUser)
 			admin.GET("/audit-logs", auditHandler.GetLogs)
+			admin.POST("/sla/trigger", reqHandler.TriggerCheck)
 		}
 
 		// Units: Admin + commanders + logists + storekeepers
@@ -196,6 +200,8 @@ func main() {
 			inv.PATCH("/categories/:id", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.UpdateCategory)
 			inv.DELETE("/categories/:id", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.DeleteCategory)
 			inv.POST("/audit", invHandler.SubmitAudit)
+			inv.GET("/resources/import/template", invHandler.DownloadImportTemplate)                                       // Завантаження шаблону
+			inv.POST("/resources/import", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.ImportExcel) // Завантаження заповненого Excel
 		}
 
 		// Supply requests: commanders + logists + sergeant create; commanders + logists approve

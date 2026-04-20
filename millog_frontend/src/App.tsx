@@ -18,6 +18,7 @@ import AnalyticsDashboard from './pages/AnalyticsDashboard'
 import Profile from './pages/Profile'
 import AuditLogs from './pages/AuditLogs'
 import Billing from './pages/Billing';
+import KioskTerminal from './pages/KioskTerminal';
 import { Toaster } from 'react-hot-toast'
 
 function App() {
@@ -76,6 +77,15 @@ function App() {
             path="/analytics" 
             element={<ProtectedRoute forbidRoles={['CONTRACTOR']}><AnalyticsDashboard /></ProtectedRoute>} 
           />
+
+          <Route 
+    path="/kiosk" 
+    element={
+      <ProtectedRoute forbidRoles={['CONTRACTOR', 'EMPLOYEE']}>
+        <KioskTerminal />
+      </ProtectedRoute>
+    } 
+  />
 
           <Route 
             path="/CONTRACTOR-requests" 

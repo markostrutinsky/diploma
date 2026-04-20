@@ -228,3 +228,43 @@
 .vehicles-modal .history-table-wrapper::-webkit-scrollbar-track { background: #f8fafc; border-radius: 4px; }
 .vehicles-modal .history-table-wrapper::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 .vehicles-modal .history-table-wrapper::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+.maint-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.pro-prediction {
+  display: flex;
+  flex-direction: column;
+}
+
+.pro-badge {
+  font-size: 10px;
+  background: #dcfce7;
+  color: #166534;
+  padding: 1px 4px;
+  border-radius: 4px;
+  width: fit-content;
+  margin-top: 2px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.basic-maint {
+  display: flex;
+  flex-direction: column;
+}
+
+.upsell-link {
+  font-size: 11px;
+  color: #3b82f6;
+  text-decoration: underline;
+  cursor: pointer;
+  margin-top: 2px;
+}
+
+.upsell-link:hover {
+  color: #2563eb;
+}

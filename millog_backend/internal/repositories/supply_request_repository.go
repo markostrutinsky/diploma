@@ -2,10 +2,12 @@ package repositories
 
 import (
 	"context"
+	"time"
 
 	"millog_backend/internal/models"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type SupplyRequestRepository struct{}
@@ -162,4 +164,70 @@ func (r *SupplyRequestRepository) GetAvailableVehicles(ctx context.Context, db D
 		vehicles = append(vehicles, v)
 	}
 	return vehicles, nil
+}
+
+func (r *SupplyRequestRepository) GetOverdueRequests(ctx context.Context, db *pgxpool.Pool, status string, hoursLimit int) ([]models.SupplyRequest, error) {
+	// Визначаємо часову межу: поточний час мінус ліміт годин
+	threshold := time.Now().Add(-time.Duration(hoursLimit) * time.Hour)
+
+	query := `
+		SELECT id, created_by, target_warehouse_id, status, created_at 
+		FROM supply_requests 
+		WHERE status = $1 AND created_at < $2
+	`
+
+	rows, err := db.Query(ctx, query, status, threshold)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var overdue []models.SupplyRequest
+	for rows.Next() {
+		var req models.SupplyRequest
+		if err := rows.Scan(&req.ID, &req.CreatedBy, &req.TargetWarehouseID, &req.Status, &req.CreatedAt); err == nil {
+			overdue = append(overdue, req)
+		}
+	}
+	return overdue, nil
+}
+
+func (r *SupplyRequestRepository) GetEscalatedOverdueRequests(ctx context.Context, db *pgxpool.Pool, status string, hoursLimit int) ([]models.SupplyRequest, error) {
+	threshold := time.Now().Add(-time.Duration(hoursLimit) * time.Hour)
+
+	// 🔥 МАГІЯ SQL: Динамічно шукаємо email локального керівника
+	// База перевірить, чи є в цьому підрозділі директор, керівник філії або відділу.
+	query := `
+		SELECT 
+			sr.id, sr.created_by, sr.target_warehouse_id, sr.status, sr.created_at,
+			COALESCE(
+				(SELECT u.email FROM users u 
+				 JOIN warehouses w ON u.unit_id = w.unit_id 
+				 WHERE w.id = sr.target_warehouse_id 
+				   AND u.role IN ('BRANCH_MANAGER', 'REGION_DIRECTOR', 'DEPT_MANAGER') 
+				 LIMIT 1), 
+				'admin@omnilog.app' -- Резервний імейл, якщо підрозділ тимчасово без керівника
+			) AS manager_email
+		FROM supply_requests sr
+		WHERE sr.status = $1 AND sr.created_at < $2
+	`
+
+	rows, err := db.Query(ctx, query, status, threshold)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var overdue []models.SupplyRequest
+	for rows.Next() {
+		var req models.SupplyRequest
+		// Скануємо нове поле &req.ManagerEmail (яке ти вже додав у models/requests.go)
+		if err := rows.Scan(
+			&req.ID, &req.CreatedBy, &req.TargetWarehouseID,
+			&req.Status, &req.CreatedAt, &req.ManagerEmail,
+		); err == nil {
+			overdue = append(overdue, req)
+		}
+	}
+	return overdue, nil
 }

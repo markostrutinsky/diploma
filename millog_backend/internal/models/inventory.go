@@ -158,3 +158,25 @@ type SubmitAuditRequest struct {
 	WarehouseID   string             `json:"warehouse_id" binding:"required"`
 	Discrepancies []AuditDiscrepancy `json:"discrepancies"`
 }
+
+type ImportResourceRow struct {
+	UnitName      string  `json:"unit_name" binding:"required"`      // Назва організації/підрозділу
+	WarehouseName string  `json:"warehouse_name" binding:"required"` // Назва складу
+	CategoryName  string  `json:"category_name" binding:"required"`  // Назва категорії
+	ResourceName  string  `json:"resource_name" binding:"required"`  // Назва предмета
+	Description   string  `json:"description"`
+	Quantity      int     `json:"quantity" binding:"required,gte=0"`
+	UnitType      string  `json:"unit_type" binding:"required"` // шт, кг, комплект
+	WeightKg      float64 `json:"weight_kg" binding:"gte=0"`
+	Condition     string  `json:"condition" binding:"required"` // Новий, Вживаний
+	SerialNumber  string  `json:"serial_number"`
+	Barcode       string  `json:"barcode"`
+}
+
+// BulkImportResponse - результат завантаження файлу
+type BulkImportResponse struct {
+	TotalProcessed int      `json:"total_processed"`
+	Successfully   int      `json:"successfully"`
+	Failed         int      `json:"failed"`
+	Errors         []string `json:"errors,omitempty"` // Список помилок по рядках
+}

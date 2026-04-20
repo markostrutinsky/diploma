@@ -19,31 +19,31 @@ func NewResourceRepository() *ResourceRepository {
 }
 
 func (r *ResourceRepository) Create(ctx context.Context, db DBExecutor, res *models.Resource) error {
-	// ДОДАНО: weight_kg в INSERT та VALUES ($11)
-	query := `INSERT INTO resources (category_id, unit_id, name, description, quantity, unit_type, serial_number, warehouse_id, condition, min_quantity, weight_kg)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, created_at, updated_at`
+	// ДОДАНО: barcode в INSERT та VALUES ($12)
+	query := `INSERT INTO resources (category_id, unit_id, name, description, quantity, unit_type, serial_number, barcode, warehouse_id, condition, min_quantity, weight_kg)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id, created_at, updated_at`
 
-	// БЕЗПЕКА: Якщо вказівник існує, але вказує на порожній рядок (""),
-	// робимо його nil. Тоді база даних безпечно запише SQL NULL.
 	if res.WarehouseID != nil && *res.WarehouseID == "" {
 		res.WarehouseID = nil
 	}
 
 	return db.QueryRow(ctx, query,
 		res.CategoryID, res.UnitID, res.Name, res.Description, res.Quantity, res.UnitType, res.SerialNumber,
-		res.WarehouseID, res.Condition, res.MinQuantity, res.WeightKg, // ДОДАНО: res.WeightKg
+		res.Barcode, // 🔥 ДОДАНО
+		res.WarehouseID, res.Condition, res.MinQuantity, res.WeightKg,
 	).Scan(&res.ID, &res.CreatedAt, &res.UpdatedAt)
 }
 
 func (r *ResourceRepository) GetByID(ctx context.Context, db DBExecutor, id string) (*models.Resource, error) {
-	// НОВА ЛОГІКА: Рахуємо залишок на складі та кількість на руках через таблицю resource_assignments
+	// Додай COALESCE(r.barcode, '') у SELECT після серійного номера
 	query := `
         SELECT 
             r.id, r.category_id, COALESCE(r.unit_id, 0), r.name, COALESCE(r.description, ''), 
-            r.quantity, -- Залишок на складі
-            COALESCE(SUM(ra.quantity) FILTER (WHERE ra.status = 'ACTIVE'), 0) as issued_quantity, -- Видано на руки
+            r.quantity, COALESCE(SUM(ra.quantity) FILTER (WHERE ra.status = 'ACTIVE'), 0) as issued_quantity, 
             COALESCE(r.unit_type, 'PCS'), COALESCE(r.serial_number, ''), 
+            COALESCE(r.barcode, ''), -- 🔥 ДОДАНО
             COALESCE(CAST(r.warehouse_id AS TEXT), ''), r.condition, r.min_quantity, 
+			r.weight_kg,
             r.created_at, r.updated_at
         FROM resources r
         LEFT JOIN resource_assignments ra ON r.id = ra.resource_id
@@ -53,10 +53,9 @@ func (r *ResourceRepository) GetByID(ctx context.Context, db DBExecutor, id stri
 	var res models.Resource
 	err := db.QueryRow(ctx, query, id).Scan(
 		&res.ID, &res.CategoryID, &res.UnitID, &res.Name, &res.Description,
-		&res.Quantity,       // Складський залишок
-		&res.IssuedQuantity, // НОВЕ: кількість на руках
-		&res.UnitType, &res.SerialNumber, &res.WarehouseID, &res.Condition, &res.MinQuantity,
-		&res.CreatedAt, &res.UpdatedAt,
+		&res.Quantity, &res.IssuedQuantity, &res.UnitType, &res.SerialNumber,
+		&res.Barcode, // 🔥 ДОДАНО (на 10-му місці)
+		&res.WarehouseID, &res.Condition, &res.MinQuantity, &res.WeightKg, &res.CreatedAt, &res.UpdatedAt,
 	)
 	if err != nil {
 		fmt.Println("🚨 SCAN ERROR IN GetByID:", err)
@@ -81,8 +80,9 @@ func (r *ResourceRepository) List(ctx context.Context, db DBExecutor, unitID *in
             r.id, r.category_id, COALESCE(r.unit_id, 0), r.name, COALESCE(r.description, ''), 
             r.quantity, -- Залишок на складі
             COALESCE(SUM(ra.quantity) FILTER (WHERE ra.status = 'ACTIVE'), 0) as issued_quantity, -- Видано на руки
-            COALESCE(r.unit_type, 'PCS'), COALESCE(r.serial_number, ''), 
+            COALESCE(r.unit_type, 'PCS'), COALESCE(r.serial_number, ''), COALESCE(r.barcode, ''), 
             COALESCE(CAST(r.warehouse_id AS TEXT), ''), r.condition, r.min_quantity, 
+			r.weight_kg,
             r.created_at, r.updated_at
         FROM resources r
         LEFT JOIN resource_assignments ra ON r.id = ra.resource_id
@@ -97,8 +97,9 @@ func (r *ResourceRepository) List(ctx context.Context, db DBExecutor, unitID *in
             r.id, r.category_id, COALESCE(r.unit_id, 0), r.name, COALESCE(r.description, ''), 
             r.quantity, -- Залишок на складі
             COALESCE(SUM(ra.quantity) FILTER (WHERE ra.status = 'ACTIVE'), 0) as issued_quantity, -- Видано на руки
-            COALESCE(r.unit_type, 'PCS'), COALESCE(r.serial_number, ''), 
+            COALESCE(r.unit_type, 'PCS'), COALESCE(r.serial_number, ''), COALESCE(r.barcode, ''),
             COALESCE(CAST(r.warehouse_id AS TEXT), ''), r.condition, r.min_quantity, 
+			r.weight_kg,
             r.created_at, r.updated_at
         FROM resources r
         LEFT JOIN resource_assignments ra ON r.id = ra.resource_id
@@ -120,7 +121,7 @@ func (r *ResourceRepository) List(ctx context.Context, db DBExecutor, unitID *in
 			&res.ID, &res.CategoryID, &res.UnitID, &res.Name, &res.Description,
 			&res.Quantity,       // Це тепер складський залишок
 			&res.IssuedQuantity, // НОВЕ: Це скільки на руках
-			&res.UnitType, &res.SerialNumber, &res.WarehouseID, &res.Condition, &res.MinQuantity,
+			&res.UnitType, &res.SerialNumber, &res.Barcode, &res.WarehouseID, &res.Condition, &res.MinQuantity, &res.WeightKg,
 			&res.CreatedAt, &res.UpdatedAt,
 		); err != nil {
 			fmt.Println("🚨 SCAN ERROR IN ListResources (Row Loop):", err)
@@ -236,6 +237,12 @@ func (r *ResourceRepository) Update(ctx context.Context, db DBExecutor, id strin
 	if req.MinQuantity != nil {
 		query += fmt.Sprintf(", min_quantity = $%d", argID)
 		args = append(args, *req.MinQuantity)
+		argID++
+	}
+
+	if req.WeightKg != nil {
+		query += fmt.Sprintf(", weight_kg = $%d", argID)
+		args = append(args, *req.WeightKg)
 		argID++
 	}
 
@@ -808,4 +815,35 @@ func (r *ResourceRepository) SubmitInventoryAudit(ctx context.Context, db DBExec
 	}
 
 	return nil
+}
+
+func (r *CategoryRepository) GetAll(ctx context.Context, db DBExecutor) ([]models.ResourceCategory, error) {
+	query := `SELECT id, name FROM resource_categories`
+	rows, err := db.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var categories []models.ResourceCategory
+	for rows.Next() {
+		var c models.ResourceCategory
+		// Якщо в БД ID категорії це string або int64, адаптуй під свою модель
+		if err := rows.Scan(&c.ID, &c.Name); err != nil {
+			return nil, err
+		}
+		categories = append(categories, c)
+	}
+	return categories, nil
+}
+
+// Шукає ресурс за іменем та ID складу
+func (r *ResourceRepository) GetByNameAndWarehouse(ctx context.Context, db DBExecutor, name string, warehouseID string) (*models.Resource, error) {
+	query := `SELECT id, quantity FROM resources WHERE name = $1 AND warehouse_id = $2 LIMIT 1`
+	var res models.Resource
+	err := db.QueryRow(ctx, query, name, warehouseID).Scan(&res.ID, &res.Quantity)
+	if err != nil {
+		return nil, err // Якщо не знайдено, поверне помилку pgx.ErrNoRows
+	}
+	return &res, nil
 }

@@ -104,14 +104,12 @@ export default function Home() {
 
     if (isAdmin) {
       setLoadingLogs(true)
-      if ((api as any).audit && typeof (api as any).audit.list === 'function') {
-        (api as any).audit.list()
-          .then((logs: any) => { setRecentLogs(Array.isArray(logs) ? logs.slice(0, 5) : []) })
-          .catch(console.error)
-          .finally(() => setLoadingLogs(false))
-      } else {
-        setLoadingLogs(false)
-      }
+      api.admin.getAuditLogs()
+        .then((logs: any) => { 
+          setRecentLogs(Array.isArray(logs) ? logs.slice(0, 5) : []) 
+        })
+        .catch(console.error)
+        .finally(() => setLoadingLogs(false))
     }
   }, [isCONTRACTOR, isAdmin, user?.id])
 
@@ -254,8 +252,16 @@ export default function Home() {
                     <div key={log.id || idx} className="feed-item">
                       <div className="feed-time">{formatTime(log.created_at)}</div>
                       <div className="feed-content">
-                        <strong>{log.user_id}</strong>
-                        <span>{log.description || log.action}</span>
+                        {/* Використовуємо user_email замість user_id */}
+                        <strong>{log.user_email || 'Система'}</strong>
+                        <span>
+                          <span style={{fontWeight: 600, color: '#3b82f6', marginRight: '6px'}}>
+                            {/* Використовуємо action_type */}
+                            [{log.action_type || 'SYS'}]
+                          </span> 
+                          {/* Використовуємо details */}
+                          {log.details || 'Деталі події відсутні'}
+                        </span>
                       </div>
                     </div>
                   ))

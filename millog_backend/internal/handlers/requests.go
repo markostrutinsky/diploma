@@ -14,10 +14,11 @@ import (
 type RequestHandler struct {
 	reqService   *services.RequestService
 	auditService *services.AuditService
+	slaMonitor   *services.SLAMonitor
 }
 
-func NewRequestHandler(svc *services.RequestService, auditService *services.AuditService) *RequestHandler {
-	return &RequestHandler{reqService: svc, auditService: auditService}
+func NewRequestHandler(svc *services.RequestService, auditService *services.AuditService, slaMonitor *services.SLAMonitor) *RequestHandler {
+	return &RequestHandler{reqService: svc, auditService: auditService, slaMonitor: slaMonitor}
 }
 
 func (h *RequestHandler) Create(c *gin.Context) {
@@ -170,4 +171,17 @@ func (h *RequestHandler) SmartDispatchPreview(c *gin.Context) {
 
 	// Повертаємо готовий результат
 	c.JSON(http.StatusOK, result)
+}
+
+func (h *RequestHandler) TriggerCheck(c *gin.Context) {
+	count, err := h.slaMonitor.CheckPendingRequests(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка під час перевірки SLA"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":         fmt.Sprintf("Перевірку SLA завершено. Знайдено та ескальовано %d заявок.", count),
+		"escalated_count": count,
+	})
 }

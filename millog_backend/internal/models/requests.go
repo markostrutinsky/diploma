@@ -11,6 +11,7 @@ const (
 	RequestRejected   RequestStatus = "REJECTED"
 	RequestCompleted  RequestStatus = "COMPLETED"
 	RequestOpen       RequestStatus = "OPEN"
+	RequestEscalated  RequestStatus = "ESCALATED"
 )
 
 type SupplyRequest struct {
@@ -25,6 +26,8 @@ type SupplyRequest struct {
 	Comment           *string       `json:"comment"`
 	CreatedAt         time.Time     `json:"created_at"`
 	UpdatedAt         time.Time     `json:"updated_at"`
+
+	ManagerEmail string `json:"-"` // Додано для зручності при відправці SLA-сповіщень
 }
 
 type CreateSupplyRequest struct {

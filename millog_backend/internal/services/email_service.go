@@ -11,6 +11,7 @@ type EmailService interface {
 	SendInviteEmail(toEmail string, inviteLink string) error
 	SendPasswordChangedAlert(toEmail string) error
 	SendPasswordResetEmail(toEmail, resetLink string) error
+	SendSLAAlert(toEmail, requestID string, waitTimeHours int) error
 }
 
 type emailService struct {
@@ -54,8 +55,9 @@ func (s *emailService) SendInviteEmail(toEmail string, inviteLink string) error 
 
 	htmlBody := fmt.Sprintf(`
 		<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px;">
-			<h2 style="color: #2c3e50;">Ласкаво просимо до Millog</h2>
-			<p>Вам надано доступ до системи військової логістики.</p>
+			<h2 style="color: #2c3e50;">Ласкаво просимо до OmniLog</h2>
+			<p>Вам надано доступ до системи управління логістикою.</p>
+            // ...
 			<p>Для активації облікового запису та встановлення пароля, натисніть на кнопку нижче:</p>
 			
 			<div style="text-align: center; margin: 30px 0;">
@@ -83,12 +85,10 @@ func (s *emailService) SendInviteEmail(toEmail string, inviteLink string) error 
 	return nil
 }
 
-// 1. Для Security Alert (Сповіщення про зміну в профілі)
 func (s *emailService) SendPasswordChangedAlert(toEmail string) error {
 	subject := "Увага: Ваш пароль було змінено"
-	body := "Вітаємо!\n\nВаш пароль у системі Millog щойно було успішно змінено.\n\nЯкщо ви цього не робили, негайно зверніться до вашого командира або адміністратора системи."
+	body := "Вітаємо!\n\nВаш пароль у системі OmniLog щойно було успішно змінено.\n\nЯкщо ви цього не робили, негайно зверніться до вашого керівника або адміністратора системи."
 
-	// Тут твій стандартний код відправки (smtp.SendMail)
 	return s.sendMail(toEmail, subject, body)
 }
 
@@ -120,4 +120,11 @@ func (s *emailService) sendMail(toEmail, subject, plainText string) error {
 	}
 
 	return nil
+}
+
+func (s *emailService) SendSLAAlert(toEmail, requestID string, waitTimeHours int) error {
+	subject := "🚨 Увага: Порушення SLA (Заявка зависла)"
+	body := fmt.Sprintf("Автоматичне сповіщення системи OmniLog.\n\nЗаявка #%s очікує підтвердження понад %d годин і порушує стандарти SLA.\n\nБудь ласка, перевірте панель керування та прийміть рішення.", requestID, waitTimeHours)
+
+	return s.sendMail(toEmail, subject, body)
 }

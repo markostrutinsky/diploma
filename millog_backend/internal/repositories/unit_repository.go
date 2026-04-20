@@ -74,19 +74,28 @@ func (r *UnitRepository) GetAvailableUnitsForRole(ctx context.Context, db *pgxpo
 func (r *UnitRepository) GetUnitsHierarchy(ctx context.Context, db *pgxpool.Pool, rootUnitID int64) ([]models.Unit, error) {
 	query := `
         WITH RECURSIVE unit_tree AS (
-            -- Базовий рівень: беремо підрозділ самого користувача
+            -- 1. Беремо поточний підрозділ
             SELECT id, parent_id, name, unit_type
             FROM units
             WHERE id = $1
 
             UNION ALL
 
-            -- Рекурсія: шукаємо всі підрозділи, які підпорядковуються знайденим раніше
+            -- 2. Рекурсія ВНИЗ: шукаємо всі підлеглі підрозділи
             SELECT u.id, u.parent_id, u.name, u.unit_type
             FROM units u
             INNER JOIN unit_tree ut ON u.parent_id = ut.id
+        ),
+        parent_peek AS (
+            -- 3. МАГІЯ: Підглядаємо ВГОРУ на одного безпосереднього батька
+            SELECT u.id, u.parent_id, u.name, u.unit_type
+            FROM units u
+            WHERE u.id = (SELECT parent_id FROM units WHERE id = $1)
         )
+        -- Об'єднуємо дерево вниз та одного батька зверху
         SELECT id, parent_id, name, unit_type FROM unit_tree
+        UNION
+        SELECT id, parent_id, name, unit_type FROM parent_peek
         ORDER BY parent_id NULLS FIRST, name;
     `
 
@@ -164,20 +173,35 @@ func (r *UnitRepository) ChangeCommanderTx(ctx context.Context, db *pgxpool.Pool
 		return fmt.Errorf("підрозділ не знайдено: %v", err)
 	}
 
-	targetRole := unitType + "_CMDR"
-
-	_, err = tx.Exec(ctx, `
-        UPDATE users SET unit_id = NULL, role = 'USER' WHERE unit_id = $1 AND role = $2
-    `, unitID, targetRole)
-	if err != nil {
-		return fmt.Errorf("не вдалося звільнити поточного командира: %v", err)
+	// 🔥 МАГІЯ ТУТ: Правильно конвертуємо тип підрозділу в посаду
+	var targetRole string
+	switch unitType {
+	case "REGION":
+		targetRole = "REGION_DIRECTOR"
+	case "BRANCH":
+		targetRole = "BRANCH_MANAGER"
+	case "DEPARTMENT":
+		targetRole = "DEPT_MANAGER"
+	case "TEAM":
+		targetRole = "TEAM_LEAD"
+	default:
+		return fmt.Errorf("неможливо призначити керівника для типу підрозділу: %s", unitType)
 	}
 
+	// Звільняємо старого командира (переводимо у звичайні співробітники)
+	_, err = tx.Exec(ctx, `
+        UPDATE users SET unit_id = NULL, role = 'EMPLOYEE' WHERE unit_id = $1 AND role = $2
+    `, unitID, targetRole)
+	if err != nil {
+		return fmt.Errorf("не вдалося звільнити поточного керівника: %v", err)
+	}
+
+	// Призначаємо нового керівника
 	_, err = tx.Exec(ctx, `
         UPDATE users SET unit_id = $1, role = $2 WHERE id = $3
     `, unitID, targetRole, newCommanderID)
 	if err != nil {
-		return fmt.Errorf("не вдалося призначити нового командира: %v", err)
+		return fmt.Errorf("не вдалося призначити нового керівника: %v", err)
 	}
 
 	return tx.Commit(ctx)

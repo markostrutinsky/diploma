@@ -1,0 +1,236 @@
+/* Основний контейнер органічно вписується у світлий фон сторінки */
+.kiosk-mode {
+  color: #0f172a;
+  min-height: calc(100vh - 80px);
+  font-family: 'Inter', system-ui, sans-serif;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.kiosk-header {
+  text-align: center;
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+}
+
+.kiosk-header h1 {
+  font-size: 2rem;
+  margin: 0 0 8px 0;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.kiosk-header p {
+  color: #64748b;
+  margin: 0;
+  font-size: 1rem;
+}
+
+.kiosk-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+/* --- СЕКЦІЯ СКАНЕРА ТА КОШИКА (КАРТКИ) --- */
+.scanner-section, .cart-section {
+  background: #ffffff;
+  padding: 32px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  text-align: center;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.scanner-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #ecfdf5;
+  color: #059669;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin: 0 auto 24px auto;
+  border: 1px solid #a7f3d0;
+}
+
+.pulse-dot {
+  width: 10px;
+  height: 10px;
+  background-color: #10b981;
+  border-radius: 50%;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.scan-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.scan-form input {
+  width: 100%;
+  padding: 18px;
+  font-size: 1.25rem;
+  background: #f8fafc;
+  border: 2px solid #cbd5e1;
+  color: #0f172a;
+  border-radius: 8px;
+  text-align: center;
+  outline: none;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.scan-form input:focus {
+  border-color: #3b82f6;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.scan-form button {
+  padding: 16px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.scan-form button:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.scan-form button:disabled {
+  background: #e2e8f0;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.cart-section h2 {
+  margin: 0 0 20px 0;
+  font-size: 1.25rem;
+  color: #0f172a;
+  border-bottom: 2px solid #f1f5f9;
+  padding-bottom: 12px;
+  text-align: left;
+}
+
+.cart-list {
+  flex-grow: 1;
+  max-height: 400px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.empty-cart {
+  text-align: center;
+  color: #94a3b8;
+  font-size: 1rem;
+  padding: 40px 0;
+}
+
+.cart-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 12px 16px;
+  border-radius: 8px;
+}
+
+.item-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.item-info strong {
+  font-size: 1rem;
+  color: #0f172a;
+}
+
+.item-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.qty-badge {
+  background: #e0f2fe;
+  color: #0369a1;
+  font-weight: 700;
+  font-size: 1rem;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.remove-btn {
+  background: #fee2e2;
+  color: #ef4444;
+  border: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.2s;
+}
+
+.remove-btn:hover {
+  background: #fca5a5;
+  color: #b91c1c;
+}
+
+.issue-btn {
+  width: 100%;
+  padding: 16px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.issue-btn:hover:not(:disabled) {
+  background: #059669;
+}
+
+.issue-btn:disabled {
+  background: #e2e8f0;
+  color: #94a3b8;
+  cursor: not-allowed;
+}

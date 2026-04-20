@@ -108,15 +108,15 @@ export default function AdminUsers() {
     if (!form.role || !currentUserRole) return
 
     if (currentUserRole === 'ADMIN') {
-      api.units.getAvailableForRole(form.role)
-        .then((data) => setFormUnits(Array.isArray(data) ? data : []))
-        .catch(() => setFormUnits([]))
+      // 🔥 ФІКС: Адмін має повний доступ до всіх підрозділів.
+      // Беремо вже завантажений список allUnits замість того, щоб робити новий запит!
+      setFormUnits(allUnits)
     } else {
       api.units.getMyHierarchyForRole(form.role)
         .then((data) => setFormUnits(Array.isArray(data) ? data : []))
         .catch(() => setFormUnits([]))
     }
-  }, [form.role, currentUserRole])
+  }, [form.role, currentUserRole, allUnits]) // Додали allUnits у залежності
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

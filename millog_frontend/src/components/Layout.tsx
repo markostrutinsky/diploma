@@ -147,6 +147,11 @@ export default function Layout({ children }: LayoutProps) {
                 Користувачі
               </Link>
             )}
+            {!isCONTRACTOR && (
+              <Link to="/kiosk" className={location.pathname === '/kiosk' ? 'active' : ''}>
+                📦 Термінал (Каса)
+              </Link>
+            )}
             
             {user?.role === 'ADMIN' && (
               <Link to="/audit" className={location.pathname === '/audit' ? 'active' : ''}>

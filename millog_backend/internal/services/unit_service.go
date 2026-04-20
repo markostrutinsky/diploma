@@ -29,15 +29,15 @@ func (s *UnitService) Create(ctx context.Context, req *models.CreateUnitRequest,
 
 	expectedParentType := ""
 	switch req.UnitType {
-	case "BATTALION":
-		expectedParentType = "BRIGADE"
-	case "COMPANY":
-		expectedParentType = "BATTALION"
-	case "PLATOON":
-		expectedParentType = "COMPANY"
-	case "BRIGADE":
+	case "BRANCH": // Філія
+		expectedParentType = "REGION" // Має підпорядковуватись Регіону
+	case "DEPARTMENT": // Відділ
+		expectedParentType = "BRANCH" // Має підпорядковуватись Філії
+	case "TEAM": // Команда / Група
+		expectedParentType = "DEPARTMENT" // Має підпорядковуватись Відділу
+	case "REGION": // Регіон (Найвищий рівень)
 		if req.ParentID != nil {
-			return nil, fmt.Errorf("бригада не може бути підпорядкована іншому підрозділу")
+			return nil, fmt.Errorf("регіональна дирекція є найвищою ланкою і не може мати батьківського підрозділу")
 		}
 	default:
 		return nil, fmt.Errorf("невідомий тип підрозділу: %s", req.UnitType)

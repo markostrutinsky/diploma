@@ -43,7 +43,8 @@ export default function Inventory() {
     category_id: '', 
     unit_id: undefined as number | undefined, 
     warehouse_id: '',
-    name: '', 
+    name: '',
+    barcode: '', 
     quantity: 0, 
     unit_type: 'PCS' as 'PCS' | 'KIT' | 'KG' | 'L',
     min_quantity: 0,
@@ -57,6 +58,12 @@ export default function Inventory() {
   // НОВИЙ СТЕЙТ ДЛЯ ПОШУКУ
   // ---------------------------------------------------------
   const [searchQuery, setSearchQuery] = useState('');
+  // --- СТЕЙТ ДЛЯ ІМПОРТУ ЕКСЕЛЬ ---
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importUnitId, setImportUnitId] = useState<number | ''>('');
+  const [importWarehouseId, setImportWarehouseId] = useState<string>('');
+  const [isImporting, setIsImporting] = useState(false);
 
   useEffect(() => {
     const closeMenu = () => setActiveMenuId(null);
@@ -208,7 +215,8 @@ export default function Inventory() {
         category_id: categories[0]?.id || '', 
         unit_id: undefined, 
         warehouse_id: '', 
-        name: '', 
+        name: '',
+        barcode: '', 
         quantity: 0, 
         unit_type: 'PCS', 
         min_quantity: 0, 
@@ -289,6 +297,42 @@ export default function Inventory() {
       loadData(); 
     } catch (err) { 
       setDeleteError(err instanceof Error ? err.message : 'Помилка при видаленні'); 
+    }
+  };
+
+  const handleDownloadTemplate = async () => {
+    try {
+      await api.inventory.downloadImportTemplate();
+      toast.success('Шаблон завантажено');
+    } catch (err) {
+      toast.error('Не вдалося завантажити шаблон');
+    }
+  };
+
+  const handleImportSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!importFile || !importUnitId || !importWarehouseId) {
+      toast.error('Заповніть усі поля та оберіть файл');
+      return;
+    }
+
+    setIsImporting(true);
+    const toastId = toast.loading('Імпортуємо дані з Excel...');
+    
+    try {
+      const result = await api.inventory.importExcel(
+        Number(importUnitId), 
+        importWarehouseId, 
+        importFile
+      );
+      toast.success(`Успіх! Додано ${result.success_count} позицій`, { id: toastId });
+      setShowImportModal(false);
+      setImportFile(null);
+      loadData(); // Оновлюємо таблицю, щоб побачити нові товари
+    } catch (err: any) {
+      toast.error(err.message || 'Помилка при імпорті', { id: toastId });
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -380,6 +424,12 @@ export default function Inventory() {
           </button>
           
           {canManageResources && (
+            <button className="btn btn-secondary" onClick={() => setShowImportModal(true)}>
+              📥 Імпорт Excel
+            </button>
+          )}
+
+          {canManageResources && (
             <button className="btn btn-primary" onClick={() => setShowResourceForm(true)}>
               + Ресурс
             </button>
@@ -467,6 +517,16 @@ export default function Inventory() {
               <div className="form-group">
                 <label>Назва майна <span style={{color: '#ef4444'}}>*</span></label>
                 <input className="erp-input" placeholder="Напр. Ноутбук Dell Latitude" value={newRes.name} onChange={(e) => setNewRes({ ...newRes, name: e.target.value })} required />
+              </div>
+
+              <div className="form-group">
+                <label>Заводський штрих-код (необов'язково)</label>
+                <input 
+                  className="erp-input" 
+                  placeholder="Відскануйте код або введіть вручну..." 
+                  value={newRes.barcode} 
+                  onChange={(e) => setNewRes({ ...newRes, barcode: e.target.value })} 
+                />
               </div>
               
               <div className="form-row-2">
@@ -822,6 +882,82 @@ export default function Inventory() {
               </button>
             </div>
           </div>
+
+          {/* ============================== МОДАЛКА ІМПОРТУ EXCEL ============================== */}
+      {showImportModal && (
+        <div className="modal-overlay inventory-modal" onClick={() => !isImporting && setShowImportModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Масове завантаження майна</h3>
+              <button className="close-btn" onClick={() => setShowImportModal(false)}>&times;</button>
+            </div>
+            
+            <form onSubmit={handleImportSubmit}>
+              <div className="info-box" style={{ background: '#f0f9ff', padding: '12px', borderRadius: '8px', marginBottom: '16px', fontSize: '0.9rem', border: '1px solid #bae6fd' }}>
+                💡 Завантажте шаблон, заповніть його даними та перетягніть файл сюди. 
+                Система автоматично створить нові записи в базі.
+                <button type="button" onClick={handleDownloadTemplate} style={{ display: 'block', marginTop: '8px', color: '#0284c7', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>
+                  📥 Завантажити шаблон .xlsx
+                </button>
+              </div>
+
+              <div className="form-row-2">
+                <div className="form-group">
+                  {/* Замінили "Підрозділ-власник" */}
+                  <label>Власник (Орг. одиниця)</label> 
+                  <select className="erp-input" value={importUnitId} onChange={(e) => { setImportUnitId(Number(e.target.value)); setImportWarehouseId(''); }} required>
+                    {/* Замінили "-- Оберіть підрозділ --" */}
+                    <option value="">-- Оберіть орг. одиницю --</option> 
+                    {units.map((u) => (<option key={u.id} value={u.id}>{u.name}</option>))}
+                  </select>
+                </div>
+                
+                <div className="form-group">
+                  <label>Цільовий склад</label>
+                  <select className="erp-input" value={importWarehouseId} onChange={(e) => setImportWarehouseId(e.target.value)} required disabled={!importUnitId}>
+                    <option value="">-- Оберіть склад --</option>
+                    {warehouses.filter(w => Number(w.unit_id) === Number(importUnitId)).map((w) => (
+                      <option key={w.id} value={w.id}>{w.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Файл Excel (.xlsx)</label>
+                <div 
+                  className={`file-drop-zone ${importFile ? 'has-file' : ''}`}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                      setImportFile(e.dataTransfer.files[0]);
+                    }
+                  }}
+                >
+                  <input 
+                    type="file" 
+                    accept=".xlsx" 
+                    id="excel-upload"
+                    hidden 
+                    onChange={(e) => setImportFile(e.target.files ? e.target.files[0] : null)} 
+                  />
+                  <label htmlFor="excel-upload" style={{ cursor: 'pointer', display: 'block', padding: '30px' }}>
+                    {importFile ? `📄 ${importFile.name}` : 'Перетягніть файл сюди або натисніть для вибору'}
+                  </label>
+                </div>
+              </div>
+
+              <div className="modal-actions">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowImportModal(false)} disabled={isImporting}>Скасувати</button>
+                <button type="submit" className="btn btn-primary" disabled={isImporting || !importFile}>
+                  {isImporting ? 'Завантаження...' : '🚀 Розпочати імпорт'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
           {/* Відображення результатів */}
           {filteredResources.length === 0 ? (

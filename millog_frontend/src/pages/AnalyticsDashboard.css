@@ -520,3 +520,63 @@
     gap: 20px;
   }
 }
+
+/* =========================================================
+   SLA Control Panel (Панель контролю SLA)
+   ========================================================= */
+
+/* Головний контейнер панелі */
+.sla-control-panel {
+  border: 2px dashed #fecaca;
+  background-color: #fef2f2;
+}
+
+/* Тіло панелі з Flexbox */
+.sla-control-body {
+  padding: 15px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+/* Обгортка для тексту */
+.sla-control-text {
+  flex: 1;
+}
+
+/* Заголовок всередині панелі */
+.sla-control-title {
+  margin: 0;
+  font-weight: 600;
+  color: #991b1b;
+}
+
+/* Опис під заголовком */
+.sla-control-desc {
+  margin: 5px 0 0 0;
+  font-size: 0.9rem;
+  color: #b91c1c;
+}
+
+/* Червона кнопка для критичних дій (Ескалація/SLA) */
+.btn-danger-action {
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-danger-action:hover:not(:disabled) {
+  background-color: #dc2626;
+  box-shadow: 0 4px 6px -1px rgba(220, 38, 38, 0.2);
+}
+
+.btn-danger-action:disabled {
+  background-color: #fca5a5;
+  cursor: not-allowed;
+  opacity: 0.8;
+}

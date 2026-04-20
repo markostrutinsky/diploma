@@ -277,6 +277,7 @@ var ApprovalMatrix = map[UserRole][]UserRole{
 		RoleRegionDirector, RoleAdmin,
 	},
 
+	// Звичайний співробітник подає заявку своєму ліду або менеджеру
 	RoleEmployee: {
 		RoleTeamLead, RoleDeptManager, RoleDeptSupervisor,
 		RoleBranchManager,

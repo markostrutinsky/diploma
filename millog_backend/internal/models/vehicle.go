@@ -42,6 +42,8 @@ type Vehicle struct {
 	CurrentOdometer         int           `json:"current_odometer"`
 	KmToNextMaintenance     int           `json:"km_to_next_maintenance"`
 	MaintenanceStatus       string        `json:"maintenance_status"`
+	AvgKmPerDay             float64       `json:"avg_km_per_day"`
+	PredictedMaintDate      *time.Time    `json:"predicted_maint_date"`
 	CreatedAt               time.Time     `json:"created_at"`
 	UpdatedAt               time.Time     `json:"updated_at"`
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"millog_backend/internal/models"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -43,7 +44,19 @@ func (r *VehicleRepository) Create(ctx context.Context, db DBExecutor, v *models
 }
 
 func (r *VehicleRepository) GetAll(ctx context.Context, db DBExecutor) ([]models.Vehicle, error) {
+	// CTE вираховує різницю пробігу та часу за останні 30 днів для кожної машини
 	query := `
+        WITH VehicleStats AS (
+            SELECT 
+                vehicle_id,
+                MIN(created_at) as first_date,
+                MAX(created_at) as last_date,
+                MIN(odometer_km) as first_odo,
+                MAX(odometer_km) as last_odo
+            FROM fuel_records
+            WHERE created_at >= CURRENT_DATE - INTERVAL '30 days' AND odometer_km IS NOT NULL
+            GROUP BY vehicle_id
+        )
         SELECT 
             v.id, v.brand, v.model, v.plate_number, v.type, v.capacity_kg, v.status, v.driver_id, u.full_name as driver_name, v.tank_capacity, v.fuel_norm, 
             v.maintenance_interval_km, v.last_maintenance_odometer, v.created_at, v.updated_at,
@@ -51,9 +64,17 @@ func (r *VehicleRepository) GetAll(ctx context.Context, db DBExecutor) ([]models
                 SELECT odometer_km FROM fuel_records 
                 WHERE vehicle_id = v.id AND odometer_km IS NOT NULL 
                 ORDER BY created_at DESC LIMIT 1
-            ), 0) AS current_odometer
+            ), 0) AS current_odometer,
+            
+            -- 🔥 ВИРАХОВУЄМО СЕРЕДНІЙ ПРОБІГ (захист від ділення на нуль)
+            COALESCE(
+                (vs.last_odo - vs.first_odo)::float / 
+                NULLIF(EXTRACT(EPOCH FROM (vs.last_date - vs.first_date))/86400, 0), 
+            0) as avg_km_per_day
+
         FROM vehicles v
         LEFT JOIN users u ON v.driver_id = u.id
+        LEFT JOIN VehicleStats vs ON v.id = vs.vehicle_id
         ORDER BY v.created_at DESC
     `
 
@@ -66,10 +87,11 @@ func (r *VehicleRepository) GetAll(ctx context.Context, db DBExecutor) ([]models
 	var vehicles []models.Vehicle
 	for rows.Next() {
 		var v models.Vehicle
+		// Додали &v.AvgKmPerDay в Scan
 		err := rows.Scan(
 			&v.ID, &v.Brand, &v.Model, &v.PlateNumber, &v.Type, &v.CapacityKg, &v.Status, &v.DriverID, &v.DriverName,
 			&v.TankCapacity, &v.FuelNorm, &v.MaintenanceIntervalKm, &v.LastMaintenanceOdometer,
-			&v.CreatedAt, &v.UpdatedAt, &v.CurrentOdometer,
+			&v.CreatedAt, &v.UpdatedAt, &v.CurrentOdometer, &v.AvgKmPerDay,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("помилка сканування рядка авто: %w", err)
@@ -90,6 +112,13 @@ func (r *VehicleRepository) GetAll(ctx context.Context, db DBExecutor) ([]models
 			v.MaintenanceStatus = "OK"
 		}
 
+		// 🔥 РОЗРАХУНОК ДАТИ В GO:
+		if v.AvgKmPerDay > 0 && v.KmToNextMaintenance > 0 {
+			daysLeft := float64(v.KmToNextMaintenance) / v.AvgKmPerDay
+			predictedDate := time.Now().Add(time.Duration(daysLeft*24) * time.Hour)
+			v.PredictedMaintDate = &predictedDate
+		}
+
 		vehicles = append(vehicles, v)
 	}
 
@@ -98,6 +127,17 @@ func (r *VehicleRepository) GetAll(ctx context.Context, db DBExecutor) ([]models
 
 func (r *VehicleRepository) GetByID(ctx context.Context, id string, db DBExecutor) (*models.Vehicle, error) {
 	query := `
+        WITH VehicleStats AS (
+            SELECT 
+                vehicle_id,
+                MIN(created_at) as first_date,
+                MAX(created_at) as last_date,
+                MIN(odometer_km) as first_odo,
+                MAX(odometer_km) as last_odo
+            FROM fuel_records
+            WHERE vehicle_id = $1 AND created_at >= CURRENT_DATE - INTERVAL '30 days' AND odometer_km IS NOT NULL
+            GROUP BY vehicle_id
+        )
         SELECT 
             v.id, v.brand, v.model, v.plate_number, v.type, v.capacity_kg, v.status, v.driver_id, u.full_name as driver_name, v.tank_capacity, v.fuel_norm, 
             v.maintenance_interval_km, v.last_maintenance_odometer, v.created_at, v.updated_at,
@@ -105,9 +145,14 @@ func (r *VehicleRepository) GetByID(ctx context.Context, id string, db DBExecuto
                 SELECT odometer_km FROM fuel_records 
                 WHERE vehicle_id = v.id AND odometer_km IS NOT NULL 
                 ORDER BY created_at DESC LIMIT 1
-            ), 0) AS current_odometer
+            ), 0) AS current_odometer,
+            COALESCE(
+                (vs.last_odo - vs.first_odo)::float / 
+                NULLIF(EXTRACT(EPOCH FROM (vs.last_date - vs.first_date))/86400, 0), 
+            0) as avg_km_per_day
         FROM vehicles v
         LEFT JOIN users u ON v.driver_id = u.id
+        LEFT JOIN VehicleStats vs ON v.id = vs.vehicle_id
         WHERE v.id = $1
     `
 
@@ -115,7 +160,7 @@ func (r *VehicleRepository) GetByID(ctx context.Context, id string, db DBExecuto
 	err := db.QueryRow(ctx, query, id).Scan(
 		&v.ID, &v.Brand, &v.Model, &v.PlateNumber, &v.Type, &v.CapacityKg, &v.Status, &v.DriverID, &v.DriverName,
 		&v.TankCapacity, &v.FuelNorm, &v.MaintenanceIntervalKm, &v.LastMaintenanceOdometer,
-		&v.CreatedAt, &v.UpdatedAt, &v.CurrentOdometer,
+		&v.CreatedAt, &v.UpdatedAt, &v.CurrentOdometer, &v.AvgKmPerDay,
 	)
 
 	if err != nil {
@@ -127,12 +172,20 @@ func (r *VehicleRepository) GetByID(ctx context.Context, id string, db DBExecuto
 	}
 	distanceSinceMaintenance := v.CurrentOdometer - v.LastMaintenanceOdometer
 	v.KmToNextMaintenance = v.MaintenanceIntervalKm - distanceSinceMaintenance
+
 	if v.KmToNextMaintenance < 0 {
 		v.MaintenanceStatus = "OVERDUE"
 	} else if v.KmToNextMaintenance <= 1000 {
 		v.MaintenanceStatus = "WARNING"
 	} else {
 		v.MaintenanceStatus = "OK"
+	}
+
+	// 🔥 РОЗРАХУНОК ДАТИ
+	if v.AvgKmPerDay > 0 && v.KmToNextMaintenance > 0 {
+		daysLeft := float64(v.KmToNextMaintenance) / v.AvgKmPerDay
+		predictedDate := time.Now().Add(time.Duration(daysLeft*24) * time.Hour)
+		v.PredictedMaintDate = &predictedDate
 	}
 
 	return &v, nil

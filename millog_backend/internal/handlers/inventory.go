@@ -8,8 +8,10 @@ import (
 	"millog_backend/internal/services"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/xuri/excelize/v2"
 )
 
 type InventoryHandler struct {
@@ -478,4 +480,202 @@ func (h *InventoryHandler) SubmitAudit(c *gin.Context) {
 	}(userID, req.WarehouseID)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Акт переобліку успішно сформовано, залишки оновлено!"})
+}
+
+// Допоміжна функція для очищення тексту перед порівнянням
+func normalizeText(s string) string {
+	return strings.ToLower(strings.TrimSpace(s))
+}
+
+// 1. Простий і красивий шаблон (без організацій і складів)
+func (h *InventoryHandler) DownloadImportTemplate(c *gin.Context) {
+	f := excelize.NewFile()
+	defer f.Close()
+	sheet := "Шаблон"
+	f.SetSheetName("Sheet1", sheet)
+
+	headers := []string{
+		"Назва майна (Обов'язково)",
+		"Назва категорії (Обов'язково)",
+		"Кількість",
+		"Одиниці (PCS/KG/L/KIT)",
+		"Вага 1 од. (кг)",
+		"Заводський штрих-код",
+		"Мін. залишок",
+	}
+
+	for i, header := range headers {
+		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
+		f.SetCellValue(sheet, cell, header)
+	}
+
+	f.SetColWidth(sheet, "A", "B", 35)
+	f.SetColWidth(sheet, "C", "G", 15)
+
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", "attachment; filename=OmniLog_Import_Template.xlsx")
+	f.Write(c.Writer)
+}
+
+// 1. Оновлений Імпорт (з виводом помилок у консоль)
+func (h *InventoryHandler) ImportExcel(c *gin.Context) {
+	unitIDStr := c.PostForm("unit_id")
+	warehouseID := c.PostForm("warehouse_id")
+	unitID, _ := strconv.ParseInt(unitIDStr, 10, 64)
+
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Файл не знайдено"})
+		return
+	}
+
+	file, _ := fileHeader.Open()
+	defer file.Close()
+	f, _ := excelize.OpenReader(file)
+	defer f.Close()
+
+	rows, err := f.GetRows(f.GetSheetName(0))
+	if err != nil || len(rows) < 2 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Файл порожній"})
+		return
+	}
+
+	ctx := c.Request.Context()
+	categories, err := h.invService.GetAllCategories(ctx)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": fmt.Sprintf("Критична помилка завантаження категорій з бази: %v", err),
+		})
+		return
+	}
+
+	successCount := 0
+	var importErrors []string
+
+	for i := 1; i < len(rows); i++ {
+		row := rows[i]
+		getCol := func(idx int) string {
+			if idx < len(row) {
+				return strings.TrimSpace(row[idx])
+			}
+			return ""
+		}
+
+		name := getCol(0)
+		categoryName := getCol(1)
+		if name == "" || categoryName == "" {
+			continue
+		}
+
+		// 1. Шукаємо або створюємо категорію (безпечним методом)
+		catID, catErr := h.smartCategoryLookup(ctx, categoryName, &categories)
+		if catErr != nil {
+			importErrors = append(importErrors, fmt.Sprintf("Рядок %d (%s): %v", i+1, name, catErr))
+			continue // Блокуємо і йдемо до наступного
+		}
+
+		qty, _ := strconv.Atoi(getCol(2))
+		unitType := getCol(3)
+		if unitType == "" {
+			unitType = "PCS"
+		}
+
+		// Захист від ком замість крапок (напр. 0,6 замість 0.6)
+		weightStr := strings.ReplaceAll(getCol(4), ",", ".")
+		weight, _ := strconv.ParseFloat(weightStr, 64)
+		if weight <= 0 {
+			weight = 1.0
+		}
+		minQty, _ := strconv.Atoi(getCol(6))
+
+		// 2. Перевіряємо, чи існує вже такий ресурс
+		existingRes, err := h.invService.GetResourceByNameAndWarehouse(ctx, name, warehouseID)
+
+		if err == nil && existingRes != nil {
+			// РЕСУРС ІСНУЄ -> Плюсуємо кількість
+			newQty := existingRes.Quantity + qty
+			updateErr := h.invService.UpdateResourceQuantity(ctx, existingRes.ID, newQty)
+			if updateErr != nil {
+				importErrors = append(importErrors, fmt.Sprintf("Рядок %d: Помилка оновлення кількості: %v", i+1, updateErr))
+			} else {
+				successCount++
+			}
+		} else {
+			// РЕСУРС НОВИЙ -> Створюємо
+			req := models.CreateResourceRequest{
+				UnitID:      unitID,
+				WarehouseID: &warehouseID,
+				CategoryID:  catID,
+				Name:        name,
+				Quantity:    qty,
+				UnitType:    models.UnitMeasurement(unitType),
+				WeightKg:    weight,
+				Barcode:     getCol(5),
+				MinQuantity: minQty,
+				Condition:   models.ConditionNew,
+			}
+
+			_, createErr := h.invService.CreateResource(ctx, &req)
+			if createErr != nil {
+				importErrors = append(importErrors, fmt.Sprintf("Рядок %d (%s): Помилка створення БД - %v", i+1, name, createErr))
+			} else {
+				successCount++
+			}
+		}
+	}
+
+	// 🔥 ДРУКУЄМО ПОМИЛКИ В КОНСОЛЬ GO ДЛЯ ДЕБАГУ
+	if len(importErrors) > 0 {
+		fmt.Println("=== ПОМИЛКИ ІМПОРТУ ===")
+		for _, e := range importErrors {
+			fmt.Println(e)
+		}
+		fmt.Println("=======================")
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success_count":   successCount,
+		"total_processed": len(rows) - 1,
+		"errors":          importErrors,
+	})
+}
+
+// 2. Виправлений, безпечний розумний пошук
+func (h *InventoryHandler) smartCategoryLookup(ctx context.Context, name string, cats *[]models.ResourceCategory) (string, error) {
+	search := strings.ToLower(strings.TrimSpace(name))
+	if search == "" {
+		return "", fmt.Errorf("порожня назва категорії")
+	}
+
+	// Етап 1: Шукаємо ТОЧНИЙ збіг (пріоритет)
+	for _, c := range *cats {
+		if strings.ToLower(c.Name) == search {
+			return c.ID, nil
+		}
+	}
+
+	// Етап 2: Безпечний частковий збіг
+	// (Ігноруємо слова менше 4 символів, щоб не ловити "та", "іт", "ка")
+	for _, c := range *cats {
+		dbName := strings.ToLower(c.Name)
+		if len(dbName) > 3 && strings.Contains(search, dbName) {
+			return c.ID, nil
+		}
+		if len(search) > 3 && strings.Contains(dbName, search) {
+			return c.ID, nil
+		}
+	}
+
+	// Етап 3: Якщо нічого не підійшло - створюємо нову
+	newCat, err := h.invService.CreateCategory(ctx, &models.CreateCategoryRequest{Name: name})
+	if err != nil {
+		return "", fmt.Errorf("БД відмовила у створенні категорії: %v", err)
+	}
+	if newCat != nil && newCat.ID != "" {
+		newCat.Name = name
+		*cats = append(*cats, *newCat) // Запам'ятовуємо, щоб наступні рядки її використовували
+		return newCat.ID, nil
+	}
+
+	return "", fmt.Errorf("невідома помилка отримання ID нової категорії")
 }

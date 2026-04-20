@@ -358,3 +358,60 @@
 .alert-content span {
   font-size: 0.85rem;
 }
+
+.metrics-list {
+  max-height: 380px; /* Обмежуємо висоту віджета */
+  overflow-y: auto;  /* Додаємо вертикальний скролбар */
+  padding-right: 8px; /* Відступ, щоб скролбар не налізав на текст */
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Робимо скролбар красивим і тонким (в стилі Enterprise) */
+.metrics-list::-webkit-scrollbar {
+  width: 6px;
+}
+.metrics-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.metrics-list::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 10px;
+}
+.metrics-list::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}
+
+.feed-list {
+  max-height: 320px; /* Обмежуємо висоту, щоб вона співпадала з сусіднім віджетом */
+  overflow-y: auto;  /* Вмикаємо вертикальний скрол */
+  padding-right: 8px;
+  padding-bottom: 10px; /* Додаємо відступ знизу, щоб останній елемент не прилипав до краю */
+}
+
+/* Робимо скролбар в стилі Enterprise (такий самий як зліва) */
+.feed-list::-webkit-scrollbar {
+  width: 6px;
+}
+.feed-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.feed-list::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 10px;
+}
+.feed-list::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}
+
+/* Заодно робимо так, щоб довгі тексти в логах не розривали верстку */
+.feed-content {
+  word-break: break-word; 
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9; /* Тонка лінія між логами для краси */
+}
+
+.feed-item:last-child .feed-content {
+  border-bottom: none; /* Убираємо лінію в останнього елемента */
+}

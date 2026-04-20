@@ -207,7 +207,7 @@ export default function Warehouses() {
 
   const handleCloseDispatch = () => { setDispatchTargetWarehouse(null); setDispatchParentWarehouse(null); setActiveRoadRoute(null); setSelectedVehicleId(''); };
 
-  const availableVehicles = vehicles.filter(v => v.status === 'ACTIVE' && (v.type === 'VAN' || v.type === 'TRUCK'));
+  const availableVehicles = vehicles.filter(v => v.status === 'ACTIVE' && (v.type === 'VAN' || v.type === 'TRUCK' || v.type === 'PICKUP'));
   const selectedVehicle = availableVehicles.find(v => v.id === selectedVehicleId);
   
   const getSafeAvailable = (item: any) => item.available ?? item.quantity ?? 0;
