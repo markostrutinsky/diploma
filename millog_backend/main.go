@@ -103,15 +103,16 @@ func main() {
 	analyticsService := services.NewAnalyticsService(analyticsRepo, dbPool)
 	auditService := services.NewAuditService(auditRepo, dbPool)
 	slaMonitor := services.NewSLAMonitor(dbPool, reqRepo, auditRepo, emailService)
+	limitationService := services.NewLimitationService(dbPool)
 
-	invHandler := handlers.NewInventoryHandler(invService, auditService)
+	authService := services.NewAuthService(userRepo, unitRepo, tokenRepo, refreshTokenRepo, dbPool, emailService, jwtSecret)
+	invHandler := handlers.NewInventoryHandler(invService, auditService, limitationService, authService)
 	reqHandler := handlers.NewRequestHandler(reqService, auditService, slaMonitor)
 	unitHandler := handlers.NewUnitHandler(unitService, auditService)
 	volReqHandler := handlers.NewContractorRequestHandler(volReqService, auditService)
 	analyticsHandler := handlers.NewAnalyticsHandler(analyticsService, auditService)
-	warehouseHandler := handlers.NewWarehouseHandler(warehouseService, auditService)
+	warehouseHandler := handlers.NewWarehouseHandler(warehouseService, auditService, limitationService, authService)
 
-	authService := services.NewAuthService(userRepo, unitRepo, tokenRepo, refreshTokenRepo, dbPool, emailService, jwtSecret)
 	authHandler := handlers.NewAuthHandler(authService, auditService)
 	fuelService := services.NewFuelService(fuelRepo, dbPool)
 	fuelHandler := handlers.NewFuelHandler(fuelService, auditService)
@@ -145,6 +146,7 @@ func main() {
 		{
 			users.GET("/commanders", authHandler.ListCommanders)
 			users.GET("/visible", authHandler.GetVisibleUsers)
+			users.GET("/limits", authHandler.GetUserLimits)
 			users.PUT("/:id/role", authHandler.UpdateRoleAndUnit)
 			users.PUT("/:id/block", authHandler.BlockUser)
 			users.PUT("/:id/unblock", authHandler.UnblockUser)
@@ -200,8 +202,9 @@ func main() {
 			inv.PATCH("/categories/:id", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.UpdateCategory)
 			inv.DELETE("/categories/:id", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.DeleteCategory)
 			inv.POST("/audit", invHandler.SubmitAudit)
-			inv.GET("/resources/import/template", invHandler.DownloadImportTemplate)                                       // Завантаження шаблону
-			inv.POST("/resources/import", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.ImportExcel) // Завантаження заповненого Excel
+			inv.GET("/resources/import/template", invHandler.DownloadImportTemplate) // Завантаження шаблону
+			// 🚀 PRO FEATURE: Excel import з захистом
+			inv.POST("/resources/import", middleware.RequireAnyRole(models.InventoryManagerRoles), middleware.RequireSubscriptionTier("PRO", dbPool), invHandler.ImportExcel) // Завантаження заповненого Excel
 		}
 
 		// Supply requests: commanders + logists + sergeant create; commanders + logists approve
@@ -214,7 +217,8 @@ func main() {
 			requests.POST("/:id/reject", middleware.RequireAnyRole(models.SupplyRequestApproverRoles), reqHandler.Reject) // 👈 НОВЕ (відмова логіста)
 			requests.POST("/:id/cancel", reqHandler.Cancel)
 			requests.GET("/:id", reqHandler.GetByID)
-			requests.POST("/smart-dispatch-preview", reqHandler.SmartDispatchPreview)
+			// 🚀 PRO FEATURE: Smart Dispatch з захистом
+			requests.POST("/smart-dispatch-preview", middleware.RequireSubscriptionTier("PRO", dbPool), reqHandler.SmartDispatchPreview)
 
 		}
 
@@ -274,8 +278,15 @@ func main() {
 		analyticsGroup := api.Group("/analytics")
 		analyticsGroup.Use(middleware.AuthMiddleware(jwtSecret, dbPool))
 		{
-			analyticsGroup.GET("/dashboard", analyticsHandler.GetDashboard)
-			analyticsGroup.POST("/auto-replenish", analyticsHandler.AutoReplenish)
+			// 🚀 PRO FEATURE: Advanced analytics з захистом
+			analyticsGroup.GET("/dashboard", middleware.RequireSubscriptionTier("PRO", dbPool), analyticsHandler.GetDashboard)
+			analyticsGroup.POST("/auto-replenish", middleware.RequireSubscriptionTier("PRO", dbPool), analyticsHandler.AutoReplenish)
+			// 🚀 НОВІ PRO FEATURES: KPI та Forecast
+			analyticsGroup.GET("/kpi", middleware.RequireSubscriptionTier("PRO", dbPool), analyticsHandler.GetAdvancedKPIs)
+			analyticsGroup.GET("/forecast", middleware.RequireSubscriptionTier("PRO", dbPool), analyticsHandler.GetDemandForecast)
+			// 🚀 ДІЇ PRO FEATURES: Maintenance та Fuel Anomalies
+			analyticsGroup.GET("/maintenance", middleware.RequireSubscriptionTier("PRO", dbPool), analyticsHandler.GetPredictiveMaintenanceSchedule)
+			analyticsGroup.GET("/fuel-anomalies", middleware.RequireSubscriptionTier("PRO", dbPool), analyticsHandler.GetFuelAnomalyDetection)
 			analyticsGroup.GET("/export/inventory", analyticsHandler.ExportInventory)
 			analyticsGroup.GET("/export/fuel", analyticsHandler.ExportFuel)
 		}

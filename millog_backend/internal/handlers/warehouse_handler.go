@@ -11,12 +11,19 @@ import (
 )
 
 type WarehouseHandler struct {
-	service      *services.WarehouseService
-	auditService *services.AuditService
+	service           *services.WarehouseService
+	auditService      *services.AuditService
+	limitationService *services.LimitationService
+	authService       *services.AuthService
 }
 
-func NewWarehouseHandler(service *services.WarehouseService, audit *services.AuditService) *WarehouseHandler {
-	return &WarehouseHandler{service: service, auditService: audit}
+func NewWarehouseHandler(service *services.WarehouseService, audit *services.AuditService, limitation *services.LimitationService, auth *services.AuthService) *WarehouseHandler {
+	return &WarehouseHandler{
+		service:           service,
+		auditService:      audit,
+		limitationService: limitation,
+		authService:       auth,
+	}
 }
 
 func (h *WarehouseHandler) Create(c *gin.Context) {
@@ -42,6 +49,15 @@ func (h *WarehouseHandler) Create(c *gin.Context) {
 			return
 		}
 		req.UnitID = claims.UnitID
+	}
+
+	// 🛡️ Перевіримо ліміт на складах
+	if err := h.limitationService.CheckWarehouseLimit(c.Request.Context(), req.UnitID); err != nil {
+		c.JSON(http.StatusPaymentRequired, gin.H{
+			"error":       err.Error(),
+			"upgrade_url": "/billing?plan=pro",
+		})
+		return
 	}
 
 	w, err := h.service.CreateWarehouse(c.Request.Context(), &req)

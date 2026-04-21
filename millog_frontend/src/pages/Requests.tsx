@@ -102,14 +102,12 @@ export default function Requests() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const token = localStorage.getItem('token')
       const [reqs, resRes, whs, vehs, usersRes, unitsRes] = await Promise.all([
         api.requests.list().catch(() => []),
         api.inventory.listResources(undefined).catch(() => []),
         api.warehouses.list().catch(() => []),
-        // Залишаємо фолбеки для тих методів, які ти ще не переніс в клієнт (якщо такі є)
-        (api as any).vehicles?.list().catch(() => fetch('/api/vehicles', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => [])) || [],
-        api.users.getVisible().catch(() => fetch('/api/users', { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => [])),
+        api.vehicles.list().catch(() => []),
+        api.users.getVisible().catch(() => []),
         api.units.list().catch(() => []) 
       ])
       
@@ -284,7 +282,7 @@ export default function Requests() {
         items: payloadItems 
       }
 
-      await (api as any).inventory.createShipment(payload)
+      await api.inventory.createShipment(payload)
 
       toast.success(`🚚 Збірний рейс відправлено!`, { id: toastId, duration: 4000 })
       setShowDispatchModal(false)
@@ -302,7 +300,7 @@ export default function Requests() {
     const toastId = toast.loading('🧠 Алгоритм First-Fit Decreasing аналізує вантаж...');
     
     try {
-      const data = await (api as any).inventory.smartDispatchPreview(Array.from(selectedReqIds));
+      const data = await api.inventory.smartDispatchPreview(Array.from(selectedReqIds));
       
       setSmartRoutes(data.routes || []);
       setUnassignedItems(data.unassigned || []);
@@ -319,7 +317,7 @@ export default function Requests() {
     const toastId = toast.loading('🚀 Формуємо серію рейсів...');
     
     try {
-      await (api as any).inventory.smartDispatchConfirm(smartRoutes);
+      await api.inventory.smartDispatchConfirm(smartRoutes);
 
       toast.success('Всі рейси успішно відправлено!', { id: toastId });
       setShowSmartPreview(false);
@@ -334,7 +332,7 @@ export default function Requests() {
     e.preventDefault(); 
     if (!newReq.target_warehouse_id) return toast.error("❌ Оберіть цільовий склад!", { duration: 5000 })
     try { 
-      await api.requests.create(newReq as any); 
+      await api.requests.create(newReq); 
       setShowForm(false); 
       setNewReq({ resource_id: resources[0]?.id || '', quantity: 1, target_warehouse_id: warehouses[0]?.id || '' }); 
       loadData(); 
@@ -344,7 +342,7 @@ export default function Requests() {
 
   const handleApprove = async (id: string) => { 
     try { 
-      await (api.requests.approve as any)(id, true); 
+      await api.requests.approve(id, true, undefined); 
       toast.success('Заявку погоджено!'); 
       loadData(); 
     } catch (err) { toast.error(err instanceof Error ? err.message : 'Помилка погодження') } 
@@ -815,7 +813,7 @@ export default function Requests() {
                   value={newReq.quantity} 
                   onChange={(e) => {
                     const val = e.target.value;
-                    setNewReq({ ...newReq, quantity: val === '' ? ('' as any) : parseInt(val) });
+                    setNewReq({ ...newReq, quantity: val === '' ? 0 : parseInt(val) });
                   }} 
                   required 
                 />

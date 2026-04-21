@@ -323,7 +323,7 @@ export const api = {
     list: (status?: string) =>
       request<ContractorRequest[]>(`/contractor-requests${status ? `?status=${status}` : ''}`),
 
-    create: (body: { title: string; description: string }) =>
+    create: (body: { title: string; description: string; unit_id?: number }) =>
       request<ContractorRequest>('/contractor-requests', {
         method: 'POST',
         body: JSON.stringify(body),

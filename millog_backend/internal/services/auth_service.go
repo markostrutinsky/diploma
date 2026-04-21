@@ -569,3 +569,42 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) er
 
 	return nil
 }
+
+// GetUserSubscriptionTier returns the subscription tier for a user's unit
+func (s *AuthService) GetUserSubscriptionTier(ctx context.Context, unitID string) (string, error) {
+	var tier string
+	query := `
+		WITH RECURSIVE unit_hierarchy AS (
+			SELECT id, subscription_tier, parent_unit_id
+			FROM units
+			WHERE id = $1
+			
+			UNION ALL
+			
+			SELECT u.id, u.subscription_tier, u.parent_unit_id
+			FROM units u
+			INNER JOIN unit_hierarchy uh ON u.id = uh.parent_unit_id
+		)
+		SELECT subscription_tier
+		FROM unit_hierarchy
+		WHERE subscription_tier IN ('ENTERPRISE', 'PRO', 'BASIC')
+		ORDER BY 
+			CASE subscription_tier
+				WHEN 'ENTERPRISE' THEN 0
+				WHEN 'PRO' THEN 1
+				WHEN 'BASIC' THEN 2
+			END
+		LIMIT 1
+	`
+
+	err := s.dbPool.QueryRow(ctx, query, unitID).Scan(&tier)
+	if err != nil {
+		return "BASIC", nil // Default to BASIC if not found
+	}
+
+	if tier == "" {
+		return "BASIC", nil
+	}
+
+	return tier, nil
+}

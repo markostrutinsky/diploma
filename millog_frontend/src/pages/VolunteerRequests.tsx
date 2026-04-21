@@ -116,7 +116,7 @@ export default function ContractorRequests() {
         unit_id: selectedUnitId ? Number(selectedUnitId) : undefined
       }
 
-      await api.contractorRequests.create(body as any)
+            await api.contractorRequests.create(body)
       setShowCreateForm(false)
       setCreateForm({ title: '', description: '' })
       setSelectedUnitId('') 
@@ -198,7 +198,7 @@ export default function ContractorRequests() {
     const query = searchQuery.toLowerCase().trim();
     const title = (r.title || '').toLowerCase();
     const desc = (r.description || '').toLowerCase();
-    const unitName = ((r as any).unit_name || '').toLowerCase(); // as any на випадок, якщо тип строго не описує unit_name
+    const unitName = (r.unit_name || '').toLowerCase();
     
     return title.includes(query) || desc.includes(query) || unitName.includes(query);
   });
@@ -472,7 +472,6 @@ export default function ContractorRequests() {
                 <li key={r.id}>
                   <div className="request-info">
                     <strong>{r.title}</strong>
-                    {/* @ts-ignore */}
                     {r.unit_name && <span className="unit-badge">🏢 {r.unit_name}</span>}
                     {r.description && <p className="request-desc">{r.description}</p>}
                   </div>
@@ -498,7 +497,6 @@ export default function ContractorRequests() {
               <li key={r.id}>
                 <div className="request-info">
                   <strong>{r.title}</strong>
-                  {/* @ts-ignore */}
                   {r.unit_name && <span className="unit-badge">🏢 {r.unit_name}</span>}
                   {r.description && <p className="request-desc">{r.description}</p>}
                   

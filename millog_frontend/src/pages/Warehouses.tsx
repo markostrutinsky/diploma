@@ -135,7 +135,7 @@ export default function Warehouses() {
       const [wRes, uRes, vRes, sRes] = await Promise.all([
         api.warehouses.list().catch(() => []), 
         api.units.list().catch(() => []),
-        (api as any).vehicles?.list().catch(() => []) || [],
+        api.vehicles.list().catch(() => []) || [],
         fetch('/api/inventory/shipments', { headers: { 'Authorization': `Bearer ${token}` } }).then(res => res.ok ? res.json() : [])
       ]);
       setWarehouses(Array.isArray(wRes) ? wRes : []); 
@@ -196,7 +196,7 @@ export default function Warehouses() {
     setManifest([]); 
     if (sourceW && dispatchTargetWarehouse) {
       try {
-        const invRes = await (api as any).inventory?.getByWarehouse(sourceW.id);
+        const invRes = await api.inventory.getByWarehouse(sourceW.id);
         const fetchedInventory = Array.isArray(invRes) ? invRes : [];
         setWarehouseInventory(fetchedInventory);
         if (fetchedInventory.length > 0) setItemToAdd(fetchedInventory[0].id);
@@ -299,7 +299,7 @@ export default function Warehouses() {
   const handleDownloadPDF = async (shipmentId: string) => {
     const toastId = toast.loading('Формування накладної...');
     try {
-      const { blob, filename } = await (api as any).inventory.downloadShipmentPDF(shipmentId);
+      const { blob, filename } = await api.inventory.downloadShipmentPDF(shipmentId);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;

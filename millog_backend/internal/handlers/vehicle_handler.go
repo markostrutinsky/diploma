@@ -118,27 +118,51 @@ type MaintenanceRequest struct {
 }
 
 func (h *VehicleHandler) PerformMaintenance(c *gin.Context) {
-	userID := c.GetString("user_id") // ДОДАНО
 	vehicleID := c.Param("id")
+	userID := c.GetString("user_id") // ДОДАНО: ID користувача для аудиту
 
+	// 1. Отримуємо текстові поля з форми
 	odometerStr := c.PostForm("current_odometer")
 	description := c.PostForm("description")
 	performedBy := c.PostForm("performed_by")
 	costAmountStr := c.PostForm("cost_amount")
 
+	// Валідація обов'язкових полів
 	if odometerStr == "" || description == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Одометр та опис є обов'язковими"})
 		return
 	}
 
-	odometer, _ := strconv.Atoi(odometerStr)
-	costAmount, _ := strconv.ParseFloat(costAmountStr, 64)
+	// Конвертуємо рядки в числа з перевіркою помилок
+	odometer, err := strconv.Atoi(odometerStr)
+	if err != nil || odometer < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Одометр повинен бути невід'ємним числом"})
+		return
+	}
+
+	costAmount := 0.0
+	if costAmountStr != "" {
+		var parseErr error
+		costAmount, parseErr = strconv.ParseFloat(costAmountStr, 64)
+		if parseErr != nil || costAmount < 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Вартість повинна бути невід'ємним числом"})
+			return
+		}
+	}
 
 	var documentURL string
 
 	file, err := c.FormFile("document")
 	if err == nil {
+		// 🛡️ ДОДАНО: Валідація розширення файлу
 		ext := filepath.Ext(file.Filename)
+		allowedExts := map[string]bool{".pdf": true, ".jpg": true, ".jpeg": true, ".png": true}
+		if !allowedExts[ext] {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Допускаються тільки PDF, JPG та PNG"})
+			return
+		}
+
+		// 🛡️ ДОДАНО: Генеруємо безпечне ім'я без user-input
 		newFileName := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
 		savePath := filepath.Join("uploads", "maintenance", newFileName)
 

@@ -1,8 +1,10 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"strings"
+	"time"
 
 	"millog_backend/internal/models"
 
@@ -55,12 +57,14 @@ func AuthMiddleware(jwtSecret string, db *pgxpool.Pool) gin.HandlerFunc {
 
 		// === НОВИЙ БЛОК: ПЕРЕВІРКА В БАЗІ ДАНИХ ===
 		var status string
-		// Робимо швидкий запит до БД, щоб перевірити актуальний статус користувача
-		err = db.QueryRow(c.Request.Context(), "SELECT status FROM users WHERE id = $1", claims.UserID).Scan(&status)
+		// 🛡️ Додаємо таймаут до контексту (2 сек) щоб не висіти на БД
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
+		defer cancel()
+		
+		err = db.QueryRow(ctx, "SELECT status FROM users WHERE id = $1", claims.UserID).Scan(&status)
 
 		// Якщо користувача видалили з БД або його статус BLOCKED - відхиляємо запит
 		if err != nil || status == "BLOCKED" {
-			// Можеш написати текст помилки українською, щоб фронтенд його красиво показав
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Ваш профіль деактивовано. Сесію завершено."})
 			c.Abort()
 			return

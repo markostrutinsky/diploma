@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -38,7 +39,9 @@ func (h *AnalyticsHandler) GetDashboard(c *gin.Context) {
 	unitID := c.Query("unit_id")
 	stats, err := h.service.GetDashboardAnalytics(ctx, startDateStr, endDateStr, unitID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to load dashboard analytics"})
+		// 🛡️ БЕЗПЕКА: Логуємо повну помилку на сервері, відправляємо безпечне повідомлення на клієнт
+		log.Printf("ERROR: GetDashboard failed: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка завантаження аналітики"})
 		return
 	}
 
@@ -147,4 +150,125 @@ func (h *AnalyticsHandler) ExportFuel(c *gin.Context) {
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
 	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 	c.Data(http.StatusOK, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileBytes)
+}
+
+// 🚀 PRO FEATURE #1: GetAdvancedKPIs повертає розширену аналітику
+// GET /api/analytics/kpi?start=2026-01-01&end=2026-04-22&unit_id=1
+func (h *AnalyticsHandler) GetAdvancedKPIs(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	startDate := c.DefaultQuery("start", time.Now().AddDate(0, 0, -30).Format("2006-01-02"))
+	endDate := c.DefaultQuery("end", time.Now().Format("2006-01-02"))
+	unitIDStr := c.Query("unit_id")
+
+	var unitID int64
+	if unitIDStr != "" {
+		if id, err := strconv.ParseInt(unitIDStr, 10, 64); err == nil {
+			unitID = id
+		}
+	}
+
+	kpis, err := h.service.GetAdvancedKPIs(ctx, startDate, endDate, unitID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка завантаження KPI"})
+		return
+	}
+
+	userID := c.GetString("user_id")
+	go func() {
+		_ = h.auditService.LogAction(context.Background(), userID, "VIEW", "KPI", "", "Переглянув розширену аналітику (KPI)")
+	}()
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   kpis,
+	})
+}
+
+// 🚀 PRO FEATURE #2: GetDemandForecast прогнозує попит на 3 місяці вперед
+// GET /api/analytics/forecast?unit_id=1
+func (h *AnalyticsHandler) GetDemandForecast(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	unitIDStr := c.Query("unit_id")
+	var unitID int64
+	if unitIDStr != "" {
+		if id, err := strconv.ParseInt(unitIDStr, 10, 64); err == nil {
+			unitID = id
+		}
+	}
+
+	forecast, err := h.service.GetDemandForecast(ctx, unitID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка завантаження прогнозу"})
+		return
+	}
+
+	userID := c.GetString("user_id")
+	go func() {
+		_ = h.auditService.LogAction(context.Background(), userID, "VIEW", "FORECAST", "", "Переглянув прогноз попиту")
+	}()
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   forecast,
+	})
+}
+
+// GetPredictiveMaintenanceSchedule returns predicted maintenance schedule for vehicles
+func (h *AnalyticsHandler) GetPredictiveMaintenanceSchedule(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	unitIDStr := c.Query("unit_id")
+	var unitID int64
+	if unitIDStr != "" {
+		if id, err := strconv.ParseInt(unitIDStr, 10, 64); err == nil {
+			unitID = id
+		}
+	}
+
+	schedule, err := h.service.GetPredictiveMaintenanceSchedule(ctx, unitID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка завантаження прогнозу обслуговування"})
+		return
+	}
+
+	userID := c.GetString("user_id")
+	go func() {
+		_ = h.auditService.LogAction(context.Background(), userID, "VIEW", "MAINTENANCE_SCHEDULE", "", "Переглянув прогноз обслуговування машин")
+	}()
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   schedule,
+	})
+}
+
+// GetFuelAnomalyDetection detects fuel consumption anomalies
+func (h *AnalyticsHandler) GetFuelAnomalyDetection(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	unitIDStr := c.Query("unit_id")
+	var unitID int64
+	if unitIDStr != "" {
+		if id, err := strconv.ParseInt(unitIDStr, 10, 64); err == nil {
+			unitID = id
+		}
+	}
+
+	anomalies, err := h.service.GetFuelAnomalyDetection(ctx, unitID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка аналізу витрат палива"})
+		return
+	}
+
+	userID := c.GetString("user_id")
+	go func() {
+		_ = h.auditService.LogAction(context.Background(), userID, "VIEW", "FUEL_ANOMALIES", "", "Переглянув аналіз аномалій у витраті палива")
+	}()
+
+	c.JSON(http.StatusOK, gin.H{
+		"status": "success",
+		"data":   anomalies,
+	})
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"millog_backend/internal/models"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -21,6 +22,13 @@ type beginner interface {
 }
 
 func (r *FuelRepository) CreateFuelRecord(ctx context.Context, record *models.FuelRecord, db DBExecutor) error {
+	// 🛡️ ДОДАНО: Context timeout (10 сек) щоб запобігти infinite waits
+	var cancel context.CancelFunc
+	if _, ok := ctx.Deadline(); !ok {
+		ctx, cancel = context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+	}
+
 	b, ok := db.(beginner)
 	if !ok {
 		return fmt.Errorf("переданий db не підтримує старт транзакцій")

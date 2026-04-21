@@ -8,6 +8,7 @@ import (
 	"millog_backend/internal/services"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -404,5 +405,65 @@ func (h *AuthHandler) RequestPasswordReset(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Якщо цей email зареєстрований у системі, ми надіслали на нього інструкції з відновлення пароля.",
+	})
+}
+
+// GetUserLimits returns subscription tier information and resource usage limits for the current user
+func (h *AuthHandler) GetUserLimits(c *gin.Context) {
+	userID := c.GetString("user_id")
+	unitIDVal, exists := c.Get("unit_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Не вдалося визначити підрозділ користувача"})
+		return
+	}
+	unitID := unitIDVal.(string)
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
+	defer cancel()
+
+	// Get subscription tier
+	tier, err := h.authService.GetUserSubscriptionTier(ctx, unitID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Не вдалося отримати інформацію про підписку"})
+		return
+	}
+
+	// Define limits by tier
+	limitsByTier := map[string]map[string]interface{}{
+		"BASIC": {
+			"maxWarehouses": 10,
+			"maxResources":  100,
+			"maxUsers":      50,
+			"maxVehicles":   5,
+			"unlimited":     false,
+		},
+		"PRO": {
+			"maxWarehouses": 100,
+			"maxResources":  1000,
+			"maxUsers":      500,
+			"maxVehicles":   50,
+			"unlimited":     false,
+		},
+		"ENTERPRISE": {
+			"maxWarehouses": -1,
+			"maxResources":  -1,
+			"maxUsers":      -1,
+			"maxVehicles":   -1,
+			"unlimited":     true,
+		},
+	}
+
+	limits := limitsByTier[tier]
+	if limits == nil {
+		limits = limitsByTier["BASIC"]
+	}
+
+	go func() {
+		_ = h.auditService.LogAction(context.Background(), userID, "READ", "USER_LIMITS", userID, fmt.Sprintf("Перегляд інформації про ліміти (tier: %s)", tier))
+	}()
+
+	c.JSON(http.StatusOK, gin.H{
+		"subscriptionTier": tier,
+		"limits":           limits,
 	})
 }

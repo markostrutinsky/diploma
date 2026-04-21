@@ -102,9 +102,10 @@ CREATE TABLE IF NOT EXISTS fuel_records (
 CREATE INDEX IF NOT EXISTS idx_fuel_records_vehicle ON fuel_records(vehicle_id);
 
 -- 8. Заявки для волонтерів
-CREATE TABLE IF NOT EXISTS CONTRACTOR_requests (
+CREATE TABLE IF NOT EXISTS contractor_requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    unit_id BIGINT REFERENCES units(id) ON DELETE SET NULL,
     title VARCHAR(255) NOT NULL,
     description TEXT,
     status VARCHAR(20) NOT NULL DEFAULT 'OPEN',
@@ -113,7 +114,7 @@ CREATE TABLE IF NOT EXISTS CONTRACTOR_requests (
     completed_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX IF NOT EXISTS idx_CONTRACTOR_requests_status ON CONTRACTOR_requests(status);
+CREATE INDEX IF NOT EXISTS idx_contractor_requests_status ON contractor_requests(status);
 
 -- 9. Refresh-токени
 CREATE TABLE IF NOT EXISTS refresh_tokens (

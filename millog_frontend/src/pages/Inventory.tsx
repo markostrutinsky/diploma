@@ -1011,7 +1011,7 @@ export default function Inventory() {
                       </tr>
                       {unitResources.map((r) => {
                         const isWrittenOff = r.condition === 'WRITTEN_OFF';
-                        const issuedQty = (r as any).issued_quantity || 0;
+                        const issuedQty = 0; // issued_quantity не в типі Resource
                         const totalQuantity = r.quantity + issuedQty;
                         
                         let status = 'success'; let statusText = 'OK';

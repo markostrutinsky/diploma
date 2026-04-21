@@ -15,7 +15,7 @@ func NewContractorRequestRepository() *ContractorRequestRepository {
 
 func (r *ContractorRequestRepository) Create(ctx context.Context, db DBExecutor, vr *models.ContractorRequest) error {
 	query := `
-		INSERT INTO Contractor_requests (created_by, unit_id, title, description, status)
+		INSERT INTO contractor_requests (created_by, unit_id, title, description, status)
 		VALUES ($1, $2, $3, $4, $5) 
 		RETURNING id, created_at
 	`
@@ -37,7 +37,7 @@ func (r *ContractorRequestRepository) List(ctx context.Context, db DBExecutor, s
 			vr.taken_at, 
 			vr.completed_at, 
 			vr.created_at
-		FROM Contractor_requests vr
+		FROM contractor_requests vr
 		LEFT JOIN units u ON vr.unit_id = u.id
 		WHERE 1=1
 	`
@@ -84,7 +84,7 @@ func (r *ContractorRequestRepository) List(ctx context.Context, db DBExecutor, s
 
 func (r *ContractorRequestRepository) UpdateStatus(ctx context.Context, db DBExecutor, requestID string, userID string, newStatus models.ContractorRequestStatus) error {
 
-	query := `UPDATE Contractor_requests SET status = $1`
+	query := `UPDATE contractor_requests SET status = $1`
 	args := []interface{}{newStatus}
 	paramID := 2
 

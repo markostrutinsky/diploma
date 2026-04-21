@@ -15,12 +15,19 @@ import (
 )
 
 type InventoryHandler struct {
-	invService   *services.InventoryService
-	auditService *services.AuditService
+	invService        *services.InventoryService
+	auditService      *services.AuditService
+	limitationService *services.LimitationService
+	authService       *services.AuthService
 }
 
-func NewInventoryHandler(inv *services.InventoryService, audit *services.AuditService) *InventoryHandler {
-	return &InventoryHandler{invService: inv, auditService: audit}
+func NewInventoryHandler(inv *services.InventoryService, audit *services.AuditService, limitation *services.LimitationService, auth *services.AuthService) *InventoryHandler {
+	return &InventoryHandler{
+		invService:        inv,
+		auditService:      audit,
+		limitationService: limitation,
+		authService:       auth,
+	}
 }
 
 func (h *InventoryHandler) CreateCategory(c *gin.Context) {
@@ -60,6 +67,16 @@ func (h *InventoryHandler) CreateResource(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	// 🛡️ Перевіримо ліміт на ресурсах
+	if err := h.limitationService.CheckResourceLimit(c.Request.Context(), req.UnitID); err != nil {
+		c.JSON(http.StatusPaymentRequired, gin.H{
+			"error":       err.Error(),
+			"upgrade_url": "/billing?plan=pro",
+		})
+		return
+	}
+
 	res, err := h.invService.CreateResource(c.Request.Context(), &req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})

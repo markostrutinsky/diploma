@@ -111,7 +111,7 @@ export default function Vehicles() {
         ...newVehicle, 
         driver_id: newVehicle.driver_id || undefined 
       }
-      await api.vehicles.create(payload as any) 
+      await api.vehicles.create(payload)
       toast.success('Автомобіль успішно додано!')
       setNewVehicle({ brand: '', model: '', plate_number: '', type: 'VAN', capacity_kg: 1500, tank_capacity: 0, fuel_norm: 0, driver_id: '' })
       loadData()
@@ -176,7 +176,7 @@ export default function Vehicles() {
         formData.append('document', maintenanceForm.document)
       }
 
-      await api.vehicles.performMaintenance(maintenanceModalVehicle.id, formData as any)
+      await api.vehicles.performMaintenance(maintenanceModalVehicle.id, formData)
       
       const msg = maintenanceModalVehicle.status === 'IN_REPAIR' 
         ? 'Ремонт завершено! Машина знову на лінії.' 
@@ -199,7 +199,7 @@ export default function Vehicles() {
 
     try {
       await api.vehicles.updateStatus(statusModalVehicle.id, {
-        status: statusForm.status as any,
+        status: statusForm.status,
         reason: statusForm.reason
       })
       toast.success('Статус машини оновлено!')
@@ -557,8 +557,8 @@ export default function Vehicles() {
                 </div>
                 <div className="form-group">
                   <label>Поточний одометр (км) {fuelForm.record_type === 'EXPENSE' && <span style={{color: '#ef4444'}}>*</span>}</label>
-                  <input type="number" min={(fuelModalVehicle as any).current_odometer || 0} placeholder={`Напр. ${(fuelModalVehicle as any).current_odometer ? (fuelModalVehicle as any).current_odometer + 150 : 150500}`} value={fuelForm.odometer_km} onChange={(e) => setFuelForm({ ...fuelForm, odometer_km: e.target.value })} required={fuelForm.record_type === 'EXPENSE'} disabled={isProcessing} className="erp-input" />
-                  <span style={{ display: 'block', fontSize: '11px', color: '#64748b', marginTop: '6px' }}>Останній запис: <strong>{(fuelModalVehicle as any).current_odometer || 0}</strong> км</span>
+                  <input type="number" min={fuelModalVehicle?.current_odometer || 0} placeholder={`Напр. ${fuelModalVehicle?.current_odometer ? fuelModalVehicle.current_odometer + 150 : 150500}`} value={fuelForm.odometer_km} onChange={(e) => setFuelForm({ ...fuelForm, odometer_km: e.target.value })} required={fuelForm.record_type === 'EXPENSE'} disabled={isProcessing} className="erp-input" />
+                  <span style={{ display: 'block', fontSize: '11px', color: '#64748b', marginTop: '6px' }}>Останній запис: <strong>{fuelModalVehicle?.current_odometer || 0}</strong> км</span>
                 </div>
               </div>
               <div className="modal-actions">
