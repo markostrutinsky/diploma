@@ -504,11 +504,11 @@ func (s *AnalyticsService) GetFuelAnomalyDetection(ctx context.Context, unitID i
 
 	for rows.Next() {
 		var (
-			id, refillCount                                     int64
-			plateNumber, brand, model                           string
-			totalLiters, avgLitersPerRefill, stddevLiters      float64
-			minLiters, maxLiters, currentMileage               float64
-			avgPricePerLiter                                    float64
+			id, refillCount                               int64
+			plateNumber, brand, model                     string
+			totalLiters, avgLitersPerRefill, stddevLiters float64
+			minLiters, maxLiters, currentMileage          float64
+			avgPricePerLiter                              float64
 		)
 
 		if err := rows.Scan(&id, &plateNumber, &brand, &model, &refillCount, &totalLiters,
@@ -572,14 +572,14 @@ func (s *AnalyticsService) GetFuelAnomalyDetection(ctx context.Context, unitID i
 	}
 
 	return map[string]interface{}{
-		"unit_id":                     unitID,
-		"analysis_period_days":        90,
-		"vehicles_analyzed":           totalVehiclesAnalyzed,
-		"suspicious_vehicles":         suspiciousVehicles,
-		"suspicion_rate_percent":      float64(suspiciousVehicles) * 100.0 / float64(totalVehiclesAnalyzed),
-		"anomalies":                   anomalies,
-		"generated_at":                time.Now().Format(time.RFC3339),
-		"recommendation":              "Перевірте прапорені операції та розслідуйте високий рівень ризику",
+		"unit_id":                unitID,
+		"analysis_period_days":   90,
+		"vehicles_analyzed":      totalVehiclesAnalyzed,
+		"suspicious_vehicles":    suspiciousVehicles,
+		"suspicion_rate_percent": float64(suspiciousVehicles) * 100.0 / float64(totalVehiclesAnalyzed),
+		"anomalies":              anomalies,
+		"generated_at":           time.Now().Format(time.RFC3339),
+		"recommendation":         "Перевірте прапорені операції та розслідуйте високий рівень ризику",
 	}, nil
 }
 

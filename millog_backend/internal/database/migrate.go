@@ -332,6 +332,62 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		`ALTER TABLE units ADD COLUMN IF NOT EXISTS subscription_tier VARCHAR(20) DEFAULT 'BASIC';`,
 
 		`ALTER TABLE resources ADD COLUMN IF NOT EXISTS barcode VARCHAR(255) DEFAULT '';`,
+
+		// ==========================================
+		// GPS TRACKING & GEOFENCING (PRO FEATURE #5)
+		// ==========================================
+
+		// Real-time GPS locations from vehicles
+		`CREATE TABLE IF NOT EXISTS gps_locations (
+			id BIGSERIAL PRIMARY KEY,
+			vehicle_id BIGINT NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
+			unit_id BIGINT NOT NULL REFERENCES units(id) ON DELETE CASCADE,
+			latitude DECIMAL(10,8) NOT NULL,
+			longitude DECIMAL(11,8) NOT NULL,
+			altitude DECIMAL(10,2),
+			speed DECIMAL(6,2),
+			heading DECIMAL(6,2),
+			accuracy DECIMAL(6,2),
+			timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+		);`,
+
+		`CREATE INDEX IF NOT EXISTS idx_gps_locations_vehicle ON gps_locations(vehicle_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_gps_locations_unit ON gps_locations(unit_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_gps_locations_timestamp ON gps_locations(timestamp DESC);`,
+		`CREATE INDEX IF NOT EXISTS idx_gps_locations_vehicle_time ON gps_locations(vehicle_id, timestamp DESC);`,
+
+		// Geofences (alert zones)
+		`CREATE TABLE IF NOT EXISTS geofences (
+			id BIGSERIAL PRIMARY KEY,
+			unit_id BIGINT NOT NULL REFERENCES units(id) ON DELETE CASCADE,
+			name VARCHAR(255) NOT NULL,
+			latitude DECIMAL(10,8) NOT NULL,
+			longitude DECIMAL(11,8) NOT NULL,
+			radius DECIMAL(10,2) NOT NULL,
+			type VARCHAR(50) NOT NULL,
+			active BOOLEAN DEFAULT true,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+		);`,
+
+		`CREATE INDEX IF NOT EXISTS idx_geofences_unit ON geofences(unit_id);`,
+
+		// Geofence breach alerts
+		`CREATE TABLE IF NOT EXISTS geofence_alerts (
+			id BIGSERIAL PRIMARY KEY,
+			vehicle_id BIGINT NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
+			geofence_id BIGINT NOT NULL REFERENCES geofences(id) ON DELETE CASCADE,
+			event_type VARCHAR(20) NOT NULL,
+			latitude DECIMAL(10,8) NOT NULL,
+			longitude DECIMAL(11,8) NOT NULL,
+			timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+		);`,
+
+		`CREATE INDEX IF NOT EXISTS idx_geofence_alerts_vehicle ON geofence_alerts(vehicle_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_geofence_alerts_geofence ON geofence_alerts(geofence_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_geofence_alerts_created ON geofence_alerts(created_at DESC);`,
 	}
 
 	for i, m := range migrations {

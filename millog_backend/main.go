@@ -290,6 +290,24 @@ func main() {
 			analyticsGroup.GET("/export/inventory", analyticsHandler.ExportInventory)
 			analyticsGroup.GET("/export/fuel", analyticsHandler.ExportFuel)
 		}
+
+		// 🚀 GPS TRACKING & GEOFENCING (PRO FEATURE #5)
+		gpsService := services.NewGPSTrackingService(dbPool)
+		gpsHandler := handlers.NewGPSTrackingHandler(gpsService, auditService)
+
+		{
+			gpsGroup := r.Group("/api/gps")
+			gpsGroup.Use(middleware.AuthMiddleware(jwtSecret, dbPool))
+
+			// PRO endpoints
+			gpsGroup.POST("/locations", middleware.RequireSubscriptionTier("PRO", dbPool), gpsHandler.RecordVehicleLocation)
+			gpsGroup.GET("/fleet-map", middleware.RequireSubscriptionTier("PRO", dbPool), gpsHandler.GetFleetMap)
+			gpsGroup.GET("/trajectory", middleware.RequireSubscriptionTier("PRO", dbPool), gpsHandler.GetVehicleTrajectory)
+			gpsGroup.POST("/geofences", middleware.RequireSubscriptionTier("PRO", dbPool), gpsHandler.CreateGeofence)
+			gpsGroup.GET("/geofences", middleware.RequireSubscriptionTier("PRO", dbPool), gpsHandler.GetGeofences)
+			gpsGroup.GET("/geofence-alerts", middleware.RequireSubscriptionTier("PRO", dbPool), gpsHandler.GetGeofenceAlerts)
+			gpsGroup.GET("/fleet-status", middleware.RequireSubscriptionTier("PRO", dbPool), gpsHandler.GetFleetStatus)
+		}
 	}
 
 	port := os.Getenv("PORT")
