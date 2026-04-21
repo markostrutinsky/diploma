@@ -357,3 +357,41 @@ func (r *VehicleRepository) Delete(ctx context.Context, db DBExecutor, id string
 	_, err := db.Exec(ctx, query, id)
 	return err
 }
+
+// GetAvailableForRoute повертає вільні авто, які належать підрозділу відправника АБО отримувача
+func (r *VehicleRepository) GetAvailableForRoute(ctx context.Context, db DBExecutor, senderUnitID int64, receiverUnitID int64) ([]models.Vehicle, error) {
+	query := `
+		SELECT v.id, v.brand, v.model, v.plate_number, v.type, v.capacity_kg, 
+		       v.status, v.driver_id, v.tank_capacity, v.fuel_norm, 
+		       v.maintenance_interval_km, v.last_maintenance_odometer, 
+		       v.created_at, v.updated_at
+		FROM vehicles v
+		INNER JOIN users u ON v.driver_id = u.id
+		WHERE v.status = 'ACTIVE' 
+		  AND (u.unit_id = $1 OR u.unit_id = $2)
+		ORDER BY v.brand, v.model
+	`
+
+	rows, err := db.Query(ctx, query, senderUnitID, receiverUnitID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []models.Vehicle
+	for rows.Next() {
+		var v models.Vehicle
+		err := rows.Scan(
+			&v.ID, &v.Brand, &v.Model, &v.PlateNumber, &v.Type, &v.CapacityKg,
+			&v.Status, &v.DriverID, &v.TankCapacity, &v.FuelNorm,
+			&v.MaintenanceIntervalKm, &v.LastMaintenanceOdometer,
+			&v.CreatedAt, &v.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, v)
+	}
+
+	return list, rows.Err()
+}

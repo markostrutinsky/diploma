@@ -4,6 +4,29 @@ import { useAuth } from '../contexts/AuthContext'
 import toast from 'react-hot-toast'
 import './Requests.css'
 
+const APPROVAL_MATRIX: Record<string, string[]> = {
+  // Заявки звичайних виконавців погоджують їхні ліди, АБО логісти, АБО вище керівництво
+  'EMPLOYEE': ['TEAM_LEAD', 'DEPT_MANAGER', 'DEPT_SUPERVISOR', 'BRANCH_MANAGER', 'BRANCH_LOGISTICIAN', 'REGION_DIRECTOR', 'REGION_LOGISTICIAN', 'ADMIN'],
+  
+  // Тімліда погоджує менеджер відділу, логіст філії/регіону або керівництво
+  'TEAM_LEAD': ['DEPT_MANAGER', 'DEPT_SUPERVISOR', 'BRANCH_MANAGER', 'BRANCH_LOGISTICIAN', 'REGION_DIRECTOR', 'REGION_LOGISTICIAN', 'ADMIN'],
+  
+  'DEPT_SUPERVISOR': ['DEPT_MANAGER', 'BRANCH_MANAGER', 'BRANCH_LOGISTICIAN', 'REGION_DIRECTOR', 'REGION_LOGISTICIAN', 'ADMIN'],
+  'DEPT_MANAGER': ['BRANCH_MANAGER', 'BRANCH_LOGISTICIAN', 'REGION_DIRECTOR', 'REGION_LOGISTICIAN', 'ADMIN'],
+  
+  // Керівника філії погоджує директор регіону або логіст регіону
+  'BRANCH_MANAGER': ['REGION_DIRECTOR', 'REGION_LOGISTICIAN', 'ADMIN'],
+  
+  'BRANCH_LOGISTICIAN': ['BRANCH_MANAGER', 'REGION_DIRECTOR', 'REGION_LOGISTICIAN', 'ADMIN'],
+  'BRANCH_STOREKEEPER': ['BRANCH_MANAGER', 'BRANCH_LOGISTICIAN', 'REGION_DIRECTOR', 'REGION_LOGISTICIAN', 'ADMIN'],
+  
+  'REGION_STOREKEEPER': ['REGION_DIRECTOR', 'REGION_LOGISTICIAN', 'ADMIN'],
+  
+  // А от верхівка погоджується тільки Адміном
+  'REGION_DIRECTOR': ['ADMIN'],
+  'REGION_LOGISTICIAN': ['REGION_DIRECTOR', 'ADMIN']
+};
+
 export default function Requests() {
   const { user } = useAuth()
   const [requests, setRequests] = useState<SupplyRequest[]>([])
@@ -31,6 +54,34 @@ export default function Requests() {
     priority: 'NORMAL'
   })
 
+  useEffect(() => {
+    if (dispatchForm.from_warehouse_id && dispatchForm.to_warehouse_id) {
+      
+      const fromWh = warehouses.find(w => String(w.id) === String(dispatchForm.from_warehouse_id));
+      const toWh = warehouses.find(w => String(w.id) === String(dispatchForm.to_warehouse_id));
+
+      if (fromWh?.unit_id && toWh?.unit_id) {
+        api.vehicles.getAvailableForRoute(fromWh.unit_id, toWh.unit_id)
+          .then(data => {
+            // 🔥 ГОЛОВНИЙ ФІКС: Якщо бекенд прислав null, робимо з нього порожній масив
+            const safeData = Array.isArray(data) ? data : [];
+            
+            setVehicles(safeData);
+            
+            if (dispatchForm.vehicle_id && !safeData.find(v => String(v.id) === String(dispatchForm.vehicle_id))) {
+              setDispatchForm(prev => ({ ...prev, vehicle_id: '' }));
+            }
+          })
+          .catch(err => {
+            console.error("Помилка завантаження авто:", err);
+          });
+      } else {
+        setVehicles([]);
+      }
+    } else {
+      setVehicles([]);
+    }
+  }, [dispatchForm.from_warehouse_id, dispatchForm.to_warehouse_id, warehouses]);
   // --- СТЕЙТИ ДЛЯ SMART РОЗПОДІЛУ (AI) ---
   const [showSmartPreview, setShowSmartPreview] = useState(false)
   const [smartRoutes, setSmartRoutes] = useState<VehicleBin[]>([])
@@ -176,6 +227,23 @@ export default function Requests() {
       })
       .filter(info => info.availableQty > 0);
   }, [newReq.resource_id, newReq.target_warehouse_id, warehouses, resources]);
+
+  const canApproveThis = useMemo(() => (r: SupplyRequest) => {
+  if (!user) return false;
+  
+  // 1. Самопогодження заборонено жорстко
+  if (r.created_by === user.id) return false;
+  
+  // 2. Знаходимо, хто створив заявку
+  const creator = users.find(u => u.id === r.created_by);
+  if (!creator) return false;
+  
+  // 3. Дістаємо масив ролей, які мають право погоджувати заявки від цього творця
+  const allowedApprovers = APPROVAL_MATRIX[creator.role] || [];
+  
+  // 4. Перевіряємо, чи є поточна роль юзера в цьому списку
+  return allowedApprovers.includes(user.role);
+}, [user, users]);
 
   const handleOpenDispatchModal = () => {
     setDispatchForm(prev => ({
@@ -570,8 +638,18 @@ export default function Requests() {
               </div>
               <div className="form-group mb-8">
                 <label>Вільний Транспорт</label>
-                <select className="erp-input" value={dispatchForm.vehicle_id} onChange={e => setDispatchForm({...dispatchForm, vehicle_id: e.target.value})} required>
-                  <option value="" disabled>Оберіть транспорт...</option>
+                <select 
+                  className="erp-input" 
+                  value={dispatchForm.vehicle_id} 
+                  onChange={e => setDispatchForm({...dispatchForm, vehicle_id: e.target.value})} 
+                  required
+                  disabled={!dispatchForm.from_warehouse_id || !dispatchForm.to_warehouse_id}
+                >
+                  <option value="" disabled>
+                    {!dispatchForm.from_warehouse_id || !dispatchForm.to_warehouse_id 
+                      ? "Спочатку оберіть склади відправки та отримання" 
+                      : "Оберіть транспорт..."}
+                  </option>
                   {availableVehicles.map(v => <option key={v.id} value={v.id}>{v.brand} ({v.plate_number}) - Макс {v.capacity_kg} кг</option>)}
                 </select>
               </div>
@@ -615,9 +693,6 @@ export default function Requests() {
                 const isSelected = selectedReqIds.has(r.id);
                 const authorUser = users.find(u => u.id === r.created_by);
                 const targetWarehouse = warehouses.find(w => w.id === r.target_warehouse_id);
-                
-                const isMyRequest = r.created_by === user?.id;
-                const canCancelThis = isMyRequest && r.status === 'PENDING';
                 
                 return (
                 <tr key={r.id} className={`${isSelected ? 'row-selected' : ''} ${isLocked ? 'row-locked' : ''}`}>
@@ -663,20 +738,22 @@ export default function Requests() {
                       {r.status === 'PENDING' ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start' }}>
                           
-                          {canApprove && (
+                          {/* Розумна перевірка по матриці ієрархії */}
+                          {canApproveThis(r) && (
                             <div className="action-buttons-flex">
                               <button className="btn btn-sm btn-primary" onClick={() => handleApprove(r.id)}>Затвердити</button>
                               <button className="btn btn-sm btn-danger-outline" onClick={() => setRejectModalData(r)}>Відхилити</button>
                             </div>
                           )}
                           
-                          {canCancelThis && (
+                          {/* Скасування тільки власних заявок */}
+                          {r.created_by === user?.id && (
                              <button 
                                className="btn btn-sm" 
                                style={{ backgroundColor: '#f1f5f9', color: '#64748b', border: '1px dashed #cbd5e1', fontSize: '12px' }} 
                                onClick={() => setCancelModalData(r)}
                              >
-                               {canApprove ? ' Скасувати власну' : ' Скасувати заявку'}
+                               Скасувати власну
                              </button>
                           )}
 

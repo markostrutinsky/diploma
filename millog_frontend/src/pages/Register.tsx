@@ -32,7 +32,7 @@ export default function Register() {
   return (
     <div className="login-page">
       <div className="login-card">
-        <h1>Реєстрація волонтера</h1>
+        <h1>Реєстрація підрядника</h1>
         <p>Створіть обліковий запис для виконання заявок</p>
         <p className="login-hint">
           <Link to="/login">Маєте обліковий запис — увійти</Link>

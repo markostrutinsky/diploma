@@ -257,6 +257,8 @@ func main() {
 
 			vehicleGroup.PATCH("/:id", vehicleHandler.Update)
 			vehicleGroup.DELETE("/:id", vehicleHandler.Delete)
+			vehicleGroup.GET("/available-for-route", vehicleHandler.GetAvailableForShipment)
+
 		}
 
 		warehouseGroup := api.Group("/warehouses")

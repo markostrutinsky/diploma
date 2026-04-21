@@ -413,6 +413,8 @@ export const api = {
         method: 'DELETE',
       });
     },
+    getAvailableForRoute: (senderUnitID: number, receiverUnitID: number) => 
+      request<Vehicle[]>(`/vehicles/available-for-route?sender_unit_id=${senderUnitID}&receiver_unit_id=${receiverUnitID}`),
   },
   warehouses: {
     list: async (): Promise<Warehouse[]> => {

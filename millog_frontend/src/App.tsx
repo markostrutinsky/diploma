@@ -17,9 +17,10 @@ import Warehouses from './pages/Warehouses'
 import AnalyticsDashboard from './pages/AnalyticsDashboard'
 import Profile from './pages/Profile'
 import AuditLogs from './pages/AuditLogs'
-import Billing from './pages/Billing';
-import KioskTerminal from './pages/KioskTerminal';
+import Billing from './pages/Billing'
+import KioskTerminal from './pages/KioskTerminal'
 import { Toaster } from 'react-hot-toast'
+import { ROLE_GROUPS } from './constants/roles'
 
 function App() {
   return (
@@ -41,7 +42,14 @@ function App() {
 
           <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
 
-          <Route path="/audit" element={<ProtectedRoute><AuditLogs /></ProtectedRoute>}/>
+          <Route
+            path="/audit"
+            element={
+              <ProtectedRoute allowedRoles={[...ROLE_GROUPS.superAdmin]}>
+                <AuditLogs />
+              </ProtectedRoute>
+            }
+          />
 
           <Route 
             path="/my-equipment" 
@@ -50,51 +58,51 @@ function App() {
 
           <Route 
             path="/inventory" 
-            element={<ProtectedRoute forbidRoles={['CONTRACTOR']}><Inventory /></ProtectedRoute>} 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.inventory]}><Inventory /></ProtectedRoute>} 
           />
           <Route 
             path="/warehouses" 
-            element={<ProtectedRoute forbidRoles={['CONTRACTOR']}><Warehouses /></ProtectedRoute>} 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.inventory]}><Warehouses /></ProtectedRoute>} 
           />
           <Route 
             path="/requests" 
-            element={<ProtectedRoute forbidRoles={['CONTRACTOR']}><Requests /></ProtectedRoute>} 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.requests]}><Requests /></ProtectedRoute>} 
           />
           <Route 
             path="/units" 
-            element={<ProtectedRoute forbidRoles={['CONTRACTOR']}><Units /></ProtectedRoute>} 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.units]}><Units /></ProtectedRoute>} 
           />
           <Route 
             path="/admin/users" 
-            element={<ProtectedRoute forbidRoles={['CONTRACTOR']}><AdminUsers /></ProtectedRoute>} 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.users]}><AdminUsers /></ProtectedRoute>} 
           />
           <Route 
             path="/vehicles" 
-            element={<ProtectedRoute forbidRoles={['CONTRACTOR']}><Vehicles /></ProtectedRoute>} 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.transport]}><Vehicles /></ProtectedRoute>} 
           />
           
           <Route 
             path="/analytics" 
-            element={<ProtectedRoute forbidRoles={['CONTRACTOR']}><AnalyticsDashboard /></ProtectedRoute>} 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.analytics]}><AnalyticsDashboard /></ProtectedRoute>} 
           />
 
           <Route 
-    path="/kiosk" 
-    element={
-      <ProtectedRoute forbidRoles={['CONTRACTOR', 'EMPLOYEE']}>
-        <KioskTerminal />
-      </ProtectedRoute>
-    } 
-  />
+            path="/kiosk" 
+            element={
+              <ProtectedRoute allowedRoles={[...ROLE_GROUPS.kiosk]}>
+                <KioskTerminal />
+              </ProtectedRoute>
+            } 
+          />
 
           <Route 
-            path="/CONTRACTOR-requests" 
-            element={<ProtectedRoute><VolunteerRequests /></ProtectedRoute>} 
+            path="/contractor-requests" 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.contractorRequestsView]}><VolunteerRequests /></ProtectedRoute>} 
           />
 
           <Route 
             path="/billing" 
-            element={<ProtectedRoute forbidRoles={['CONTRACTOR']}><Billing /></ProtectedRoute>} 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.superAdmin]}><Billing /></ProtectedRoute>} 
           />
 
           {/* Редирект для всього іншого */}

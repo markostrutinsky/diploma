@@ -12,6 +12,13 @@ import (
 
 type UnitRepository struct{}
 
+var SingleInstanceRoles = map[models.UserRole]bool{
+	models.RoleRegionDirector: true,
+	models.RoleBranchManager:  true,
+	models.RoleDeptManager:    true,
+	models.RoleTeamLead:       true,
+}
+
 func NewUnitRepository() *UnitRepository {
 	return &UnitRepository{}
 }
@@ -39,21 +46,37 @@ func (r *UnitRepository) List(ctx context.Context, db DBExecutor) ([]models.Unit
 }
 
 func (r *UnitRepository) GetAvailableUnitsForRole(ctx context.Context, db *pgxpool.Pool, unitType string, role models.UserRole) ([]models.Unit, error) {
-	query := `
-        SELECT id, name
-        FROM units u
-        WHERE u.unit_type = $1
-          AND NOT EXISTS (
-              SELECT 1 
-              FROM users usr 
-              WHERE usr.unit_id = u.id 
-                AND usr.role = $2 
-                AND usr.status IN ('ACTIVE', 'PENDING')
-          )
-        ORDER BY u.name
-    `
+	var query string
+	var args []interface{}
 
-	rows, err := db.Query(ctx, query, unitType, role)
+	// Перевіряємо, чи є роль "унікальною" для підрозділу
+	if SingleInstanceRoles[role] {
+		query = `
+			SELECT id, name
+			FROM units u
+			WHERE u.unit_type = $1
+			  AND NOT EXISTS (
+				  SELECT 1 
+				  FROM users usr 
+				  WHERE usr.unit_id = u.id 
+					AND usr.role = $2 
+					AND usr.status IN ('ACTIVE', 'PENDING')
+			  )
+			ORDER BY u.name
+		`
+		args = append(args, unitType, role)
+	} else {
+		// Якщо роль масова (наприклад, EMPLOYEE) - просто повертаємо підрозділи відповідного типу
+		query = `
+			SELECT id, name
+			FROM units u
+			WHERE u.unit_type = $1
+			ORDER BY u.name
+		`
+		args = append(args, unitType)
+	}
+
+	rows, err := db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -236,29 +259,63 @@ func (r *UnitRepository) GetSubordinateUnitIDs(ctx context.Context, db DBExecuto
 }
 
 func (r *UnitRepository) GetAvailableUnitsInHierarchy(ctx context.Context, db *pgxpool.Pool, unitType string, role models.UserRole, commanderUnitID int64) ([]models.Unit, error) {
-	query := `
-        WITH RECURSIVE unit_tree AS (
-            -- Починаємо з поточного підрозділу командира
-            SELECT id, name, unit_type FROM units WHERE id = $3
-            UNION ALL
-            -- Шукаємо всі підлеглі підрозділи
-            SELECT u.id, u.name, u.unit_type FROM units u
-            INNER JOIN unit_tree ut ON u.parent_id = ut.id
-        )
-        SELECT id, name
-        FROM unit_tree
-        WHERE unit_type = $1
-          AND NOT EXISTS (
-              -- Перевіряємо, чи немає вже активного користувача на цій посаді
-              SELECT 1 FROM users usr 
-              WHERE usr.unit_id = unit_tree.id 
-                AND usr.role = $2 
-                AND usr.status IN ('ACTIVE', 'PENDING')
-          )
-        ORDER BY name
-    `
+	var query string
+	var args []interface{}
 
-	rows, err := db.Query(ctx, query, unitType, role, commanderUnitID)
+	if SingleInstanceRoles[role] {
+		query = `
+			WITH RECURSIVE unit_tree AS (
+				SELECT id, name, unit_type FROM units WHERE id = $3
+				UNION ALL
+				SELECT u.id, u.name, u.unit_type FROM units u
+				INNER JOIN unit_tree ut ON u.parent_id = ut.id
+			)
+			SELECT id, name
+			FROM unit_tree
+			WHERE unit_type = $1
+			  AND NOT EXISTS (
+				  SELECT 1 FROM users usr 
+				  WHERE usr.unit_id = unit_tree.id 
+					AND usr.role = $2 
+					AND usr.status IN ('ACTIVE', 'PENDING')
+			  )
+			ORDER BY name
+		`
+		args = append(args, unitType, role, commanderUnitID)
+	} else {
+		if unitType == "ANY" {
+			// Якщо ANY, то НЕ фільтруємо по unit_type взагалі
+			query = `
+				WITH RECURSIVE unit_tree AS (
+					SELECT id, name, unit_type FROM units WHERE id = $1
+					UNION ALL
+					SELECT u.id, u.name, u.unit_type FROM units u
+					INNER JOIN unit_tree ut ON u.parent_id = ut.id
+				)
+				SELECT id, name
+				FROM unit_tree
+				ORDER BY name
+			`
+			args = append(args, commanderUnitID)
+		} else {
+			// Стандартна поведінка для конкретного типу
+			query = `
+				WITH RECURSIVE unit_tree AS (
+					SELECT id, name, unit_type FROM units WHERE id = $2
+					UNION ALL
+					SELECT u.id, u.name, u.unit_type FROM units u
+					INNER JOIN unit_tree ut ON u.parent_id = ut.id
+				)
+				SELECT id, name
+				FROM unit_tree
+				WHERE unit_type = $1
+				ORDER BY name
+			`
+			args = append(args, unitType, commanderUnitID)
+		}
+	}
+
+	rows, err := db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

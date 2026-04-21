@@ -16,6 +16,20 @@ const ROLES: { value: UserRole, label: string }[] = [
   { value: 'EMPLOYEE', label: ROLE_NAMES['EMPLOYEE'] },
 ]
 
+const ROLE_UNIT_TYPE_MAP: Record<string, string[]> = {
+  'REGION_DIRECTOR': ['REGION'],
+  'REGION_LOGISTICIAN': ['REGION'],
+  'REGION_STOREKEEPER': ['REGION'],
+  'BRANCH_MANAGER': ['BRANCH'],
+  'BRANCH_LOGISTICIAN': ['BRANCH'],
+  'BRANCH_STOREKEEPER': ['BRANCH'],
+  'DEPT_MANAGER': ['DEPARTMENT'],
+  'DEPT_SUPERVISOR': ['DEPARTMENT'],
+  'EMPLOYEE': ['DEPARTMENT'],
+  'TEAM_LEAD': ['DEPARTMENT'], // Або 'TEAM', якщо у вас є такий тип
+  'ADMIN': [] // Адмін не прив'язаний до конкретного підрозділу
+}
+
 const ROLE_CREATION_MAP: Record<string, string[]> = {
   'ADMIN': [
     'ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'TEAM_LEAD',
@@ -108,15 +122,23 @@ export default function AdminUsers() {
     if (!form.role || !currentUserRole) return
 
     if (currentUserRole === 'ADMIN') {
-      // 🔥 ФІКС: Адмін має повний доступ до всіх підрозділів.
-      // Беремо вже завантажений список allUnits замість того, щоб робити новий запит!
-      setFormUnits(allUnits)
+      const allowedTypes = ROLE_UNIT_TYPE_MAP[form.role] || [];
+      
+      // Фільтруємо за типом підрозділу, якщо для ролі є обмеження
+      if (allowedTypes.length > 0) {
+        // Примітка: переконайтеся, що ваш інтерфейс Unit має поле type (або unit_type)
+        const filteredUnits = allUnits.filter(unit => allowedTypes.includes(unit.unit_type));
+        setFormUnits(filteredUnits);
+      } else {
+        // Для ролей без конкретних обмежень (наприклад, ADMIN) або очищаємо, або віддаємо все
+        setFormUnits(form.role === 'ADMIN' ? [] : allUnits);
+      }
     } else {
       api.units.getMyHierarchyForRole(form.role)
         .then((data) => setFormUnits(Array.isArray(data) ? data : []))
         .catch(() => setFormUnits([]))
     }
-  }, [form.role, currentUserRole, allUnits]) // Додали allUnits у залежності
+  }, [form.role, currentUserRole, allUnits])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

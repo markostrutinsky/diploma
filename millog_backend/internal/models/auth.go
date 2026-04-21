@@ -201,6 +201,8 @@ func (r UserRole) GetTargetUnitType() string {
 		return "DEPARTMENT"
 	case RoleTeamLead:
 		return "TEAM"
+	case RoleEmployee:
+		return "ANY"
 	default:
 		return ""
 	}
@@ -230,26 +232,34 @@ type UpdateRoleRequest struct {
 
 var ApprovalMatrix = map[UserRole][]UserRole{
 	RoleTeamLead: {
-		RoleDeptManager, RoleDeptSupervisor,
+		RoleDeptManager,
+		RoleDeptSupervisor,
 		RoleBranchManager,
+		RoleBranchLogistician,
+		RoleRegionLogistician,
 		RoleRegionDirector,
 		RoleAdmin,
 	},
 
 	RoleDeptManager: {
 		RoleBranchManager,
+		RoleBranchLogistician,
+		RoleRegionLogistician,
 		RoleRegionDirector,
 		RoleAdmin,
 	},
 	RoleDeptSupervisor: {
 		RoleDeptManager,
 		RoleBranchManager,
+		RoleBranchLogistician,
+		RoleRegionLogistician,
 		RoleRegionDirector,
 		RoleAdmin,
 	},
 
 	RoleBranchManager: {
 		RoleRegionDirector,
+		RoleRegionLogistician,
 		RoleAdmin,
 	},
 
@@ -281,6 +291,8 @@ var ApprovalMatrix = map[UserRole][]UserRole{
 	RoleEmployee: {
 		RoleTeamLead, RoleDeptManager, RoleDeptSupervisor,
 		RoleBranchManager,
+		RoleBranchLogistician,
+		RoleRegionLogistician,
 		RoleRegionDirector,
 		RoleAdmin,
 	},

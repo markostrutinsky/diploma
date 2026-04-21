@@ -276,3 +276,26 @@ func (h *VehicleHandler) Delete(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Автомобіль списано"})
 }
+
+func (h *VehicleHandler) GetAvailableForShipment(c *gin.Context) {
+	// 1. Отримуємо готові ID підрозділів (unit_id) з параметрів
+	senderStr := c.Query("sender_unit_id")
+	receiverStr := c.Query("receiver_unit_id")
+
+	senderUnitID, err1 := strconv.ParseInt(senderStr, 10, 64)
+	receiverUnitID, err2 := strconv.ParseInt(receiverStr, 10, 64)
+
+	if err1 != nil || err2 != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Вкажіть коректні ID підрозділів"})
+		return
+	}
+
+	// 2. Викликаємо наш сервіс (який ми зробили раніше)
+	vehicles, err := h.service.GetAvailableForRoute(c.Request.Context(), senderUnitID, receiverUnitID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка завантаження автомобілів"})
+		return
+	}
+
+	c.JSON(http.StatusOK, vehicles)
+}

@@ -1,12 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { api, ROLE_NAMES } from '../api/client' // 🔥 Імпортували ROLE_NAMES
+import { api, ROLE_NAMES } from '../api/client'
 import toast from 'react-hot-toast'
+import { ROLE_GROUPS, ROLES, hasRole } from '../constants/roles'
 import './Layout.css'
-
-const USER_CREATOR_ROLES = ['ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'TEAM_LEAD', 'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN', 'REGION_STOREKEEPER', 'BRANCH_STOREKEEPER', 'DEPT_SUPERVISOR']
-const UNIT_MANAGER_ROLES = ['ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN', 'REGION_STOREKEEPER', 'BRANCH_STOREKEEPER']
 
 interface LayoutProps {
   children: React.ReactNode
@@ -20,58 +18,68 @@ export default function Layout({ children }: LayoutProps) {
   const [pendingCount, setPendingCount] = useState(0)
   const prevCountRef = useRef(0)
 
+  const userRole = user?.role || ''
+  const isCONTRACTOR = userRole === ROLES.CONTRACTOR
+  
   // Перевіряємо, чи має поточний користувач права погоджувати заявки
-  const canApproveRequests = user?.role && ['ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN'].includes(user.role)
+  const canApproveRequests = hasRole(userRole, ROLE_GROUPS.approvers)
 
   useEffect(() => {
-    // Запускаємо опитування тільки для авторизованих логістів/менеджерів
-    if (!token || !canApproveRequests) return;
+    if (!token || !canApproveRequests) return
 
     const checkNewRequests = async () => {
       try {
-        const reqs = await api.requests.list();
+        const reqs = await api.requests.list()
+        // Безпечна перевірка через any на випадок нюансів TypeScript
         if (Array.isArray(reqs)) {
-          const currentPending = reqs.filter(r => r.status === 'PENDING').length;
+          const currentPending = (reqs as any[]).filter(r => r?.status === 'PENDING').length
           
           if (currentPending > prevCountRef.current && prevCountRef.current !== 0) {
             toast('Надійшла нова заявка на постачання!', { 
               icon: '🔔', 
               duration: 5000,
               style: { border: '1px solid #3b82f6', padding: '16px', color: '#1e3a8a' }
-            });
+            })
           }
           
-          prevCountRef.current = currentPending;
-          setPendingCount(currentPending);
+          prevCountRef.current = currentPending
+          setPendingCount(currentPending)
         }
       } catch (err) {
         // Тихо ігноруємо помилки мережі в фоні
       }
-    };
+    }
 
-    checkNewRequests();
-    const interval = setInterval(checkNewRequests, 15000); 
+    checkNewRequests()
+    const interval = setInterval(checkNewRequests, 15000) 
     
-    return () => clearInterval(interval);
-  }, [token, canApproveRequests]);
-  // --------------------------------
+    return () => clearInterval(interval)
+  }, [token, canApproveRequests])
 
   if (loading) {
     return (
       <div className="layout-loading">
         <div className="spinner" />
-        <p>Завантаження...</p>
+        <p>Завантаження Omnilog...</p>
       </div>
     )
   }
 
   const showSidebar = !!token
-  const canManageUsers = user?.role && USER_CREATOR_ROLES.includes(user.role)
-  const canManageUnits = user?.role && UNIT_MANAGER_ROLES.includes(user.role)
-  
-  const isCONTRACTOR = user?.role === 'CONTRACTOR'
-  // 🔥 НОВЕ: Звичайний співробітник і підрядник не мають доступу до управління логістикою
-  const canManageLogistics = !['CONTRACTOR', 'EMPLOYEE'].includes(user?.role || '')
+
+  // --- ГРУПИ ДОСТУПУ (синхронізовано з маршрутами у App.tsx) ---
+  const canSeeAnalytics = hasRole(userRole, ROLE_GROUPS.analytics)
+  const canSeeInventory = hasRole(userRole, ROLE_GROUPS.inventory)
+  const canSeeTransport = hasRole(userRole, ROLE_GROUPS.transport)
+  const canSeeRequests = hasRole(userRole, ROLE_GROUPS.requests)
+
+  const canManageUnits = hasRole(userRole, ROLE_GROUPS.units)
+  const canManageUsers = hasRole(userRole, ROLE_GROUPS.users)
+
+  const canSeeKiosk = hasRole(userRole, ROLE_GROUPS.kiosk)
+  const canManageContracts = hasRole(userRole, ROLE_GROUPS.contracts)
+
+  const isAdmin = userRole === ROLES.ADMIN
 
   return (
     <div className={`layout ${showSidebar ? 'with-sidebar' : ''}`}>
@@ -83,6 +91,8 @@ export default function Layout({ children }: LayoutProps) {
             </Link>
           </div>
           <nav className="sidebar-nav">
+            
+            {/* 1. Спільні розділи */}
             <Link to="/" className={location.pathname === '/' ? 'active' : ''}>
               Головна
             </Link>
@@ -93,39 +103,18 @@ export default function Layout({ children }: LayoutProps) {
               </Link>
             )}
 
-            {/* 🔥 Показуємо ці пункти тільки тим, хто має доступ до логістики */}
-            {canManageLogistics && (
+            {/* 2. Аналітика */}
+            {canSeeAnalytics && (
+              <Link to="/analytics" className={location.pathname === '/analytics' ? 'active' : ''}>
+                Аналітика
+              </Link>
+            )}
+
+            {/* 3. Складський Блок (Майно та Склади) */}
+            {canSeeInventory && (
               <>
-                <Link to="/analytics" className={location.pathname === '/analytics' ? 'active' : ''}>
-                  Аналітика
-                </Link>
                 <Link to="/inventory" className={location.pathname === '/inventory' ? 'active' : ''}>
                   Ресурси
-                </Link>
-                
-                <Link 
-                  to="/requests" 
-                  className={location.pathname === '/requests' ? 'active' : ''}
-                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                >
-                  <span>Заявки</span>
-                  {pendingCount > 0 && (
-                    <span style={{
-                      backgroundColor: '#ef4444',
-                      color: 'white',
-                      fontSize: '11px',
-                      fontWeight: 'bold',
-                      padding: '2px 8px',
-                      borderRadius: '12px',
-                      boxShadow: '0 0 8px rgba(239, 68, 68, 0.4)'
-                    }}>
-                      {pendingCount}
-                    </span>
-                  )}
-                </Link>
-
-                <Link to="/vehicles" className={location.pathname === '/vehicles' ? 'active' : ''}>
-                  Автопарк
                 </Link>
                 <Link to="/warehouses" className={location.pathname === '/warehouses' ? 'active' : ''}>
                   Склади
@@ -133,39 +122,73 @@ export default function Layout({ children }: LayoutProps) {
               </>
             )}
 
-            <Link to="/contractor-requests" className={location.pathname === '/contractor-requests' ? 'active' : ''}>
-              {isCONTRACTOR ? 'Відкриті завдання' : 'Заявки підрядникам'}
-            </Link>
+            {/* 4. Транспортний блок */}
+            {canSeeTransport && (
+              <Link to="/vehicles" className={location.pathname === '/vehicles' ? 'active' : ''}>
+                Автопарк
+              </Link>
+            )}
 
+            {/* 5. Заявки */}
+            {canSeeRequests && (
+              <Link 
+                to="/requests" 
+                className={location.pathname === '/requests' ? 'active' : ''}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              >
+                <span>Заявки</span>
+                {pendingCount > 0 && (
+                  <span style={{
+                    backgroundColor: '#ef4444', color: 'white', fontSize: '11px', fontWeight: 'bold',
+                    padding: '2px 8px', borderRadius: '12px', boxShadow: '0 0 8px rgba(239, 68, 68, 0.4)'
+                  }}>
+                    {pendingCount}
+                  </span>
+                )}
+              </Link>
+            )}
+
+            {/* Заявки підрядникам бачать або самі підрядники, або менеджери */}
+            {(isCONTRACTOR || canManageContracts) && (
+              <Link to="/contractor-requests" className={location.pathname === '/contractor-requests' ? 'active' : ''}>
+                {isCONTRACTOR ? 'Відкриті завдання' : 'Заявки підрядникам'}
+              </Link>
+            )}
+
+            {/* 6. Управління Організацією */}
             {canManageUnits && (
               <Link to="/units" className={location.pathname === '/units' ? 'active' : ''}>
                 Оргструктура
               </Link>
             )}
+            
             {canManageUsers && (
               <Link to="/admin/users" className={location.pathname === '/admin/users' ? 'active' : ''}>
                 Користувачі
               </Link>
             )}
-            {!isCONTRACTOR && (
+
+            {/* 7. Термінал / Каса */}
+            {canSeeKiosk && (
               <Link to="/kiosk" className={location.pathname === '/kiosk' ? 'active' : ''}>
                 📦 Термінал (Каса)
               </Link>
             )}
             
-            {user?.role === 'ADMIN' && (
-              <Link to="/audit" className={location.pathname === '/audit' ? 'active' : ''}>
-                🛡️ Журнал аудиту
-              </Link>
-            )}
-
-            {!isCONTRACTOR && (
-              <Link to="/billing" className={location.pathname === '/billing' ? 'active' : ''}>
-                💎 Тарифні плани
-              </Link>
+            {/* 8. Права Суперадміна */}
+            {isAdmin && (
+              <>
+                <Link to="/audit" className={location.pathname === '/audit' ? 'active' : ''}>
+                  🛡️ Журнал аудиту
+                </Link>
+                <Link to="/billing" className={location.pathname === '/billing' ? 'active' : ''}>
+                  💎 Тарифні плани
+                </Link>
+              </>
             )}
 
           </nav>
+          
           <div className="sidebar-footer">
             <div className="user-badge">
               <span className="user-name">{user?.full_name}</span>
