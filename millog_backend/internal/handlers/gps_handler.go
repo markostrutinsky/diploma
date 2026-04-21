@@ -5,9 +5,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"millog_backend/internal/models"
 	"millog_backend/internal/services"
+
+	"github.com/gin-gonic/gin"
 )
 
 type GPSTrackingHandler struct {
@@ -111,12 +112,12 @@ func (h *GPSTrackingHandler) GetVehicleTrajectory(c *gin.Context) {
 	distance := h.gpsService.CalculateDistance(locations)
 
 	c.JSON(http.StatusOK, gin.H{
-		"vehicle_id":     vehicleID,
-		"start_time":     startTime,
-		"end_time":       endTime,
-		"locations":      locations,
-		"count":          len(locations),
-		"distance_km":    distance,
+		"vehicle_id":  vehicleID,
+		"start_time":  startTime,
+		"end_time":    endTime,
+		"locations":   locations,
+		"count":       len(locations),
+		"distance_km": distance,
 	})
 }
 

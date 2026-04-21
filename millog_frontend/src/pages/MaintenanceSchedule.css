@@ -1,0 +1,336 @@
+.maintenance-container {
+  padding: 2rem;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  min-height: 100vh;
+}
+
+.maintenance-header {
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.maintenance-header h1 {
+  font-size: 2.5rem;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+}
+
+.maintenance-header p {
+  font-size: 1.1rem;
+  color: #6b7280;
+}
+
+.maintenance-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.stat-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.stat-label {
+  font-size: 0.95rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.maintenance-filters {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.maintenance-filters label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #1f2937;
+}
+
+.filter-buttons {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  padding: 0.5rem 1rem;
+  border: 2px solid #e5e7eb;
+  background: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.filter-btn:hover {
+  border-color: #6366f1;
+  color: #6366f1;
+}
+
+.filter-btn.active {
+  background: #6366f1;
+  color: white;
+  border-color: #6366f1;
+}
+
+.maintenance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+.maintenance-card {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  border-left: 4px solid #3b82f6;
+}
+
+.maintenance-card.danger {
+  border-left-color: #ef4444;
+}
+
+.maintenance-card.warning {
+  border-left-color: #f59e0b;
+}
+
+.maintenance-card.info {
+  border-left-color: #3b82f6;
+}
+
+.maintenance-card.success {
+  border-left-color: #10b981;
+}
+
+.maintenance-card.secondary {
+  border-left-color: #8b5cf6;
+}
+
+.maintenance-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.card-header {
+  padding: 1rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.vehicle-info h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.25rem;
+  color: #1f2937;
+}
+
+.service-type {
+  display: inline-block;
+  background: #f0f9ff;
+  color: #0369a1;
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.status-badge {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.card-content {
+  padding: 1.5rem;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.info-row .label {
+  font-weight: 600;
+  color: #6b7280;
+}
+
+.info-row .value {
+  color: #1f2937;
+  font-weight: 500;
+}
+
+.days-remaining {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.days-label {
+  font-size: 0.9rem;
+  color: #6b7280;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.days-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #10b981;
+}
+
+.days-value.warning {
+  color: #f59e0b;
+}
+
+.days-value.overdue {
+  color: #ef4444;
+}
+
+.mileage-bar {
+  margin-top: 1rem;
+}
+
+.bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+  color: #6b7280;
+}
+
+.percentage {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.5rem;
+}
+
+.progress-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+  border-radius: 4px;
+}
+
+.mileage-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: #6b7280;
+}
+
+.card-actions {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  background: #f9fafb;
+  border-top: 1px solid #f3f4f6;
+}
+
+.btn-schedule,
+.btn-details {
+  flex: 1;
+  padding: 0.75rem;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+}
+
+.btn-schedule {
+  background: #3b82f6;
+  color: white;
+}
+
+.btn-schedule:hover {
+  background: #2563eb;
+}
+
+.btn-details {
+  background: #f0f9ff;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.btn-details:hover {
+  background: #e0f2fe;
+}
+
+.no-data {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 2rem;
+  background: white;
+  border-radius: 12px;
+  color: #6b7280;
+}
+
+.loading,
+.error-message {
+  text-align: center;
+  padding: 2rem;
+  font-size: 1.1rem;
+  color: #6b7280;
+}
+
+.error-message {
+  background: #fee2e2;
+  color: #991b1b;
+  border-radius: 8px;
+  border: 1px solid #fecaca;
+}
+
+@media (max-width: 768px) {
+  .maintenance-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .maintenance-header h1 {
+    font-size: 1.75rem;
+  }
+
+  .maintenance-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

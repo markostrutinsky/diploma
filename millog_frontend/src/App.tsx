@@ -19,6 +19,10 @@ import Profile from './pages/Profile'
 import AuditLogs from './pages/AuditLogs'
 import Billing from './pages/Billing'
 import KioskTerminal from './pages/KioskTerminal'
+import KPIDashboard from './pages/KPIDashboard'
+import GPSTracking from './pages/GPSTracking'
+import MaintenanceSchedule from './pages/MaintenanceSchedule'
+import FuelAnomalies from './pages/FuelAnomalies'
 import { Toaster } from 'react-hot-toast'
 import { ROLE_GROUPS } from './constants/roles'
 
@@ -84,6 +88,26 @@ function App() {
           <Route 
             path="/analytics" 
             element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.analytics]}><AnalyticsDashboard /></ProtectedRoute>} 
+          />
+
+          <Route 
+            path="/kpi" 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.superAdmin]}><KPIDashboard /></ProtectedRoute>} 
+          />
+
+          <Route 
+            path="/gps" 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.superAdmin]}><GPSTracking /></ProtectedRoute>} 
+          />
+
+          <Route 
+            path="/maintenance" 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.superAdmin]}><MaintenanceSchedule /></ProtectedRoute>} 
+          />
+
+          <Route 
+            path="/fuel-anomalies" 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.superAdmin]}><FuelAnomalies /></ProtectedRoute>} 
           />
 
           <Route 
