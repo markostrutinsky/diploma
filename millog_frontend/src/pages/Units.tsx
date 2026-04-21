@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, type Unit, type User, UNIT_TYPE_NAMES } from '../api/client' // 🔥 Додали UNIT_TYPE_NAMES
 import { useAuth } from '../contexts/AuthContext'
+import { usePermissions } from '../hooks/usePermissions'
 import toast, { Toaster } from 'react-hot-toast'
 import './Units.css'
 
@@ -39,8 +40,9 @@ export default function Units() {
   const [isProcessing, setIsProcessing] = useState(false)
 
   const currentUserRole = user?.role || ''
+  const perms = usePermissions()
   const allowedUnitTypes = ROLE_UNIT_CREATION_MAP[currentUserRole] || []
-  const canManageUnits = ['ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'REGION_LOGISTICIAN'].includes(currentUserRole)
+  const canManageUnits = perms.can('unit_manage')
 
   const expectedParentType = REQUIRED_PARENT_TYPE[form.unit_type]
   const availableParents = units.filter(u => u.unit_type === expectedParentType && u.id !== editingUnit?.id)

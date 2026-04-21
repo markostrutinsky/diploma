@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { usePermissions } from '../hooks/usePermissions'
 import { api } from '../api/client'
 import './Home.css'
 
 export default function Home() {
   const { user } = useAuth()
-  const isCONTRACTOR = user?.role === 'CONTRACTOR'
-  const isAdmin = user?.role === 'ADMIN'
-  const isManager = ['ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'TEAM_LEAD'].includes(user?.role || '')
+  const perms = usePermissions()
+  const isCONTRACTOR = perms.isContractor
+  const isAdmin = perms.isAdmin
+  const isManager = perms.isManager
   
   const [stats, setStats] = useState({ 
     resources: 0, 

@@ -1,6 +1,8 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { api, type SupplyRequest, type Resource, type Vehicle, type Warehouse, type User, type Unit, type VehicleBin, type RequestItem } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
+import { usePermissions } from '../hooks/usePermissions'
+import { PaywallBadge } from '../components/FeatureGate'
 import toast from 'react-hot-toast'
 import './Requests.css'
 
@@ -92,8 +94,10 @@ export default function Requests() {
   const [cancelModalData, setCancelModalData] = useState<SupplyRequest | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
 
-  const canCreate = ['ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'TEAM_LEAD', 'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN', 'DEPT_SUPERVISOR'].includes(user?.role || '')
-  const canApprove = ['ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN'].includes(user?.role || '')
+  const perms = usePermissions()
+  const canCreate = perms.can('request_create')
+  const canApprove = perms.can('request_approve')
+  const hasSmartDispatch = perms.hasFeature('smart_dispatch')
 
   const loadData = async () => {
     setLoading(true)
@@ -409,12 +413,26 @@ export default function Requests() {
                 🚚 Ручний рейс ({selectedReqIds.size})
               </button>
               
-              <button 
-                className="btn btn-smart" 
-                onClick={handleSmartDispatchPreview}
-              >
-                ✨ Smart Розподіл (AI)
-              </button>
+              {hasSmartDispatch ? (
+                <button 
+                  className="btn btn-smart" 
+                  onClick={handleSmartDispatchPreview}
+                >
+                  ✨ Smart Розподіл (AI)
+                </button>
+              ) : (
+                <button
+                  className="btn btn-smart"
+                  onClick={() => toast(
+                    'Smart Розподіл — платна фіча. Перегляньте тариф PRO на сторінці «Тарифні плани».',
+                    { icon: '🔒', duration: 5000 }
+                  )}
+                  style={{ opacity: 0.6, cursor: 'not-allowed' }}
+                  title="Доступно на тарифі PRO"
+                >
+                  🔒 Smart Розподіл <PaywallBadge feature="smart_dispatch" compact />
+                </button>
+              )}
             </>
           )}
           {canCreate && (

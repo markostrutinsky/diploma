@@ -1,6 +1,7 @@
-// Централізовані групи ролей для керування доступом.
-// Використовується як у бічній панелі (Layout), так і в маршрутах (ProtectedRoute),
-// щоб правила доступу залишались синхронізованими.
+// Централізовані правила доступу системи Omnilog.
+// Тут живуть: перелік ролей, групи (white-lists), дії (permissions),
+// а також матриця платних фіч (feature gating за підпискою).
+// Використовується через хук `usePermissions` і компонент `FeatureGate`.
 
 export const ROLES = {
   ADMIN: 'ADMIN',
@@ -19,10 +20,13 @@ export const ROLES = {
 
 export type Role = typeof ROLES[keyof typeof ROLES]
 
-// --- Групи доступу до розділів системи ---
+export type Tier = 'BASIC' | 'PRO' | 'ENTERPRISE'
+
+// ================================================================
+// 1. ГРУПИ ДОСТУПУ ДО РОЗДІЛІВ (роути у App.tsx + меню у Layout)
+// ================================================================
 
 export const ROLE_GROUPS = {
-  // Аналітика (керівники + логісти регіонального рівня + регіональний комірник)
   analytics: [
     ROLES.ADMIN,
     ROLES.REGION_DIRECTOR,
@@ -30,8 +34,6 @@ export const ROLE_GROUPS = {
     ROLES.REGION_LOGISTICIAN,
     ROLES.REGION_STOREKEEPER,
   ],
-
-  // Складський блок: Ресурси, Склади
   inventory: [
     ROLES.ADMIN,
     ROLES.REGION_DIRECTOR,
@@ -40,26 +42,24 @@ export const ROLE_GROUPS = {
     ROLES.BRANCH_STOREKEEPER,
     ROLES.DEPT_MANAGER,
     ROLES.DEPT_SUPERVISOR,
+    ROLES.REGION_LOGISTICIAN,
+    ROLES.BRANCH_LOGISTICIAN,
   ],
-
-  // Автопарк
   transport: [
     ROLES.ADMIN,
     ROLES.REGION_DIRECTOR,
     ROLES.REGION_LOGISTICIAN,
     ROLES.BRANCH_MANAGER,
     ROLES.BRANCH_LOGISTICIAN,
+    ROLES.DEPT_SUPERVISOR,
   ],
-
-  // Оргструктура (підрозділи)
   units: [
     ROLES.ADMIN,
     ROLES.REGION_DIRECTOR,
     ROLES.BRANCH_MANAGER,
     ROLES.DEPT_MANAGER,
+    ROLES.REGION_LOGISTICIAN,
   ],
-
-  // Керування користувачами
   users: [
     ROLES.ADMIN,
     ROLES.REGION_DIRECTOR,
@@ -67,16 +67,12 @@ export const ROLE_GROUPS = {
     ROLES.DEPT_MANAGER,
     ROLES.TEAM_LEAD,
   ],
-
-  // Термінал/Каса (видача зі складу)
   kiosk: [
     ROLES.ADMIN,
     ROLES.REGION_STOREKEEPER,
     ROLES.BRANCH_STOREKEEPER,
     ROLES.DEPT_SUPERVISOR,
   ],
-
-  // Управління контрактами (заявки підрядникам)
   contracts: [
     ROLES.ADMIN,
     ROLES.REGION_DIRECTOR,
@@ -85,8 +81,6 @@ export const ROLE_GROUPS = {
     ROLES.BRANCH_LOGISTICIAN,
     ROLES.DEPT_MANAGER,
   ],
-
-  // Хто може погоджувати внутрішні заявки
   approvers: [
     ROLES.ADMIN,
     ROLES.REGION_DIRECTOR,
@@ -95,8 +89,6 @@ export const ROLE_GROUPS = {
     ROLES.REGION_LOGISTICIAN,
     ROLES.BRANCH_LOGISTICIAN,
   ],
-
-  // Внутрішні заявки (усі, крім підрядників)
   requests: [
     ROLES.ADMIN,
     ROLES.REGION_DIRECTOR,
@@ -110,8 +102,6 @@ export const ROLE_GROUPS = {
     ROLES.TEAM_LEAD,
     ROLES.EMPLOYEE,
   ],
-
-  // Заявки підрядникам видно самим підрядникам + менеджерам з групи contracts
   contractorRequestsView: [
     ROLES.ADMIN,
     ROLES.REGION_DIRECTOR,
@@ -121,12 +111,216 @@ export const ROLE_GROUPS = {
     ROLES.DEPT_MANAGER,
     ROLES.CONTRACTOR,
   ],
-
-  // Тільки суперадмін
   superAdmin: [ROLES.ADMIN],
 } as const
+
+// ================================================================
+// 2. МАТРИЦЯ ДІЙ (ACTIONS) — хто що може робити
+// ================================================================
+
+export const ACTIONS = {
+  // Ресурси
+  resource_manage: [
+    ROLES.ADMIN,
+    ROLES.REGION_STOREKEEPER,
+    ROLES.BRANCH_STOREKEEPER,
+    ROLES.DEPT_SUPERVISOR,
+    ROLES.REGION_LOGISTICIAN,
+  ],
+  resource_assign: [
+    ROLES.ADMIN,
+    ROLES.REGION_STOREKEEPER,
+    ROLES.BRANCH_STOREKEEPER,
+    ROLES.DEPT_SUPERVISOR,
+  ],
+  resource_writeoff: [
+    ROLES.ADMIN,
+    ROLES.REGION_STOREKEEPER,
+    ROLES.BRANCH_STOREKEEPER,
+    ROLES.REGION_LOGISTICIAN,
+  ],
+  resource_transfer: [
+    ROLES.ADMIN,
+    ROLES.REGION_STOREKEEPER,
+    ROLES.REGION_LOGISTICIAN,
+    ROLES.BRANCH_STOREKEEPER,
+  ],
+
+  // Категорії
+  category_manage: [
+    ROLES.ADMIN,
+    ROLES.REGION_LOGISTICIAN,
+    ROLES.REGION_DIRECTOR,
+  ],
+
+  // Заявки на постачання
+  request_create: [
+    ROLES.ADMIN,
+    ROLES.REGION_DIRECTOR,
+    ROLES.BRANCH_MANAGER,
+    ROLES.DEPT_MANAGER,
+    ROLES.TEAM_LEAD,
+    ROLES.REGION_LOGISTICIAN,
+    ROLES.BRANCH_LOGISTICIAN,
+    ROLES.DEPT_SUPERVISOR,
+    ROLES.EMPLOYEE,
+  ],
+  request_approve: [
+    ROLES.ADMIN,
+    ROLES.REGION_DIRECTOR,
+    ROLES.BRANCH_MANAGER,
+    ROLES.DEPT_MANAGER,
+    ROLES.REGION_LOGISTICIAN,
+    ROLES.BRANCH_LOGISTICIAN,
+  ],
+  request_dispatch: [
+    ROLES.ADMIN,
+    ROLES.REGION_STOREKEEPER,
+    ROLES.BRANCH_STOREKEEPER,
+    ROLES.REGION_LOGISTICIAN,
+    ROLES.BRANCH_LOGISTICIAN,
+  ],
+
+  // Склади
+  warehouse_manage: [
+    ROLES.ADMIN,
+    ROLES.REGION_DIRECTOR,
+    ROLES.REGION_LOGISTICIAN,
+    ROLES.BRANCH_MANAGER,
+    ROLES.BRANCH_LOGISTICIAN,
+    ROLES.DEPT_MANAGER,
+  ],
+  warehouse_audit: [
+    ROLES.ADMIN,
+    ROLES.REGION_STOREKEEPER,
+    ROLES.BRANCH_STOREKEEPER,
+    ROLES.REGION_LOGISTICIAN,
+  ],
+
+  // Автопарк
+  vehicle_manage: [
+    ROLES.ADMIN,
+    ROLES.REGION_DIRECTOR,
+    ROLES.REGION_LOGISTICIAN,
+    ROLES.BRANCH_LOGISTICIAN,
+    ROLES.DEPT_SUPERVISOR,
+  ],
+  vehicle_fuel_log: [
+    ROLES.ADMIN,
+    ROLES.REGION_LOGISTICIAN,
+    ROLES.BRANCH_LOGISTICIAN,
+    ROLES.DEPT_SUPERVISOR,
+  ],
+  vehicle_maintenance: [
+    ROLES.ADMIN,
+    ROLES.REGION_LOGISTICIAN,
+    ROLES.BRANCH_LOGISTICIAN,
+  ],
+
+  // Організаційна структура
+  unit_manage: [
+    ROLES.ADMIN,
+    ROLES.REGION_DIRECTOR,
+    ROLES.BRANCH_MANAGER,
+    ROLES.DEPT_MANAGER,
+    ROLES.REGION_LOGISTICIAN,
+  ],
+
+  // Персонал
+  user_invite: [
+    ROLES.ADMIN,
+    ROLES.REGION_DIRECTOR,
+    ROLES.BRANCH_MANAGER,
+    ROLES.DEPT_MANAGER,
+    ROLES.TEAM_LEAD,
+  ],
+  user_block: [ROLES.ADMIN, ROLES.REGION_DIRECTOR, ROLES.BRANCH_MANAGER],
+  user_change_role: [ROLES.ADMIN, ROLES.REGION_DIRECTOR],
+
+  // Заявки підрядникам
+  contractor_request_create: [
+    ROLES.ADMIN,
+    ROLES.REGION_DIRECTOR,
+    ROLES.BRANCH_MANAGER,
+    ROLES.REGION_LOGISTICIAN,
+    ROLES.BRANCH_LOGISTICIAN,
+    ROLES.DEPT_MANAGER,
+  ],
+  contractor_request_take: [ROLES.CONTRACTOR],
+
+  // Адмін-функції
+  audit_view: [ROLES.ADMIN],
+  billing_manage: [ROLES.ADMIN, ROLES.REGION_DIRECTOR],
+  sla_trigger: [ROLES.ADMIN],
+
+  // Термінал
+  kiosk_operate: [
+    ROLES.ADMIN,
+    ROLES.REGION_STOREKEEPER,
+    ROLES.BRANCH_STOREKEEPER,
+    ROLES.DEPT_SUPERVISOR,
+  ],
+} as const
+
+export type ActionKey = keyof typeof ACTIONS
+
+// ================================================================
+// 3. ПЛАТНІ ФІЧІ (FEATURE GATING)
+// ================================================================
+
+export const FEATURES = {
+  smart_dispatch: { minTier: 'PRO' as Tier, label: 'Smart Розподіл рейсів' },
+  smart_replenish: { minTier: 'PRO' as Tier, label: 'Smart Поповнення складу' },
+  advanced_analytics: { minTier: 'PRO' as Tier, label: 'Розширена аналітика (SLA, TCO, ризики)' },
+  fuel_antifraud: { minTier: 'PRO' as Tier, label: 'Антифрод-система пального' },
+  predictive_maintenance: { minTier: 'PRO' as Tier, label: 'Прогноз ТО за пробігом' },
+  excel_import: { minTier: 'PRO' as Tier, label: 'Масовий імпорт з Excel' },
+  audit_log_extended: { minTier: 'PRO' as Tier, label: 'Журнал аудиту понад 7 днів' },
+  priority_support: { minTier: 'ENTERPRISE' as Tier, label: 'Пріоритетна підтримка' },
+  multi_region: { minTier: 'ENTERPRISE' as Tier, label: 'Мульти-регіональна консолідація' },
+} as const
+
+export type FeatureKey = keyof typeof FEATURES
+
+const TIER_WEIGHT: Record<Tier, number> = {
+  BASIC: 0,
+  PRO: 1,
+  ENTERPRISE: 2,
+}
+
+export const TIER_NAMES: Record<Tier, string> = {
+  BASIC: 'Standard',
+  PRO: 'Enterprise PRO',
+  ENTERPRISE: 'Enterprise+',
+}
+
+// ================================================================
+// 4. HELPERS
+// ================================================================
 
 export function hasRole(userRole: string | undefined, allowed: readonly string[]): boolean {
   if (!userRole) return false
   return allowed.includes(userRole)
+}
+
+export function can(userRole: string | undefined, action: ActionKey): boolean {
+  if (!userRole) return false
+  const allowed = ACTIONS[action] as readonly string[]
+  return allowed.includes(userRole)
+}
+
+export function tierAtLeast(userTier: Tier | undefined | null, required: Tier): boolean {
+  if (!userTier) return false
+  return TIER_WEIGHT[userTier] >= TIER_WEIGHT[required]
+}
+
+export function hasFeature(
+  userTier: Tier | undefined | null,
+  userRole: string | undefined,
+  feature: FeatureKey,
+): boolean {
+  // Адмін системи завжди має доступ (для демо й підтримки)
+  if (userRole === ROLES.ADMIN) return true
+  const { minTier } = FEATURES[feature]
+  return tierAtLeast(userTier, minTier)
 }

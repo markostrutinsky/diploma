@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, type ContractorRequest, type Unit } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
+import { usePermissions } from '../hooks/usePermissions'
 import './VolunteerRequests.css'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -48,8 +49,10 @@ export default function ContractorRequests() {
     'BRANCH_STOREKEEPER', 'DEPT_SUPERVISOR'
   ]
   
-  const canCreateRequest = inventoryRoles.includes(user?.role || '')
-  const isCONTRACTOR = user?.role === 'CONTRACTOR'
+  const perms = usePermissions()
+  const canCreateRequest = perms.can('contractor_request_create')
+  const canTakeRequest = perms.can('contractor_request_take')
+  const isCONTRACTOR = perms.isContractor
 
   const canManageThisRequest = (requestUnitId?: number | null) => {
     if (!user || !inventoryRoles.includes(user.role)) return false;
@@ -508,7 +511,7 @@ export default function ContractorRequests() {
                 </div>
 
                 <div className="action-buttons-row">
-                  {isCONTRACTOR && r.status === 'OPEN' && (
+                  {canTakeRequest && r.status === 'OPEN' && (
                     <button className="btn btn-primary btn-sm take-btn" onClick={() => handleTake(r.id)}>
                       Взяти в роботу
                     </button>

@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { api, ROLE_NAMES } from '../api/client'
 import toast from 'react-hot-toast'
 import { ROLE_GROUPS, ROLES, hasRole } from '../constants/roles'
+import NotificationCenter from './NotificationCenter'
 import './Layout.css'
 
 interface LayoutProps {
@@ -89,6 +90,7 @@ export default function Layout({ children }: LayoutProps) {
             <Link to="/" className="sidebar-logo">
               Omnilog
             </Link>
+            <NotificationCenter />
           </div>
           <nav className="sidebar-nav">
             

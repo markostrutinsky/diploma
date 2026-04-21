@@ -1,0 +1,239 @@
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { Link } from 'react-router-dom'
+import { api } from '../api/client'
+import { usePermissions } from '../hooks/usePermissions'
+import './NotificationCenter.css'
+
+type Severity = 'info' | 'warning' | 'danger'
+
+interface NotificationItem {
+  id: string
+  icon: string
+  title: string
+  message: string
+  link?: string
+  severity: Severity
+  timestamp: number
+}
+
+const POLL_INTERVAL_MS = 45_000
+
+export default function NotificationCenter() {
+  const perms = usePermissions()
+  const [open, setOpen] = useState(false)
+  const [items, setItems] = useState<NotificationItem[]>([])
+  const [dismissed, setDismissed] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem('notif:dismissed')
+      return new Set(raw ? JSON.parse(raw) : [])
+    } catch { return new Set() }
+  })
+  const ref = useRef<HTMLDivElement>(null)
+
+  const canApproveRequests = perms.can('request_approve')
+  const canSeeInventory = perms.canAny('resource_manage', 'warehouse_manage')
+  const canSeeVehicles = perms.canAny('vehicle_manage', 'vehicle_maintenance', 'vehicle_fuel_log')
+  const hasFuelAntifraud = perms.hasFeature('fuel_antifraud')
+
+  useEffect(() => {
+    if (!perms.isAuthenticated) return
+    let cancelled = false
+
+    const load = async () => {
+      const next: NotificationItem[] = []
+
+      // 1. Pending approvals
+      if (canApproveRequests) {
+        try {
+          const reqs: any[] = await api.requests.list()
+          const pending = (reqs || []).filter(r => r?.status === 'PENDING')
+          if (pending.length > 0) {
+            next.push({
+              id: `pending-requests:${pending.length}`,
+              icon: '📝',
+              title: 'Заявки на погодження',
+              message: `${pending.length} заявок очікують вашого рішення`,
+              link: '/requests',
+              severity: 'warning',
+              timestamp: Date.now(),
+            })
+          }
+        } catch { /* ignore */ }
+      }
+
+      // 2. Low stock
+      if (canSeeInventory) {
+        try {
+          const resources: any[] = await api.inventory.listResources()
+          const low = (resources || []).filter(r =>
+            typeof r.min_quantity === 'number' && r.min_quantity > 0 &&
+            typeof r.quantity === 'number' && r.quantity <= r.min_quantity &&
+            r.status !== 'WRITTEN_OFF'
+          )
+          if (low.length > 0) {
+            next.push({
+              id: `low-stock:${low.length}`,
+              icon: '📉',
+              title: 'Низький залишок ресурсів',
+              message: `${low.length} позицій нижче мінімуму. Перевірте склад.`,
+              link: '/inventory',
+              severity: 'danger',
+              timestamp: Date.now(),
+            })
+          }
+        } catch { /* ignore */ }
+      }
+
+      // 3. Maintenance alerts
+      if (canSeeVehicles) {
+        try {
+          const vehicles: any[] = await api.vehicles.list()
+          const overdue = (vehicles || []).filter(v =>
+            v?.maintenance_status === 'OVERDUE' || v?.maintenance_status === 'SOON'
+          )
+          if (overdue.length > 0) {
+            const soonCount = overdue.filter(v => v.maintenance_status === 'SOON').length
+            const overdueCount = overdue.filter(v => v.maintenance_status === 'OVERDUE').length
+            next.push({
+              id: `maint:${overdueCount}:${soonCount}`,
+              icon: '🔧',
+              title: 'Техобслуговування',
+              message: overdueCount
+                ? `${overdueCount} ТЗ прострочено ТО${soonCount ? `, ${soonCount} — скоро` : ''}`
+                : `${soonCount} ТЗ скоро потребують ТО`,
+              link: '/vehicles',
+              severity: overdueCount > 0 ? 'danger' : 'warning',
+              timestamp: Date.now(),
+            })
+          }
+
+          // Fuel anomalies — PRO only
+          if (hasFuelAntifraud) {
+            const anomalous = (vehicles || []).filter(v => v?.has_fuel_anomaly)
+            if (anomalous.length > 0) {
+              next.push({
+                id: `fuel-anomaly:${anomalous.length}`,
+                icon: '🚨',
+                title: 'Підозріле пальне',
+                message: `Виявлено аномалії у ${anomalous.length} ТЗ`,
+                link: '/vehicles',
+                severity: 'danger',
+                timestamp: Date.now(),
+              })
+            }
+          }
+        } catch { /* ignore */ }
+      }
+
+      if (!cancelled) setItems(next)
+    }
+
+    load()
+    const t = setInterval(load, POLL_INTERVAL_MS)
+    return () => { cancelled = true; clearInterval(t) }
+  }, [perms.isAuthenticated, canApproveRequests, canSeeInventory, canSeeVehicles, hasFuelAntifraud])
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
+
+  const visibleItems = useMemo(
+    () => items.filter(i => !dismissed.has(i.id)),
+    [items, dismissed]
+  )
+
+  const dismiss = (id: string) => {
+    const next = new Set(dismissed)
+    next.add(id)
+    setDismissed(next)
+    try { localStorage.setItem('notif:dismissed', JSON.stringify([...next])) } catch { /* ignore */ }
+  }
+
+  const clearDismissed = () => {
+    setDismissed(new Set())
+    try { localStorage.removeItem('notif:dismissed') } catch { /* ignore */ }
+  }
+
+  if (!perms.isAuthenticated) return null
+
+  const count = visibleItems.length
+  const hasDanger = visibleItems.some(i => i.severity === 'danger')
+
+  // Позиція випадайки рахується відносно дзвіночка, щоб не обрізалось сайдбаром.
+  const bellRect = ref.current?.getBoundingClientRect()
+  const DROPDOWN_WIDTH = 360
+  const GAP = 10
+  const dropdownStyle: CSSProperties | undefined = bellRect
+    ? (() => {
+        const top = Math.round(bellRect.bottom + GAP)
+        // Намагаємось відкрити праворуч від дзвіночка (у сайдбарі), якщо вміщується,
+        // інакше ліворуч (на вузьких екранах).
+        const rightEdge = bellRect.right + GAP + DROPDOWN_WIDTH
+        const left =
+          rightEdge <= window.innerWidth - 8
+            ? Math.round(bellRect.left)
+            : Math.max(8, Math.round(window.innerWidth - DROPDOWN_WIDTH - 8))
+        return { top, left, width: DROPDOWN_WIDTH }
+      })()
+    : undefined
+
+  return (
+    <div className="notif-center" ref={ref}>
+      <button
+        className={`notif-bell ${count ? 'has-items' : ''} ${hasDanger ? 'has-danger' : ''}`}
+        onClick={() => setOpen(o => !o)}
+        aria-label="Сповіщення"
+        title="Сповіщення"
+      >
+        <span className="notif-icon">🔔</span>
+        {count > 0 && <span className="notif-badge">{count}</span>}
+      </button>
+
+      {open && (
+        <div className="notif-dropdown" style={dropdownStyle}>
+          <div className="notif-header">
+            <strong>Сповіщення</strong>
+            {dismissed.size > 0 && (
+              <button className="notif-link-btn" onClick={clearDismissed}>
+                Показати приховані
+              </button>
+            )}
+          </div>
+
+          {visibleItems.length === 0 ? (
+            <div className="notif-empty">
+              <div className="notif-empty-icon">✨</div>
+              <div>Усе спокійно — активних подій немає</div>
+            </div>
+          ) : (
+            <ul className="notif-list">
+              {visibleItems.map(item => (
+                <li key={item.id} className={`notif-item sev-${item.severity}`}>
+                  <span className="notif-item-icon">{item.icon}</span>
+                  <div className="notif-item-body">
+                    <div className="notif-item-title">{item.title}</div>
+                    <div className="notif-item-message">{item.message}</div>
+                    {item.link && (
+                      <Link to={item.link} className="notif-item-link" onClick={() => setOpen(false)}>
+                        Перейти →
+                      </Link>
+                    )}
+                  </div>
+                  <button
+                    className="notif-item-close"
+                    onClick={() => dismiss(item.id)}
+                    title="Приховати"
+                  >×</button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}

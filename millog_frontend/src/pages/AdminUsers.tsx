@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, type CreateUserRequest, type Unit, type User, ROLE_NAMES, type UserRole } from '../api/client'
+import { usePermissions } from '../hooks/usePermissions'
 import './AdminUsers.css'
 
 const ROLES: { value: UserRole, label: string }[] = [
@@ -84,7 +85,8 @@ export default function AdminUsers() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
-  const canManagePersonnel = ['ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'TEAM_LEAD'].includes(currentUserRole || '')
+  const perms = usePermissions()
+  const canManagePersonnel = perms.can('user_invite')
 
   const loadUsersAndUnits = () => {
     api.units.list()

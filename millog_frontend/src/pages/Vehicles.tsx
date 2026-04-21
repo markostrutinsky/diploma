@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { api, type Vehicle, type FuelRecordType, type FuelRecord, type MaintenanceRecord, type SystemUser, type DriverHistoryRecord} from '../api/client'
-import { useAuth } from '../contexts/AuthContext'
+import { usePermissions } from '../hooks/usePermissions'
 import toast, { Toaster } from 'react-hot-toast'
 import './Vehicles.css' 
 
 export default function Vehicles() {
-  const { user } = useAuth()
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [usersList, setUsersList] = useState<SystemUser[]>([])
   const [loading, setLoading] = useState(true)
@@ -76,8 +75,11 @@ export default function Vehicles() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
-  // Припускаємо, що subscription_tier лежить у unit користувача
-  const isPro = user?.unit?.subscription_tier === 'PRO' || user?.role === 'ADMIN';
+  const perms = usePermissions();
+  const hasFuelAntifraud = perms.hasFeature('fuel_antifraud');
+  const hasPredictiveMaint = perms.hasFeature('predictive_maintenance');
+  // Сумісність з існуючим UI, який посилається на isPro (показ фіч PRO)
+  const isPro = hasFuelAntifraud || hasPredictiveMaint;
 
   useEffect(() => {
     const closeMenu = () => setActiveMenuId(null);
@@ -85,8 +87,7 @@ export default function Vehicles() {
     return () => document.removeEventListener('click', closeMenu);
   }, []);
 
-  const canManageVehicles = ['ADMIN', 'REGION_DIRECTOR', 'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN', 'DEPT_SUPERVISOR'].includes(user?.role || '')
-
+  const canManageVehicles = perms.can('vehicle_manage');
   const loadData = () => {
     setLoading(true)
     Promise.all([
@@ -136,7 +137,7 @@ export default function Vehicles() {
 
       const record = await api.vehicles.addFuelRecord(fuelModalVehicle.id, dataToSubmit)
       
-      if (record.is_anomaly) {
+      if (record.is_anomaly && hasFuelAntifraud) {
         setFuelModalVehicle(null)
         setFuelForm({ record_type: 'EXPENSE', liters: 0, odometer_km: '' })
         setAnomalyAlert(record)

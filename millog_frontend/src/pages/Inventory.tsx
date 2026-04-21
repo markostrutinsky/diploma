@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { api, type Resource, type ResourceCategory, type Unit, type Warehouse } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
+import { usePermissions } from '../hooks/usePermissions';
+import { PaywallBadge } from '../components/FeatureGate';
 import toast, { Toaster } from 'react-hot-toast';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import './Inventory.css';
 
 export default function Inventory() {
   const { user } = useAuth();
+  const perms = usePermissions();
   
   const [categories, setCategories] = useState<ResourceCategory[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
@@ -71,8 +74,9 @@ export default function Inventory() {
     return () => document.removeEventListener('click', closeMenu);
   }, []);
 
-  const canManageResources = ['ADMIN', 'REGION_STOREKEEPER', 'BRANCH_STOREKEEPER', 'DEPT_SUPERVISOR', 'REGION_LOGISTICIAN'].includes(user?.role || '');
-  const canManageCategories = ['ADMIN', 'REGION_LOGISTICIAN', 'REGION_DIRECTOR'].includes(user?.role || '');
+  const canManageResources = perms.can('resource_manage');
+  const canManageCategories = perms.can('category_manage');
+  const hasExcelImport = perms.hasFeature('excel_import');
   
   const [qrPreviewData, setQrPreviewData] = useState<{ id: string; name: string; url: string } | null>(null);
 
@@ -424,9 +428,20 @@ export default function Inventory() {
           </button>
           
           {canManageResources && (
-            <button className="btn btn-secondary" onClick={() => setShowImportModal(true)}>
-              📥 Імпорт Excel
-            </button>
+            hasExcelImport ? (
+              <button className="btn btn-secondary" onClick={() => setShowImportModal(true)}>
+                📥 Імпорт Excel
+              </button>
+            ) : (
+              <button
+                className="btn btn-secondary"
+                onClick={() => toast('Імпорт Excel доступний у тарифі PRO', { icon: '🔒' })}
+                title="Доступно в PRO"
+                style={{ opacity: 0.7 }}
+              >
+                🔒 Імпорт Excel <PaywallBadge feature="excel_import" compact />
+              </button>
+            )
           )}
 
           {canManageResources && (

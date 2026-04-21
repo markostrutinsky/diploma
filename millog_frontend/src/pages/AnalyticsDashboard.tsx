@@ -5,6 +5,8 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import './AnalyticsDashboard.css';
 import { api, Unit } from '../api/client';
+import { usePermissions } from '../hooks/usePermissions';
+import { PaywallBadge } from '../components/FeatureGate';
 
 const TCO_COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#6366f1', '#ec4899'];
 const requestLabels: Record<string, string> = { 'OPEN': 'Відкриті', 'IN_PROGRESS': 'В роботі', 'COMPLETED': 'Виконані', 'CANCELLED': 'Скасовані', 'ESCALATED': 'Ескальовані (SLA)' };
@@ -29,6 +31,10 @@ const AnalyticsDashboard: React.FC = () => {
   const [endDate, setEndDate] = useState(defaultEnd);
 
   const [isSlaChecking, setIsSlaChecking] = useState(false);
+
+  const perms = usePermissions();
+  const hasSmartReplenish = perms.hasFeature('smart_replenish');
+  const canTriggerSla = perms.can('sla_trigger');
 
   // Завантажуємо список орг. одиниць при старті
   useEffect(() => {
@@ -296,14 +302,32 @@ const AnalyticsDashboard: React.FC = () => {
             <button onClick={handleExportInventory} className="btn-secondary" title="Залишки на складах">📊 Excel (Склади)</button>
             <button onClick={handleExportFuel} className="btn-secondary" title="Історія пального">⛽ Excel (Пальне)</button>
             <button onClick={handleExportPDF} className="btn-secondary">📄 Звіт (А4)</button>
-            <button 
-    onClick={handleTriggerSLA} 
-    className="btn-danger-action" 
-    disabled={isSlaChecking}
-  >
-    {isSlaChecking ? '⌛ Перевірка...' : '⚡ Перевірити SLA'}
-  </button>
-            <button onClick={() => setIsModalOpen(true)} className="btn-primary">⚡ Smart Поповнення</button>
+            {canTriggerSla && (
+              <button 
+                onClick={handleTriggerSLA} 
+                className="btn-danger-action" 
+                disabled={isSlaChecking}
+              >
+                {isSlaChecking ? '⌛ Перевірка...' : '⚡ Перевірити SLA'}
+              </button>
+            )}
+            {hasSmartReplenish ? (
+              <button onClick={() => setIsModalOpen(true)} className="btn-primary">⚡ Smart Поповнення</button>
+            ) : (
+              <button
+                className="btn-primary"
+                onClick={() =>
+                  toast('Smart Поповнення доступне на тарифі PRO. Зверніться до білінгу.', {
+                    icon: '🔒',
+                    duration: 5000,
+                  })
+                }
+                style={{ opacity: 0.6, cursor: 'not-allowed' }}
+                title="Доступно на тарифі PRO"
+              >
+                🔒 Smart Поповнення <PaywallBadge feature="smart_replenish" compact />
+              </button>
+            )}
           </div>
         </div>
       </div>
