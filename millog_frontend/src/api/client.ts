@@ -512,8 +512,40 @@ export const api = {
         }
       }
       return { blob, filename };
-    }
+    },
+    getAdvancedKPIs: () => request<any>('/analytics/kpi'),
+    getDemandForecast: () => request<any>('/analytics/forecast'),
+    getPredictiveMaintenanceSchedule: (vehicleId?: string) => {
+      const query = vehicleId ? `?vehicle_id=${vehicleId}` : '';
+      return request<any>(`/analytics/maintenance${query}`);
+    },
+    getFuelAnomalyDetection: (vehicleId?: string) => {
+      const query = vehicleId ? `?vehicle_id=${vehicleId}` : '';
+      return request<any>(`/analytics/fuel-anomalies${query}`);
+    },
   },
+
+  gps: {
+    recordLocation: (data: any) =>
+      request<any>('/gps/locations', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    getFleetMap: () => request<any>('/gps/fleet-map'),
+    getVehicleTrajectory: (vehicleId: string, startTime: string, endTime: string) => {
+      const query = new URLSearchParams({ vehicle_id: vehicleId, start_time: startTime, end_time: endTime });
+      return request<any>(`/gps/trajectory?${query.toString()}`);
+    },
+    createGeofence: (data: any) =>
+      request<any>('/gps/geofences', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    getGeofences: () => request<any>('/gps/geofences'),
+    getGeofenceAlerts: (hours: number = 24) =>
+      request<any>(`/gps/geofence-alerts?hours=${hours}`),
+    getFleetStatus: () => request<any>('/gps/fleet-status'),
+  }
 }
 
 export interface MyEquipmentItem {
