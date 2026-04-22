@@ -24,7 +24,7 @@ services:
       - /home/melkor/study/diploma/millog_backend/.env
     environment:
       PORT: 8080
-      DATABASE_URL: postgres://postgres:postgres@postgres:5432/omnilog?sslmode=disable
+      DATABASE_URL: postgres://omnilog_app:omnilog_app@postgres:5432/omnilog?sslmode=disable
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
       ALLOW_BOOTSTRAP_OVERRIDE: ${ALLOW_BOOTSTRAP_OVERRIDE:-}
       FRONTEND_URL: ${FRONTEND_URL:-https://localhost}

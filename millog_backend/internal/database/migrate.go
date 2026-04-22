@@ -590,6 +590,44 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		`ALTER TABLE geofences ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;`,
 		`UPDATE geofences g SET tenant_id = u.tenant_id FROM units u WHERE g.unit_id = u.id AND g.tenant_id IS NULL;`,
 		`CREATE INDEX IF NOT EXISTS idx_geofences_tenant ON geofences(tenant_id);`,
+
+		// ============================================================
+		// T17. RLS — Row-Level Security (defense-in-depth).
+		// Політика: якщо app.tenant_id не встановлено / порожній — повний доступ
+		// (це режим SYSTEM_ADMIN/міграцій). Інакше рядки фільтруються за tenant_id.
+		// FORCE потрібен, бо застосунок конектиться від owner-а таблиць.
+		// ============================================================
+		`DO $$
+		DECLARE
+			t TEXT;
+			tables TEXT[] := ARRAY[
+				'users','units','resources','categories','warehouses',
+				'vehicles','fuel_records','supply_requests','contractor_requests',
+				'shipments','audit_logs','gps_locations','geofences'
+			];
+		BEGIN
+			FOREACH t IN ARRAY tables LOOP
+				IF EXISTS (SELECT 1 FROM information_schema.tables
+						WHERE table_schema = 'public' AND table_name = t) THEN
+					EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
+					EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);
+					EXECUTE format('DROP POLICY IF EXISTS tenant_isolation ON %I', t);
+					EXECUTE format($f$
+						CREATE POLICY tenant_isolation ON %I
+						USING (
+							current_setting('app.tenant_id', true) IS NULL
+							OR current_setting('app.tenant_id', true) = ''
+							OR tenant_id::text = current_setting('app.tenant_id', true)
+						)
+						WITH CHECK (
+							current_setting('app.tenant_id', true) IS NULL
+							OR current_setting('app.tenant_id', true) = ''
+							OR tenant_id::text = current_setting('app.tenant_id', true)
+						)
+					$f$, t);
+				END IF;
+			END LOOP;
+		END $$;`,
 	}
 
 	for i, m := range migrations {

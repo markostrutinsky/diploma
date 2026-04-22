@@ -161,3 +161,38 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 );
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(token_hash);
+
+-- ============================================================
+-- Роль для застосунку (не-суперюзер, щоб RLS реально працювала).
+-- Суперюзер (postgres) BYPASSRLS за замовчуванням, тому застосунок
+-- має підключатися як omnilog_app.
+-- ============================================================
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'omnilog_app') THEN
+        CREATE ROLE omnilog_app LOGIN PASSWORD 'omnilog_app' NOSUPERUSER NOBYPASSRLS;
+    END IF;
+END $$;
+
+GRANT CONNECT ON DATABASE omnilog TO omnilog_app;
+GRANT USAGE, CREATE ON SCHEMA public TO omnilog_app;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO omnilog_app;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO omnilog_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO omnilog_app;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+    GRANT USAGE, SELECT ON SEQUENCES TO omnilog_app;
+
+-- Переводимо всі існуючі таблиці та послідовності у власність omnilog_app,
+-- щоб застосунок міг виконувати ALTER/RLS міграції і щоб FORCE RLS
+-- поширювався на нього (superuser bypass-ить RLS).
+DO $$
+DECLARE r RECORD;
+BEGIN
+    FOR r IN SELECT tablename FROM pg_tables WHERE schemaname='public' LOOP
+        EXECUTE format('ALTER TABLE public.%I OWNER TO omnilog_app', r.tablename);
+    END LOOP;
+    FOR r IN SELECT sequence_name FROM information_schema.sequences WHERE sequence_schema='public' LOOP
+        EXECUTE format('ALTER SEQUENCE public.%I OWNER TO omnilog_app', r.sequence_name);
+    END LOOP;
+END $$;

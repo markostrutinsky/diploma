@@ -1,9 +1,9 @@
 package repositories
 
 import (
-"context"
+	"context"
 
-"millog_backend/internal/models"
+	"millog_backend/internal/models"
 )
 
 type CategoryRepository struct{}
