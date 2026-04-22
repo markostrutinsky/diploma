@@ -138,6 +138,7 @@ func main() {
 			auth.POST("/register", authHandler.RegisterContractor)
 			auth.POST("/setup-password", authHandler.SetupPassword)
 			auth.POST("/forgot-password", authHandler.RequestPasswordReset)
+			auth.POST("/tenants/signup", authHandler.SignupTenant)
 			auth.GET("/me", middleware.AuthMiddleware(jwtSecret, dbPool), authHandler.Me)
 		}
 

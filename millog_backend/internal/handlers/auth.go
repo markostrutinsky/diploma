@@ -25,6 +25,32 @@ func NewAuthHandler(authService *services.AuthService, auditService *services.Au
 	}
 }
 
+// SignupTenant — публічний endpoint для self-service реєстрації організації.
+// Створює tenant + першого TENANT_ADMIN.
+func (h *AuthHandler) SignupTenant(c *gin.Context) {
+	var req models.CreateTenantRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	tenantID, ownerID, err := h.authService.CreateTenant(c.Request.Context(), &req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	go func(tID, oID, name string) {
+		_ = h.auditService.LogAction(context.Background(), oID, "CREATE", "TENANT", tID, "Створено нову організацію: "+name)
+	}(tenantID, ownerID, req.OrganizationName)
+
+	c.JSON(http.StatusCreated, gin.H{
+		"tenant_id": tenantID,
+		"owner_id":  ownerID,
+		"message":   "Організацію створено. Тепер ви можете увійти як адміністратор.",
+	})
+}
+
 func (h *AuthHandler) RegisterUser(c *gin.Context) {
 	userID := c.GetString("user_id")
 
@@ -39,7 +65,9 @@ func (h *AuthHandler) RegisterUser(c *gin.Context) {
 		return
 	}
 	creatorRole := creatorRoleVal.(models.UserRole)
-	response, err := h.authService.RegisterUser(c.Request.Context(), &request, creatorRole)
+	creatorTenantID, _ := c.Get("tenant_id")
+	creatorTenantIDStr, _ := creatorTenantID.(string)
+	response, err := h.authService.RegisterUser(c.Request.Context(), &request, creatorRole, creatorTenantIDStr)
 	if err != nil {
 		if strings.Contains(err.Error(), "не має прав для створення") {
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})

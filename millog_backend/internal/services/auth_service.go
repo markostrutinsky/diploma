@@ -48,7 +48,7 @@ func NewAuthService(
 	}
 }
 
-func (s *AuthService) RegisterUser(ctx context.Context, request *models.CreateUserRequest, creatorRole models.UserRole) (*models.CreateUserResponse, error) {
+func (s *AuthService) RegisterUser(ctx context.Context, request *models.CreateUserRequest, creatorRole models.UserRole, creatorTenantID string) (*models.CreateUserResponse, error) {
 	role := s.parseRole(request.Role)
 	if role == models.RoleContractor {
 		return nil, fmt.Errorf("волонтери реєструються самостійно через сторінку реєстрації")
@@ -56,6 +56,16 @@ func (s *AuthService) RegisterUser(ctx context.Context, request *models.CreateUs
 
 	if !creatorRole.CanCreate(role) {
 		return nil, fmt.Errorf("ваша посада не має прав для створення користувача з роллю %s", role)
+	}
+
+	// Tenant-isolation: створюємо користувача лише всередині свого tenant
+	// (SYSTEM_ADMIN без tenant не може створювати звичайних користувачів через цей endpoint).
+	var tenantID *string
+	if creatorTenantID != "" {
+		tid := creatorTenantID
+		tenantID = &tid
+	} else if role != models.RoleSystemAdmin {
+		return nil, fmt.Errorf("неможливо створити користувача без tenant контексту")
 	}
 
 	tx, err := s.dbPool.Begin(ctx)
@@ -73,6 +83,7 @@ func (s *AuthService) RegisterUser(ctx context.Context, request *models.CreateUs
 
 	now := time.Now()
 	user := &models.User{
+		TenantID:  tenantID,
 		Username:  &username,
 		Email:     request.Email,
 		FullName:  request.FullName,
@@ -191,12 +202,12 @@ func (s *AuthService) GetCommanders(ctx context.Context) ([]*models.User, error)
 func (s *AuthService) BootstrapAdmin(ctx context.Context, email, password, fullName string) error {
 	if os.Getenv("ALLOW_BOOTSTRAP_OVERRIDE") != "true" {
 		var count int
-		err := s.dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM users").Scan(&count)
+		err := s.dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM users WHERE role = 'SYSTEM_ADMIN'").Scan(&count)
 		if err != nil {
 			return fmt.Errorf("failed to check users: %w", err)
 		}
 		if count > 0 {
-			return fmt.Errorf("bootstrap only allowed when no users exist")
+			return fmt.Errorf("bootstrap only allowed when no SYSTEM_ADMIN exists")
 		}
 	}
 
@@ -208,12 +219,14 @@ func (s *AuthService) BootstrapAdmin(ctx context.Context, email, password, fullN
 	username := s.deriveUsername(&models.CreateUserRequest{Email: email})
 
 	now := time.Now()
+	// SYSTEM_ADMIN створюється без tenant_id (платформний рівень)
 	user := &models.User{
+		TenantID:     nil,
 		Username:     &username,
 		Email:        email,
 		FullName:     fullName,
 		PasswordHash: &hashStr,
-		Role:         models.RoleAdmin,
+		Role:         models.RoleSystemAdmin,
 		Status:       models.StatusActive,
 		CreatedAt:    now,
 		UpdatedAt:    now,
@@ -222,8 +235,66 @@ func (s *AuthService) BootstrapAdmin(ctx context.Context, email, password, fullN
 	return s.userRepository.CreateUser(ctx, s.dbPool, user)
 }
 
+// CreateTenant — self-service створення організації з першим TENANT_ADMIN.
+// Повертає ID новоствореного tenant та ID TENANT_ADMIN користувача.
+func (s *AuthService) CreateTenant(ctx context.Context, req *models.CreateTenantRequest) (string, string, error) {
+	slug := strings.ToLower(strings.TrimSpace(req.Slug))
+	if slug == "" {
+		return "", "", fmt.Errorf("slug обов'язковий")
+	}
+
+	tx, err := s.dbPool.Begin(ctx)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to begin tx: %w", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// 1. Створити tenant
+	var tenantID string
+	insertTenant := `INSERT INTO tenants (name, slug, subscription_tier, owner_email, is_active)
+		VALUES ($1, $2, 'FREE', $3, TRUE)
+		RETURNING id`
+	if err := tx.QueryRow(ctx, insertTenant, req.OrganizationName, slug, req.OwnerEmail).Scan(&tenantID); err != nil {
+		return "", "", fmt.Errorf("не вдалося створити організацію (можливо slug/name уже зайняті): %w", err)
+	}
+
+	// 2. Створити TENANT_ADMIN всередині tenant
+	hash, err := bcrypt.GenerateFromPassword([]byte(req.OwnerPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to hash password: %w", err)
+	}
+	hashStr := string(hash)
+	username := s.deriveUsername(&models.CreateUserRequest{Email: req.OwnerEmail})
+
+	now := time.Now()
+	owner := &models.User{
+		TenantID:     &tenantID,
+		Username:     &username,
+		Email:        req.OwnerEmail,
+		FullName:     req.OwnerFullName,
+		PasswordHash: &hashStr,
+		Role:         models.RoleTenantAdmin,
+		Status:       models.StatusActive,
+		CreatedAt:    now,
+		UpdatedAt:    now,
+	}
+	if err := s.userRepository.CreateUser(ctx, tx, owner); err != nil {
+		return "", "", fmt.Errorf("не вдалося створити власника організації: %w", err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return "", "", fmt.Errorf("failed to commit: %w", err)
+	}
+
+	return tenantID, owner.ID, nil
+}
+
 func (s *AuthService) parseRole(r string) models.UserRole {
 	switch r {
+	case "SYSTEM_ADMIN":
+		return models.RoleSystemAdmin
+	case "TENANT_ADMIN":
+		return models.RoleTenantAdmin
 	case "ADMIN":
 		return models.RoleAdmin
 	case "REGION_DIRECTOR":
@@ -309,12 +380,17 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*model
 	if user.UnitID != nil {
 		unitID = *user.UnitID
 	}
+	var tenantID string
+	if user.TenantID != nil {
+		tenantID = *user.TenantID
+	}
 	accessExpiresAt := time.Now().Add(24 * time.Hour)
 	claims := &middleware.Claims{
-		UserID: user.ID,
-		Email:  user.Email,
-		Role:   user.Role,
-		UnitID: unitID,
+		UserID:   user.ID,
+		TenantID: tenantID,
+		Email:    user.Email,
+		Role:     user.Role,
+		UnitID:   unitID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(accessExpiresAt),
 			Subject:   user.ID,
@@ -372,10 +448,20 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (*models
 	}
 
 	accessExpiresAt := time.Now().Add(24 * time.Hour)
+	var tenantID string
+	if user.TenantID != nil {
+		tenantID = *user.TenantID
+	}
+	var unitID int64
+	if user.UnitID != nil {
+		unitID = *user.UnitID
+	}
 	claims := &middleware.Claims{
-		UserID: user.ID,
-		Email:  user.Email,
-		Role:   user.Role,
+		UserID:   user.ID,
+		TenantID: tenantID,
+		Email:    user.Email,
+		Role:     user.Role,
+		UnitID:   unitID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(accessExpiresAt),
 			Subject:   user.ID,
