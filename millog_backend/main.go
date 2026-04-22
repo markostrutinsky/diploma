@@ -94,6 +94,7 @@ func main() {
 	warehouseRepo := repositories.NewWarehouseRepository()
 	analyticsRepo := repositories.NewAnalyticsRepository()
 	auditRepo := repositories.NewAuditLogRepository()
+	tenantRepo := repositories.NewTenantRepository()
 
 	invService := services.NewInventoryService(catRepo, resRepo, userRepo, dbPool)
 	reqService := services.NewRequestService(reqRepo, resRepo, userRepo, dbPool)
@@ -163,6 +164,19 @@ func main() {
 			admin.POST("/users", authHandler.RegisterUser)
 			admin.GET("/audit-logs", auditHandler.GetLogs)
 			admin.POST("/sla/trigger", reqHandler.TriggerCheck)
+		}
+
+		// === PLATFORM ADMIN API (SYSTEM_ADMIN only, cross-tenant) ===
+		platformHandler := handlers.NewPlatformHandler(tenantRepo, userRepo, dbPool)
+		platform := api.Group("/platform")
+		platform.Use(middleware.AuthMiddleware(jwtSecret, dbPool), middleware.RequireSystemAdmin())
+		{
+			platform.GET("/stats", platformHandler.Stats)
+			platform.GET("/tenants", platformHandler.ListTenants)
+			platform.GET("/tenants/:id", platformHandler.GetTenant)
+			platform.PATCH("/tenants/:id/tier", platformHandler.UpdateTier)
+			platform.PATCH("/tenants/:id/active", platformHandler.SetActive)
+			platform.DELETE("/tenants/:id", platformHandler.DeleteTenant)
 		}
 
 		// Units: Admin + commanders + logists + storekeepers
