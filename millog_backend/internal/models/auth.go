@@ -7,6 +7,16 @@ import (
 type UserRole string
 
 const (
+	// RoleSystemAdmin — власник платформи (ви). Крос-тенантний доступ,
+	// управління тарифами, біллінгом, підтримкою всіх tenants.
+	RoleSystemAdmin UserRole = "SYSTEM_ADMIN"
+
+	// RoleTenantAdmin — адмін організації. Повні права в межах свого tenant,
+	// окрім платних фіч на безкоштовному тарифі та глобальних платформних операцій.
+	RoleTenantAdmin UserRole = "TENANT_ADMIN"
+
+	// RoleAdmin — застаріле ім'я. Зараз трактується як TENANT_ADMIN
+	// (крім спеціального "платформного" адміна, який має бути SYSTEM_ADMIN).
 	RoleAdmin UserRole = "ADMIN"
 
 	RoleRegionDirector    UserRole = "REGION_DIRECTOR"
@@ -26,7 +36,19 @@ const (
 	RoleEmployee   UserRole = "EMPLOYEE"
 )
 
+// IsPlatformAdmin — має крос-тенантні права (тільки SYSTEM_ADMIN).
+func (r UserRole) IsPlatformAdmin() bool {
+	return r == RoleSystemAdmin
+}
+
+// IsTenantOwner — має всі права в межах свого tenant.
+func (r UserRole) IsTenantOwner() bool {
+	return r == RoleTenantAdmin || r == RoleAdmin
+}
+
 var InternalInventoryRoles = []UserRole{
+	RoleSystemAdmin,
+	RoleTenantAdmin,
 	RoleAdmin,
 	RoleRegionDirector,
 	RoleBranchManager,
@@ -39,6 +61,8 @@ var InternalInventoryRoles = []UserRole{
 }
 
 var WarehouseManagerRoles = []UserRole{
+	RoleSystemAdmin,
+	RoleTenantAdmin,
 	RoleAdmin,
 	RoleRegionDirector,
 	RoleRegionLogistician,
@@ -49,35 +73,52 @@ var WarehouseManagerRoles = []UserRole{
 }
 
 var SupplyRequestCreatorRoles = []UserRole{
-	RoleAdmin, RoleRegionDirector, RoleBranchManager, RoleDeptManager, RoleTeamLead,
+	RoleSystemAdmin, RoleTenantAdmin, RoleAdmin,
+	RoleRegionDirector, RoleBranchManager, RoleDeptManager, RoleTeamLead,
 	RoleRegionLogistician, RoleBranchLogistician, RoleDeptSupervisor,
 }
 
 var SupplyRequestApproverRoles = []UserRole{
-	RoleAdmin, RoleRegionDirector, RoleBranchManager, RoleDeptManager,
+	RoleSystemAdmin, RoleTenantAdmin, RoleAdmin,
+	RoleRegionDirector, RoleBranchManager, RoleDeptManager,
 	RoleRegionLogistician, RoleBranchLogistician,
 }
 
 var ContractorRequestCreatorRoles = []UserRole{
-	RoleAdmin, RoleRegionDirector, RoleBranchManager, RoleDeptManager,
+	RoleSystemAdmin, RoleTenantAdmin, RoleAdmin,
+	RoleRegionDirector, RoleBranchManager, RoleDeptManager,
 	RoleRegionLogistician, RoleBranchLogistician, RoleRegionStorekeeper, RoleBranchStorekeeper, RoleDeptSupervisor,
 }
 
 var InventoryManagerRoles = []UserRole{
-	RoleAdmin, RoleRegionStorekeeper, RoleBranchStorekeeper, RoleDeptSupervisor,
+	RoleSystemAdmin, RoleTenantAdmin, RoleAdmin,
+	RoleRegionStorekeeper, RoleBranchStorekeeper, RoleDeptSupervisor,
 }
 
 var UnitManagerRoles = []UserRole{
-	RoleAdmin, RoleRegionDirector, RoleBranchManager, RoleDeptManager,
+	RoleSystemAdmin, RoleTenantAdmin, RoleAdmin,
+	RoleRegionDirector, RoleBranchManager, RoleDeptManager,
 	RoleRegionLogistician, RoleBranchLogistician, RoleRegionStorekeeper, RoleBranchStorekeeper,
 }
 
 var UserCreatorRoles = []UserRole{
-	RoleAdmin, RoleRegionDirector, RoleBranchManager, RoleDeptManager, RoleTeamLead,
+	RoleSystemAdmin, RoleTenantAdmin, RoleAdmin,
+	RoleRegionDirector, RoleBranchManager, RoleDeptManager, RoleTeamLead,
 	RoleRegionLogistician, RoleBranchLogistician, RoleRegionStorekeeper, RoleBranchStorekeeper, RoleDeptSupervisor,
 }
 
 var RoleCreationMap = map[UserRole][]UserRole{
+	RoleSystemAdmin: {
+		RoleTenantAdmin, RoleAdmin,
+		RoleRegionDirector, RoleBranchManager, RoleDeptManager, RoleTeamLead,
+		RoleRegionLogistician, RoleRegionStorekeeper, RoleBranchLogistician,
+		RoleBranchStorekeeper, RoleDeptSupervisor, RoleEmployee, RoleContractor,
+	},
+	RoleTenantAdmin: {
+		RoleRegionDirector, RoleBranchManager, RoleDeptManager, RoleTeamLead,
+		RoleRegionLogistician, RoleRegionStorekeeper, RoleBranchLogistician,
+		RoleBranchStorekeeper, RoleDeptSupervisor, RoleEmployee, RoleContractor,
+	},
 	RoleAdmin: {
 		RoleRegionDirector, RoleBranchManager, RoleDeptManager, RoleTeamLead,
 		RoleRegionLogistician, RoleRegionStorekeeper, RoleBranchLogistician,
@@ -113,8 +154,9 @@ const (
 
 type User struct {
 	ID           string     `json:"id" gorm:"primaryKey"`
-	Username     *string    `json:"username" gorm:"unique;not null;size:100"`
-	Email        string     `json:"email" gorm:"unique;not null;size:255"`
+	TenantID     *string    `json:"tenant_id,omitempty"`
+	Username     *string    `json:"username" gorm:"not null;size:100"`
+	Email        string     `json:"email" gorm:"not null;size:255"`
 	FullName     string     `json:"full_name" gorm:"size:255"`
 	Phone        *string    `json:"phone" gorm:"size:50"`
 	PasswordHash *string    `json:"-"`
@@ -178,7 +220,11 @@ type UpdateProfileRequest struct {
 }
 
 func (r UserRole) CanCreate(targetRole UserRole) bool {
-	if r == RoleAdmin {
+	if r == RoleSystemAdmin || r == RoleTenantAdmin || r == RoleAdmin {
+		// SYSTEM_ADMIN не створює SYSTEM_ADMIN через звичайний потік
+		if r != RoleSystemAdmin && targetRole == RoleSystemAdmin {
+			return false
+		}
 		return true
 	}
 
@@ -213,7 +259,7 @@ func (r UserRole) GetTargetUnitType() string {
 }
 
 func (r UserRole) CanCreateUnitType(unitType string) bool {
-	if r == RoleAdmin {
+	if r == RoleSystemAdmin || r == RoleTenantAdmin || r == RoleAdmin {
 		return true
 	}
 
