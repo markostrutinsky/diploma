@@ -1,0 +1,169 @@
+.platform-admin {
+  padding: 1.5rem;
+  color: #e2e8f0;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.pa-header h1 {
+  margin: 0 0 0.25rem;
+  color: #f1f5f9;
+}
+
+.pa-header p {
+  color: #94a3b8;
+  margin: 0 0 1.5rem;
+}
+
+.pa-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.pa-stat-card {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.pa-stat-label {
+  color: #94a3b8;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pa-stat-value {
+  margin-top: 0.35rem;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.pa-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.pa-toolbar input {
+  flex: 1;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 0.55rem 0.8rem;
+  color: #f1f5f9;
+  outline: none;
+}
+
+.pa-toolbar input:focus {
+  border-color: #3b82f6;
+}
+
+.pa-toolbar button,
+.pa-actions button {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.55rem 0.9rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.pa-toolbar button:hover,
+.pa-actions button:hover {
+  background: #2563eb;
+}
+
+.pa-actions button.danger {
+  background: #dc2626;
+}
+
+.pa-actions button.danger:hover {
+  background: #b91c1c;
+}
+
+.pa-table-wrap {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  overflow: auto;
+}
+
+.pa-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.pa-table th,
+.pa-table td {
+  padding: 0.75rem 0.9rem;
+  text-align: left;
+  border-bottom: 1px solid #334155;
+  vertical-align: middle;
+}
+
+.pa-table th {
+  background: #0f172a;
+  color: #cbd5e1;
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.pa-table code {
+  background: #0f172a;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  color: #60a5fa;
+  font-size: 0.85rem;
+}
+
+.pa-table select {
+  background: #0f172a;
+  color: #f1f5f9;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 0.35rem 0.5rem;
+}
+
+.pa-badge {
+  padding: 0.2rem 0.6rem;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.pa-badge.ok {
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+}
+
+.pa-badge.off {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+.pa-row-inactive {
+  opacity: 0.55;
+}
+
+.pa-actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.pa-loading,
+.pa-empty {
+  text-align: center;
+  padding: 2rem;
+  color: #94a3b8;
+}

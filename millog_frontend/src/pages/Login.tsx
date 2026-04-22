@@ -86,6 +86,8 @@ export default function Login() {
             <h1>Omnilog</h1>
             <p>Увійдіть до системи</p>
             <p className="login-hint">
+              <Link to="/signup"><strong>✨ Створити організацію</strong></Link>
+              {' · '}
               <Link to="/bootstrap">Перший запуск — створіть адміна</Link>
               {' · '}
               {/* 🔥 Змінено з "Реєстрація волонтера" на "Реєстрація підрядника" */}

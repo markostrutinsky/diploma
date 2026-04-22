@@ -5,6 +5,8 @@ import ProtectedRoute from './components/ProtectedRoute'
 import Home from './pages/Home'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import SignupTenant from './pages/SignupTenant'
+import PlatformAdmin from './pages/PlatformAdmin'
 import Bootstrap from './pages/Bootstrap'
 import SetupPassword from './pages/SetupPassword'
 import AdminUsers from './pages/AdminUsers'
@@ -41,6 +43,7 @@ function App() {
           {/* Публічні маршрути */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/signup" element={<SignupTenant />} />
           <Route path="/bootstrap" element={<Bootstrap />} />
           <Route path="/setup-password" element={<SetupPassword />} />
 
@@ -127,6 +130,15 @@ function App() {
           <Route 
             path="/billing" 
             element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.analytics]}><Billing /></ProtectedRoute>} 
+          />
+
+          <Route
+            path="/platform"
+            element={
+              <ProtectedRoute allowedRoles={[...ROLE_GROUPS.platform]}>
+                <PlatformAdmin />
+              </ProtectedRoute>
+            }
           />
 
           {/* Редирект для всього іншого */}

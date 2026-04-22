@@ -64,6 +64,42 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ email }),
       }),
+    signupTenant: (body: {
+      organization_name: string
+      slug: string
+      owner_email: string
+      owner_full_name: string
+      owner_password: string
+    }) =>
+      request<{ message: string; tenant_id?: string; user_id?: string }>(
+        '/auth/tenants/signup',
+        { method: 'POST', body: JSON.stringify(body) }
+      ),
+  },
+  platform: {
+    stats: () =>
+      request<{
+        total_tenants: number
+        active_tenants: number
+        total_users: number
+        tenants_by_tier: Record<string, number>
+        new_tenants_30_days: number
+      }>('/platform/stats'),
+    listTenants: (search = '') =>
+      request<any[]>(`/platform/tenants${search ? `?search=${encodeURIComponent(search)}` : ''}`),
+    getTenant: (id: string) => request<{ tenant: any; user_count: number }>(`/platform/tenants/${id}`),
+    updateTier: (id: string, tier: string, expires_at?: string | null) =>
+      request<{ ok: boolean }>(`/platform/tenants/${id}/tier`, {
+        method: 'PATCH',
+        body: JSON.stringify({ tier, expires_at: expires_at ?? null }),
+      }),
+    setActive: (id: string, active: boolean) =>
+      request<{ ok: boolean }>(`/platform/tenants/${id}/active`, {
+        method: 'PATCH',
+        body: JSON.stringify({ active }),
+      }),
+    deleteTenant: (id: string) =>
+      request<{ ok: boolean }>(`/platform/tenants/${id}`, { method: 'DELETE' }),
   },
   admin: {
     createUser: (body: CreateUserRequest) =>
@@ -656,6 +692,8 @@ export interface LoginResponse {
 }
 
 export type UserRole =
+  | 'SYSTEM_ADMIN'
+  | 'TENANT_ADMIN'
   | 'ADMIN'
   | 'REGION_DIRECTOR'
   | 'BRANCH_MANAGER'
@@ -864,6 +902,8 @@ export interface SubmitAuditRequest {
 // ==========================================
 
 export const ROLE_NAMES: Record<UserRole, string> = {
+  'SYSTEM_ADMIN': 'Власник платформи',
+  'TENANT_ADMIN': 'Адміністратор організації',
   'ADMIN': 'Системний адміністратор',
   'REGION_DIRECTOR': 'Директор регіону',
   'BRANCH_MANAGER': 'Керівник філії',

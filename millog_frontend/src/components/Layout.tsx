@@ -81,6 +81,7 @@ export default function Layout({ children }: LayoutProps) {
   const canManageContracts = hasRole(userRole, ROLE_GROUPS.contracts)
 
   const isAdmin = userRole === ROLES.ADMIN
+  const isSystemAdmin = userRole === ROLES.SYSTEM_ADMIN
 
   return (
     <div className={`layout ${showSidebar ? 'with-sidebar' : ''}`}>
@@ -200,6 +201,13 @@ export default function Layout({ children }: LayoutProps) {
                   🛡️ Журнал аудиту
                 </Link>
               </>
+            )}
+
+            {/* 9. Платформа (тільки власник SaaS) */}
+            {isSystemAdmin && (
+              <Link to="/platform" className={location.pathname === '/platform' ? 'active' : ''}>
+                🌐 Платформа (Tenants)
+              </Link>
             )}
 
             {/* Тарифні плани — бачать ті, хто бачить аналітику (керівники) */}

@@ -4,6 +4,8 @@
 // Використовується через хук `usePermissions` і компонент `FeatureGate`.
 
 export const ROLES = {
+  SYSTEM_ADMIN: 'SYSTEM_ADMIN',
+  TENANT_ADMIN: 'TENANT_ADMIN',
   ADMIN: 'ADMIN',
   REGION_DIRECTOR: 'REGION_DIRECTOR',
   REGION_LOGISTICIAN: 'REGION_LOGISTICIAN',
@@ -111,7 +113,8 @@ export const ROLE_GROUPS = {
     ROLES.DEPT_MANAGER,
     ROLES.CONTRACTOR,
   ],
-  superAdmin: [ROLES.ADMIN],
+  superAdmin: [ROLES.SYSTEM_ADMIN, ROLES.TENANT_ADMIN, ROLES.ADMIN],
+  platform: [ROLES.SYSTEM_ADMIN],
 } as const
 
 // ================================================================
