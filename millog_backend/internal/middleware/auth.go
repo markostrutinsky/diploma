@@ -86,6 +86,12 @@ func AuthMiddleware(jwtSecret string, db *pgxpool.Pool) gin.HandlerFunc {
 		c.Set("tenant_id", claims.TenantID)
 		c.Set("claims", claims)
 
+		// Пробрасуємо tenant_id у context.Context, щоб repositories могли
+		// автоматично застосовувати tenant scoping без зміни сигнатур.
+		if claims.TenantID != "" {
+			c.Request = c.Request.WithContext(WithTenant(c.Request.Context(), claims.TenantID))
+		}
+
 		c.Next()
 	}
 }

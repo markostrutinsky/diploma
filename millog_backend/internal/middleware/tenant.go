@@ -1,12 +1,26 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 
 	"millog_backend/internal/models"
+	"millog_backend/internal/repositories"
 
 	"github.com/gin-gonic/gin"
 )
+
+// WithTenant повертає контекст із tenant_id (для repositories).
+// Використовує той самий ключ, що й repositories, щоб TenantFromCtx однаково читав значення.
+func WithTenant(ctx context.Context, tenantID string) context.Context {
+	return repositories.WithTenant(ctx, tenantID)
+}
+
+// TenantFromCtx витягає tenant_id зі звичайного context.Context (не gin).
+// Повертає "" для SYSTEM_ADMIN або unauth запитів.
+func TenantFromCtx(ctx context.Context) string {
+	return repositories.TenantFromCtx(ctx)
+}
 
 // TenantIDFromContext повертає tenant_id поточного користувача, або "" якщо відсутній.
 func TenantIDFromContext(c *gin.Context) string {
