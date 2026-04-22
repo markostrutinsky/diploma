@@ -51,23 +51,29 @@ func (r *UserRepository) GetVisibleUsers(ctx context.Context, db DBExecutor, req
 	var query string
 	var args []interface{}
 
-	if requesterRole == "ADMIN" {
+	if requesterRole == "SYSTEM_ADMIN" {
+		// Платформний адмін бачить всіх
+		query = `SELECT id, username, email, full_name, phone, password_hash, role, status, unit_id, created_at, updated_at
+			FROM users ORDER BY created_at DESC`
+	} else if requesterRole == "ADMIN" || requesterRole == "TENANT_ADMIN" {
+		tFilter := tenantFilter(ctx, "", "WHERE", &args)
 		query = `
 			SELECT id, username, email, full_name, phone, password_hash, role, status, unit_id, created_at, updated_at
-			FROM users
+			FROM users` + tFilter + `
 			ORDER BY created_at DESC
 		`
 	} else {
-		// Якщо це командир без підрозділу (в резерві), він бачить тільки резерв
 		if requesterUnitID == nil {
+			tFilter := tenantFilter(ctx, "", "AND", &args)
 			query = `
 				SELECT id, username, email, full_name, phone, password_hash, role, status, unit_id, created_at, updated_at
 				FROM users
-				WHERE unit_id IS NULL
+				WHERE unit_id IS NULL` + tFilter + `
 				ORDER BY created_at DESC
 			`
 		} else {
-			// CTE запит для пошуку всього дерева підрозділів (батальйони, роти, взводи під цією бригадою)
+			args = append(args, *requesterUnitID)
+			tFilter := tenantFilter(ctx, "users", "AND", &args)
 			query = `
 				WITH RECURSIVE hierarchy AS (
 					SELECT id FROM units WHERE id = $1
@@ -77,11 +83,9 @@ func (r *UserRepository) GetVisibleUsers(ctx context.Context, db DBExecutor, req
 				)
 				SELECT id, username, email, full_name, phone, password_hash, role, status, unit_id, created_at, updated_at
 				FROM users
-				WHERE unit_id IN (SELECT id FROM hierarchy)
-				   OR unit_id IS NULL -- Також показуємо кадровий резерв
+				WHERE (unit_id IN (SELECT id FROM hierarchy) OR unit_id IS NULL)` + tFilter + `
 				ORDER BY created_at DESC
 			`
-			args = append(args, *requesterUnitID)
 		}
 	}
 
@@ -108,13 +112,15 @@ func (r *UserRepository) GetVisibleUsers(ctx context.Context, db DBExecutor, req
 }
 
 func (r *UserRepository) GetCommanders(ctx context.Context, db DBExecutor) ([]*models.User, error) {
+	args := []any{}
+	tFilter := tenantFilter(ctx, "", "AND", &args)
 	query := `
         SELECT id, username, email, full_name, phone, password_hash, role, status, unit_id, created_at, updated_at
         FROM users
-        WHERE role IN ('REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'TEAM_LEAD')
+        WHERE role IN ('REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'TEAM_LEAD')` + tFilter + `
     `
 
-	rows, err := db.Query(ctx, query)
+	rows, err := db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -175,77 +181,82 @@ func (r *UserRepository) GetByID(ctx context.Context, db DBExecutor, id string) 
 }
 
 func (r *UserRepository) UpdatePassword(ctx context.Context, db DBExecutor, userID, passwordHash string) error {
-	query := `UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`
-	_, err := db.Exec(ctx, query, passwordHash, userID)
+	args := []any{passwordHash, userID}
+	tFilter := tenantFilter(ctx, "", "AND", &args)
+	query := `UPDATE users SET password_hash = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2` + tFilter
+	_, err := db.Exec(ctx, query, args...)
 	return err
 }
 
 func (r *UserRepository) UpdateStatus(ctx context.Context, db DBExecutor, userID string, status models.UserStatus) error {
-	query := `UPDATE users SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`
-	_, err := db.Exec(ctx, query, status, userID)
+	args := []any{status, userID}
+	tFilter := tenantFilter(ctx, "", "AND", &args)
+	query := `UPDATE users SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2` + tFilter
+	_, err := db.Exec(ctx, query, args...)
 	return err
 }
 
 func (r *UserRepository) Count(ctx context.Context, db DBExecutor) (int, error) {
+	args := []any{}
+	tFilter := tenantFilter(ctx, "", "WHERE", &args)
 	var n int
-	err := db.QueryRow(ctx, "SELECT COUNT(*) FROM users").Scan(&n)
+	err := db.QueryRow(ctx, "SELECT COUNT(*) FROM users"+tFilter, args...).Scan(&n)
 	return n, err
 }
 
 func (r *UserRepository) UpdateRoleAndUnit(ctx context.Context, db DBExecutor, userID string, newRole string, newUnitID *int64) error {
+	args := []any{newRole, newUnitID, userID}
+	tFilter := tenantFilter(ctx, "", "AND", &args)
 	query := `
 		UPDATE users 
 		SET role = $1, unit_id = $2, updated_at = CURRENT_TIMESTAMP 
-		WHERE id = $3
-	`
-
-	_, err := db.Exec(ctx, query, newRole, newUnitID, userID)
-	if err != nil {
-		return err
-	}
-
-	return nil
+		WHERE id = $3` + tFilter
+	_, err := db.Exec(ctx, query, args...)
+	return err
 }
 
 func (r *UserRepository) BlockUser(ctx context.Context, db DBExecutor, userID string) error {
+	args := []any{models.StatusBlocked, userID}
+	tFilter := tenantFilter(ctx, "", "AND", &args)
 	query := `
 		UPDATE users 
 		SET status = $1, 
 		    unit_id = NULL, 
 		    updated_at = CURRENT_TIMESTAMP 
-		WHERE id = $2
-	`
-	_, err := db.Exec(ctx, query, models.StatusBlocked, userID)
+		WHERE id = $2` + tFilter
+	_, err := db.Exec(ctx, query, args...)
 	return err
 }
 
 func (r *UserRepository) CheckSubordination(ctx context.Context, db DBExecutor, commanderUnitID int64, targetUserID string) (bool, error) {
+	args := []any{commanderUnitID, targetUserID}
+	tidBase := tenantFilter(ctx, "", "AND", &args)
+	tidUsers := tenantFilter(ctx, "", "AND", &args)
 	query := `
 		WITH RECURSIVE unit_tree AS (
-			-- Беремо підрозділ командира
-			SELECT id FROM units WHERE id = $1
+			SELECT id FROM units WHERE id = $1` + tidBase + `
 			UNION
-			-- Шукаємо всі підрозділи, які йому підпорядковуються
 			SELECT u.id FROM units u
 			INNER JOIN unit_tree ut ON u.parent_id = ut.id
 		)
 		SELECT EXISTS (
 			SELECT 1 FROM users 
-			WHERE id = $2 AND unit_id IN (SELECT id FROM unit_tree)
+			WHERE id = $2 AND unit_id IN (SELECT id FROM unit_tree)` + tidUsers + `
 		)
 	`
 	var isSubordinate bool
-	err := db.QueryRow(ctx, query, commanderUnitID, targetUserID).Scan(&isSubordinate)
+	err := db.QueryRow(ctx, query, args...).Scan(&isSubordinate)
 	return isSubordinate, err
 }
 
 func (r *UserRepository) UnblockUser(ctx context.Context, db DBExecutor, userID string) error {
+	args := []any{models.StatusActive, userID}
+	tFilter := tenantFilter(ctx, "", "AND", &args)
 	query := `
 		UPDATE users 
 		SET status = $1, updated_at = CURRENT_TIMESTAMP 
-		WHERE id = $2
-	`
-	_, err := db.Exec(ctx, query, models.StatusActive, userID)
+		WHERE id = $2` + tFilter
+	_, err := db.Exec(ctx, query, args...)
 	return err
 }
 
@@ -281,6 +292,11 @@ func (r *UserRepository) UpdateProfile(ctx context.Context, db *pgxpool.Pool, us
 
 	query += fmt.Sprintf(" WHERE id = $%d", argID)
 	args = append(args, userID)
+	argID++
+	if tid := TenantFromCtx(ctx); tid != "" {
+		query += fmt.Sprintf(" AND tenant_id = $%d", argID)
+		args = append(args, tid)
+	}
 
 	result, err := db.Exec(ctx, query, args...)
 	if err != nil {
