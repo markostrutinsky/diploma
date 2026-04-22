@@ -62,3 +62,19 @@ type SmartDispatchResult struct {
 	OptimizedRoutes []VehicleBin  `json:"routes"`
 	Unassigned      []RequestItem `json:"unassigned"`
 }
+
+// SmartDispatchRoute — один рядок з "затвердження" результату Smart Розподілу:
+// фронт передає, які саме заявки поїдуть якою машиною.
+type SmartDispatchRoute struct {
+	VehicleID  string   `json:"vehicle_id" binding:"required,uuid"`
+	RequestIDs []string `json:"request_ids" binding:"required,min=1"`
+}
+
+// SmartDispatchConfirmReq — payload на /requests/smart-dispatch-confirm.
+// Цільовий склад виводиться з target_warehouse_id заявок (усі мають збігатись),
+// тому тут вказуємо лише звідки відправляти й розклад по машинам.
+type SmartDispatchConfirmReq struct {
+	FromWarehouseID string               `json:"from_warehouse_id" binding:"required,uuid"`
+	Priority        string               `json:"priority"`
+	Routes          []SmartDispatchRoute `json:"routes" binding:"required,min=1"`
+}

@@ -170,6 +170,7 @@ func (h *AnalyticsHandler) GetAdvancedKPIs(c *gin.Context) {
 
 	kpis, err := h.service.GetAdvancedKPIs(ctx, startDate, endDate, unitID)
 	if err != nil {
+		log.Printf("ERROR: GetAdvancedKPIs failed: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка завантаження KPI"})
 		return
 	}
@@ -179,10 +180,7 @@ func (h *AnalyticsHandler) GetAdvancedKPIs(c *gin.Context) {
 		_ = h.auditService.LogAction(context.Background(), userID, "VIEW", "KPI", "", "Переглянув розширену аналітику (KPI)")
 	}()
 
-	c.JSON(http.StatusOK, gin.H{
-		"status": "success",
-		"data":   kpis,
-	})
+	c.JSON(http.StatusOK, kpis)
 }
 
 // 🚀 PRO FEATURE #2: GetDemandForecast прогнозує попит на 3 місяці вперед
@@ -200,6 +198,7 @@ func (h *AnalyticsHandler) GetDemandForecast(c *gin.Context) {
 
 	forecast, err := h.service.GetDemandForecast(ctx, unitID)
 	if err != nil {
+		log.Printf("ERROR: GetDemandForecast failed: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка завантаження прогнозу"})
 		return
 	}
@@ -209,10 +208,7 @@ func (h *AnalyticsHandler) GetDemandForecast(c *gin.Context) {
 		_ = h.auditService.LogAction(context.Background(), userID, "VIEW", "FORECAST", "", "Переглянув прогноз попиту")
 	}()
 
-	c.JSON(http.StatusOK, gin.H{
-		"status": "success",
-		"data":   forecast,
-	})
+	c.JSON(http.StatusOK, forecast)
 }
 
 // GetPredictiveMaintenanceSchedule returns predicted maintenance schedule for vehicles
@@ -229,6 +225,7 @@ func (h *AnalyticsHandler) GetPredictiveMaintenanceSchedule(c *gin.Context) {
 
 	schedule, err := h.service.GetPredictiveMaintenanceSchedule(ctx, unitID)
 	if err != nil {
+		log.Printf("ERROR: GetPredictiveMaintenanceSchedule failed: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка завантаження прогнозу обслуговування"})
 		return
 	}
@@ -238,10 +235,7 @@ func (h *AnalyticsHandler) GetPredictiveMaintenanceSchedule(c *gin.Context) {
 		_ = h.auditService.LogAction(context.Background(), userID, "VIEW", "MAINTENANCE_SCHEDULE", "", "Переглянув прогноз обслуговування машин")
 	}()
 
-	c.JSON(http.StatusOK, gin.H{
-		"status": "success",
-		"data":   schedule,
-	})
+	c.JSON(http.StatusOK, schedule)
 }
 
 // GetFuelAnomalyDetection detects fuel consumption anomalies
@@ -258,6 +252,7 @@ func (h *AnalyticsHandler) GetFuelAnomalyDetection(c *gin.Context) {
 
 	anomalies, err := h.service.GetFuelAnomalyDetection(ctx, unitID)
 	if err != nil {
+		log.Printf("ERROR: GetFuelAnomalyDetection failed: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка аналізу витрат палива"})
 		return
 	}
@@ -267,8 +262,5 @@ func (h *AnalyticsHandler) GetFuelAnomalyDetection(c *gin.Context) {
 		_ = h.auditService.LogAction(context.Background(), userID, "VIEW", "FUEL_ANOMALIES", "", "Переглянув аналіз аномалій у витраті палива")
 	}()
 
-	c.JSON(http.StatusOK, gin.H{
-		"status": "success",
-		"data":   anomalies,
-	})
+	c.JSON(http.StatusOK, anomalies)
 }

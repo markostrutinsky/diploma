@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import toast, { Toaster } from 'react-hot-toast';
 import { api } from '../api/client';
 import './MaintenanceSchedule.css';
 
@@ -28,6 +29,7 @@ export function MaintenanceSchedule() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterPriority, setFilterPriority] = useState<'ALL' | 'LOW' | 'MEDIUM' | 'HIGH'>('ALL');
+  const [detailItem, setDetailItem] = useState<MaintenanceItem | null>(null);
 
   useEffect(() => {
     fetchMaintenanceSchedule();
@@ -88,9 +90,9 @@ export function MaintenanceSchedule() {
     return labels[type] || type;
   };
 
-  const filteredSchedules = scheduleData?.schedules.filter(item => 
+  const filteredSchedules = (scheduleData?.schedules ?? []).filter(item =>
     filterPriority === 'ALL' || item.priority === filterPriority
-  ) || [];
+  );
 
   if (loading) {
     return <div className="maintenance-container"><div className="loading">Завантаження графіка ТО...</div></div>;
@@ -203,13 +205,81 @@ export function MaintenanceSchedule() {
               </div>
 
               <div className="card-actions">
-                <button className="btn-schedule">📅 Заплануйте ТО</button>
-                <button className="btn-details">📋 Деталі</button>
+                <button
+                  className="btn-schedule"
+                  onClick={() => {
+                    toast.success(
+                      `📅 ТО «${getServiceLabel(item.service_type)}» для ${item.vehicle_plate} заплановано на ${new Date(item.next_service_date).toLocaleDateString('uk-UA')}`,
+                      { duration: 4000 }
+                    );
+                  }}
+                >
+                  📅 Запланувати ТО
+                </button>
+                <button className="btn-details" onClick={() => setDetailItem(item)}>
+                  📋 Деталі
+                </button>
               </div>
             </div>
           ))
         )}
       </div>
+
+      {detailItem && (
+        <div className="maint-modal-overlay" onClick={() => setDetailItem(null)}>
+          <div className="maint-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="maint-modal-header">
+              <h2>📋 {detailItem.vehicle_plate}</h2>
+              <button className="maint-modal-close" onClick={() => setDetailItem(null)}>✕</button>
+            </div>
+            <div className="maint-modal-body">
+              <div className="maint-modal-block">
+                <span className="label">Вид обслуговування:</span>
+                <span className="value">{getServiceLabel(detailItem.service_type)}</span>
+              </div>
+              <div className="maint-modal-block">
+                <span className="label">Пріоритет:</span>
+                <span className="value">{getPriorityLabel(detailItem.priority)}</span>
+              </div>
+              <div className="maint-modal-block">
+                <span className="label">Статус:</span>
+                <span className="value">{getStatusLabel(detailItem.status)}</span>
+              </div>
+              <div className="maint-modal-block">
+                <span className="label">Останнє ТО:</span>
+                <span className="value">{new Date(detailItem.last_service_date).toLocaleDateString('uk-UA')}</span>
+              </div>
+              <div className="maint-modal-block">
+                <span className="label">Наступне ТО:</span>
+                <span className="value">{new Date(detailItem.next_service_date).toLocaleDateString('uk-UA')}</span>
+              </div>
+              <div className="maint-modal-block">
+                <span className="label">Пробіг з моменту ТО:</span>
+                <span className="value">
+                  {Math.round(detailItem.mileage_since_service)} / {Math.round(detailItem.recommended_mileage)} км
+                  {' '}({Math.round((detailItem.mileage_since_service / detailItem.recommended_mileage) * 100)}%)
+                </span>
+              </div>
+              <div className="maint-modal-block">
+                <span className="label">Залишилось:</span>
+                <span className="value">
+                  {detailItem.days_remaining < 0
+                    ? `Прострочено на ${Math.abs(detailItem.days_remaining)} днів`
+                    : `${detailItem.days_remaining} днів`}
+                </span>
+              </div>
+              <div className="maint-modal-note">
+                ℹ️ Графік розраховується на основі пробігу з останнього ТО та рекомендованого інтервалу обслуговування.
+              </div>
+            </div>
+            <div className="maint-modal-footer">
+              <button className="btn-details" onClick={() => setDetailItem(null)}>Закрити</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Toaster position="top-right" />
     </div>
   );
 }

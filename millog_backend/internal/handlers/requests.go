@@ -173,15 +173,73 @@ func (h *RequestHandler) SmartDispatchPreview(c *gin.Context) {
 	c.JSON(http.StatusOK, result)
 }
 
+// SmartDispatchConfirm — затверджує результат Smart Розподілу: для кожної
+// машини створюється окремий shipment (та сама логіка, що й у ручного рейсу).
+func (h *RequestHandler) SmartDispatchConfirm(c *gin.Context) {
+	userID := c.GetString("user_id")
+
+	var req models.SmartDispatchConfirmReq
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	count, err := h.reqService.ConfirmSmartDispatch(c.Request.Context(), &req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":             err.Error(),
+			"successful_routes": count,
+		})
+		return
+	}
+
+	go func(u string, n int) {
+		_ = h.auditService.LogAction(
+			context.Background(),
+			u,
+			"CREATE",
+			"SHIPMENT",
+			"smart-batch",
+			fmt.Sprintf("Smart Розподіл: створено %d рейсів", n),
+		)
+	}(userID, count)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": fmt.Sprintf("Успішно створено %d рейсів", count),
+		"count":   count,
+	})
+}
+
 func (h *RequestHandler) TriggerCheck(c *gin.Context) {
-	count, err := h.slaMonitor.CheckPendingRequests(c.Request.Context())
+	ctx := c.Request.Context()
+
+	newlyEscalated, err := h.slaMonitor.CheckPendingRequests(ctx)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка під час перевірки SLA"})
 		return
 	}
 
+	// Додатковий контекст для UX: скільки вже ескальованих заявок висить у системі
+	// та скільки ще PENDING (і скільки з них наближаються до дедлайну).
+	existingEscalated, _ := h.slaMonitor.GetEscalatedCount(ctx)
+	pendingTotal, pendingSoon, _ := h.slaMonitor.GetPendingStats(ctx)
+
+	var message string
+	if newlyEscalated > 0 {
+		message = fmt.Sprintf("Ескальовано %d нових заявок. Всього ESCALATED у системі: %d.",
+			newlyEscalated, existingEscalated)
+	} else if existingEscalated > 0 {
+		message = fmt.Sprintf("Нових порушень SLA не знайдено. У системі вже є %d ескальованих заявок, які потребують уваги менеджера.",
+			existingEscalated)
+	} else {
+		message = "Порушень SLA не знайдено. Всі заявки у межах нормативу."
+	}
+
 	c.JSON(http.StatusOK, gin.H{
-		"message":         fmt.Sprintf("Перевірку SLA завершено. Знайдено та ескальовано %d заявок.", count),
-		"escalated_count": count,
+		"message":            message,
+		"escalated_count":    newlyEscalated,    // скільки НОВИХ ескалацій за цей запуск
+		"existing_escalated": existingEscalated, // скільки вже ESCALATED у системі
+		"pending_total":      pendingTotal,      // скільки зараз у PENDING
+		"pending_near_sla":   pendingSoon,       // з них наближаються до дедлайну
 	})
 }

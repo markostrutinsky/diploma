@@ -118,3 +118,99 @@
 .data-table tbody tr:hover {
   background-color: #f1f5f9;
 }
+/* =========================================
+   Покращена статистика + бейджі
+   ========================================= */
+.audit-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.audit-stat-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.audit-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+
+.audit-stat-icon {
+  width: 44px; height: 44px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.audit-stat-val {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.1;
+}
+
+.audit-stat-lbl {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+/* Нові бейджі: трохи більше контрасту + іконка */
+.audit-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.audit-badge .badge-icon {
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* Акуратний entity-tag з українським перекладом */
+.entity-tag {
+  gap: 6px;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 12px;
+  padding: 5px 10px;
+  background: #f1f5f9;
+  color: #334155;
+  font-weight: 500;
+  max-width: 100%;
+}
+.entity-ua {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.audit-footer-note {
+  margin-top: 24px;
+  text-align: center;
+  font-size: 12px;
+  color: #94a3b8;
+  padding: 14px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px dashed #e2e8f0;
+}
+
+/* Адаптивність */
+@media (max-width: 768px) {
+  .audit-filters-grid {
+    grid-template-columns: 1fr;
+  }
+  .audit-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

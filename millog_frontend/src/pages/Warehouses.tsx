@@ -446,8 +446,8 @@ export default function Warehouses() {
               <div className="form-group"><label>Назва <span className="required">*</span></label><input className="erp-input" value={newWarehouse.name} onChange={(e) => setNewWarehouse({ ...newWarehouse, name: e.target.value })} required /></div>
               <div className="form-group"><label>Тип <span className="required">*</span></label><select className="erp-input" value={newWarehouse.location_type} onChange={(e) => setNewWarehouse({ ...newWarehouse, location_type: e.target.value as 'STATIONARY' | 'MOBILE' })} required><option value="STATIONARY">Стаціонарний</option><option value="MOBILE">Мобільний</option></select></div>
               <div className="form-row-2">
-                <div className="form-group"><label>Lat</label><input className="erp-input" type="number" step="0.000001" value={newWarehouse.latitude} onChange={(e) => setNewWarehouse({ ...newWarehouse, latitude: e.target.value })} /></div>
-                <div className="form-group"><label>Lng</label><input className="erp-input" type="number" step="0.000001" value={newWarehouse.longitude} onChange={(e) => setNewWarehouse({ ...newWarehouse, longitude: e.target.value })} /></div>
+                <div className="form-group"><label>Широта</label><input className="erp-input" type="number" step="0.000001" value={newWarehouse.latitude} onChange={(e) => setNewWarehouse({ ...newWarehouse, latitude: e.target.value })} /></div>
+                <div className="form-group"><label>Довгота</label><input className="erp-input" type="number" step="0.000001" value={newWarehouse.longitude} onChange={(e) => setNewWarehouse({ ...newWarehouse, longitude: e.target.value })} /></div>
               </div>
               <div className="modal-actions"><button type="button" className="btn btn-secondary cancel-margin" onClick={() => setShowForm(false)}>Скасувати</button><button type="submit" className="btn btn-primary" disabled={!newWarehouse.unit_id}>Створити</button></div>
             </form>

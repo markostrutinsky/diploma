@@ -166,8 +166,27 @@ const AnalyticsDashboard: React.FC = () => {
   const toastId = toast.loading("Перевірка термінів виконання...");
   try {
     const res = await api.admin.triggerSLACheck();
-    if (res.escalated_count > 0) {
-      toast.success(`Знайдено та ескальовано ${res.escalated_count} заявок!`, { id: toastId });
+    const newlyEscalated = res.escalated_count ?? 0;
+    const existing = res.existing_escalated ?? 0;
+    const pendingSoon = res.pending_near_sla ?? 0;
+
+    // Формуємо зрозуміле повідомлення з контекстом
+    if (newlyEscalated > 0) {
+      toast.success(
+        `Ескальовано ${newlyEscalated} нових заявок. Всього у статусі ESCALATED: ${existing}.`,
+        { id: toastId, duration: 6000 }
+      );
+    } else if (existing > 0) {
+      toast(
+        `Нових порушень SLA не знайдено.\nАле у системі вже ${existing} ескальованих заявок — опрацюйте їх.` +
+          (pendingSoon > 0 ? `\nЩе ${pendingSoon} заявок наближаються до дедлайну.` : ''),
+        { id: toastId, icon: 'ℹ️', duration: 7000 }
+      );
+    } else if (pendingSoon > 0) {
+      toast.success(
+        `Порушень SLA немає. ${pendingSoon} заявок наближаються до дедлайну.`,
+        { id: toastId, duration: 5000 }
+      );
     } else {
       toast.success("Всі заявки в межах норми SLA", { id: toastId });
     }

@@ -25,9 +25,11 @@ func (r *GPSRepository) SaveGPSLocation(ctx context.Context, db DBExecutor, loca
 }
 
 // GetLatestLocation returns the most recent location of a vehicle
-func (r *GPSRepository) GetLatestLocation(ctx context.Context, db DBExecutor, vehicleID int64) (*models.GPSLocation, error) {
+func (r *GPSRepository) GetLatestLocation(ctx context.Context, db DBExecutor, vehicleID string) (*models.GPSLocation, error) {
 	query := `
-		SELECT id, vehicle_id, unit_id, latitude, longitude, altitude, speed, heading, accuracy, timestamp, created_at
+		SELECT id, vehicle_id, unit_id, latitude, longitude,
+			COALESCE(altitude, 0), COALESCE(speed, 0), COALESCE(heading, 0), COALESCE(accuracy, 0),
+			timestamp, COALESCE(created_at, NOW())
 		FROM gps_locations
 		WHERE vehicle_id = $1
 		ORDER BY timestamp DESC
@@ -49,9 +51,11 @@ func (r *GPSRepository) GetLatestLocation(ctx context.Context, db DBExecutor, ve
 }
 
 // GetVehicleLocationsHistory returns GPS history for a time range
-func (r *GPSRepository) GetVehicleLocationsHistory(ctx context.Context, db DBExecutor, vehicleID int64, startTime, endTime time.Time) ([]models.GPSLocation, error) {
+func (r *GPSRepository) GetVehicleLocationsHistory(ctx context.Context, db DBExecutor, vehicleID string, startTime, endTime time.Time) ([]models.GPSLocation, error) {
 	query := `
-		SELECT id, vehicle_id, unit_id, latitude, longitude, altitude, speed, heading, accuracy, timestamp, created_at
+		SELECT id, vehicle_id, unit_id, latitude, longitude,
+			COALESCE(altitude, 0), COALESCE(speed, 0), COALESCE(heading, 0), COALESCE(accuracy, 0),
+			timestamp, COALESCE(created_at, NOW())
 		FROM gps_locations
 		WHERE vehicle_id = $1 AND timestamp BETWEEN $2 AND $3
 		ORDER BY timestamp ASC
@@ -80,21 +84,59 @@ func (r *GPSRepository) GetVehicleLocationsHistory(ctx context.Context, db DBExe
 	return locations, nil
 }
 
-// GetFleetLocations returns current locations for all vehicles in a unit
+// GetFleetLocations returns current locations for all vehicles in a unit.
+// Якщо unitID <= 0 — повертає останні точки по ВСІХ машинах (режим адміна).
 func (r *GPSRepository) GetFleetLocations(ctx context.Context, db DBExecutor, unitID int64) ([]models.GPSLocation, error) {
-	query := `
-		WITH latest_locations AS (
-			SELECT DISTINCT ON (vehicle_id)
-				id, vehicle_id, unit_id, latitude, longitude, altitude, speed, heading, accuracy, timestamp, created_at
-			FROM gps_locations
-			WHERE unit_id = $1
-			ORDER BY vehicle_id, timestamp DESC
-		)
-		SELECT id, vehicle_id, unit_id, latitude, longitude, altitude, speed, heading, accuracy, timestamp, created_at
-		FROM latest_locations
-	`
+	var (
+		query string
+		args  []interface{}
+	)
+	// 🔥 Показуємо на мапі лише ті машини, в яких є активний рейс (status = 'DISPATCHED').
+	// Як тільки рейс закривається статусом 'DELIVERED' або 'CANCELLED' —
+	// машина зникає з fleet-map, навіть якщо симулятор продовжує слати GPS-пінги.
+	if unitID > 0 {
+		query = `
+			WITH latest_locations AS (
+				SELECT DISTINCT ON (vehicle_id)
+					id, vehicle_id, unit_id, latitude, longitude, altitude, speed, heading, accuracy, timestamp, created_at
+				FROM gps_locations
+				WHERE unit_id = $1
+				  AND timestamp > NOW() - INTERVAL '5 minutes'
+				ORDER BY vehicle_id, timestamp DESC
+			)
+			SELECT ll.id, ll.vehicle_id, ll.unit_id, ll.latitude, ll.longitude,
+				COALESCE(ll.altitude, 0), COALESCE(ll.speed, 0), COALESCE(ll.heading, 0), COALESCE(ll.accuracy, 0),
+				ll.timestamp, COALESCE(ll.created_at, NOW())
+			FROM latest_locations ll
+			WHERE EXISTS (
+				SELECT 1 FROM shipments s
+				WHERE s.vehicle_id::text = ll.vehicle_id
+				  AND s.status = 'DISPATCHED'
+			)
+		`
+		args = []interface{}{unitID}
+	} else {
+		query = `
+			WITH latest_locations AS (
+				SELECT DISTINCT ON (vehicle_id)
+					id, vehicle_id, unit_id, latitude, longitude, altitude, speed, heading, accuracy, timestamp, created_at
+				FROM gps_locations
+				WHERE timestamp > NOW() - INTERVAL '5 minutes'
+				ORDER BY vehicle_id, timestamp DESC
+			)
+			SELECT ll.id, ll.vehicle_id, ll.unit_id, ll.latitude, ll.longitude,
+				COALESCE(ll.altitude, 0), COALESCE(ll.speed, 0), COALESCE(ll.heading, 0), COALESCE(ll.accuracy, 0),
+				ll.timestamp, COALESCE(ll.created_at, NOW())
+			FROM latest_locations ll
+			WHERE EXISTS (
+				SELECT 1 FROM shipments s
+				WHERE s.vehicle_id::text = ll.vehicle_id
+				  AND s.status = 'DISPATCHED'
+			)
+		`
+	}
 
-	rows, err := db.Query(ctx, query, unitID)
+	rows, err := db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query fleet locations: %w", err)
 	}

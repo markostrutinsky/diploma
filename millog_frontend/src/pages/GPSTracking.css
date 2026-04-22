@@ -332,3 +332,121 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* =========================================
+   Модалка деталей машини
+   ========================================= */
+.gps-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.gps-modal {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  max-width: 720px;
+  width: 92%;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.gps-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+  color: #fff;
+}
+.gps-modal-header h2 { margin: 0; font-size: 1.25rem; }
+
+.gps-modal-close {
+  background: transparent;
+  color: #fff;
+  border: none;
+  font-size: 1.3rem;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+.gps-modal-close:hover { background: rgba(255,255,255,0.15); }
+
+.gps-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.gps-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.gps-detail-item {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.gps-detail-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.gps-detail-value {
+  font-size: 15px;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.gps-traj-title {
+  font-size: 1rem;
+  color: #0f172a;
+  margin: 16px 0 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.gps-traj-empty {
+  color: #64748b;
+  font-style: italic;
+  text-align: center;
+  padding: 16px 0;
+}
+
+.gps-traj-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.gps-modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: flex-end;
+  background: #f8fafc;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

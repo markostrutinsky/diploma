@@ -88,6 +88,8 @@ export default function Requests() {
   const [showSmartPreview, setShowSmartPreview] = useState(false)
   const [smartRoutes, setSmartRoutes] = useState<VehicleBin[]>([])
   const [unassignedItems, setUnassignedItems] = useState<RequestItem[]>([])
+  // Склад-відправник для Smart Розподілу (обирається перед підтвердженням).
+  const [smartFromWarehouseId, setSmartFromWarehouseId] = useState('')
 
   const [rejectModalData, setRejectModalData] = useState<SupplyRequest | null>(null)
   const [rejectComment, setRejectComment] = useState('')
@@ -180,11 +182,17 @@ export default function Requests() {
     const targetUnit = units.find(u => u.id === targetWarehouse.unit_id);
     if (!targetUnit) return [];
 
+    // Для ADMIN / REGION_DIRECTOR знімаємо обмеження "тільки ancestors у ієрархії":
+    // вони логістично бачать усю мережу і можуть забирати з будь-якого складу
+    // (головне — щоб там було достатньо потрібних ресурсів).
+    const isCrossUnitOperator =
+      user?.role === 'ADMIN' || user?.role === 'REGION_DIRECTOR' || user?.role === 'REGION_LOGISTICIAN';
+
     const allowedUnitIds = new Set<number>();
-    allowedUnitIds.add(targetUnit.id); 
+    allowedUnitIds.add(targetUnit.id);
 
     let currentParentId = targetUnit.parent_id;
-    let depth = 0; 
+    let depth = 0;
     while (currentParentId && depth < 20) {
       allowedUnitIds.add(currentParentId);
       const parentNode = units.find(u => u.id === currentParentId);
@@ -192,7 +200,9 @@ export default function Requests() {
       depth++;
     }
 
-    const hierarchicallyAllowed = warehouses.filter(w => allowedUnitIds.has(w.unit_id) && w.id !== dispatchForm.to_warehouse_id);
+    const hierarchicallyAllowed = warehouses.filter(w =>
+      (isCrossUnitOperator || allowedUnitIds.has(w.unit_id)) && w.id !== dispatchForm.to_warehouse_id
+    );
 
     const requiredItems = selectedRequestsDetails.reduce((acc, req) => {
       const res = resources.find(r => r.id === req.resource_id);
@@ -209,9 +219,9 @@ export default function Requests() {
           .reduce((sum, r) => sum + r.quantity, 0);
         if (availableQty < neededQty) return false;
       }
-      return true; 
+      return true;
     });
-  }, [dispatchForm.to_warehouse_id, warehouses, units, selectedRequestsDetails, resources]);
+  }, [dispatchForm.to_warehouse_id, warehouses, units, selectedRequestsDetails, resources, user?.role]);
 
   const localAlternatives = useMemo(() => {
     if (!newReq.resource_id || !newReq.target_warehouse_id) return [];
@@ -296,7 +306,19 @@ export default function Requests() {
   // --- 2. ВИКЛИК SMART РОЗПОДІЛУ ЧЕРЕЗ КЛІЄНТ ---
   const handleSmartDispatchPreview = async () => {
     if (selectedReqIds.size === 0) return toast.error('Виберіть хоча б одну заявку!');
-    
+
+    // 🔥 Перевірка: всі обрані заявки мають йти на один і той самий склад-отримувач,
+    // інакше "розумний" розподіл по машинах змішає різні маршрути в одну фуру.
+    const targets = new Set(
+      selectedRequestsDetails.map(r => r.target_warehouse_id || '')
+    );
+    if (targets.size > 1) {
+      return toast.error(
+        'Обрані заявки йдуть на різні склади-отримувачі. Оберіть заявки з одним цільовим складом для Smart Розподілу.',
+        { duration: 6000 }
+      );
+    }
+
     const toastId = toast.loading('🧠 Алгоритм First-Fit Decreasing аналізує вантаж...');
     
     try {
@@ -304,6 +326,13 @@ export default function Requests() {
       
       setSmartRoutes(data.routes || []);
       setUnassignedItems(data.unassigned || []);
+
+      // Синхронізуємо to_warehouse_id у загальній формі, щоб мемоізований
+      // allowedSourceWarehouses працював і для модалки Smart Розподілу.
+      const commonTarget = Array.from(targets)[0] || '';
+      setDispatchForm(prev => ({ ...prev, to_warehouse_id: commonTarget }));
+      setSmartFromWarehouseId('');
+
       setShowSmartPreview(true);
       
       toast.success('Оптимальний розподіл знайдено!', { id: toastId });
@@ -314,14 +343,32 @@ export default function Requests() {
 
   // --- 3. ПІДТВЕРДЖЕННЯ SMART РОЗПОДІЛУ ЧЕРЕЗ КЛІЄНТ ---
   const confirmSmartRoutes = async () => {
-    const toastId = toast.loading('🚀 Формуємо серію рейсів...');
-    
-    try {
-      await api.inventory.smartDispatchConfirm(smartRoutes);
+    if (!smartFromWarehouseId) {
+      return toast.error('Оберіть склад відправник!');
+    }
+    if (smartRoutes.length === 0) {
+      return toast.error('Немає маршрутів для відправки.');
+    }
 
-      toast.success('Всі рейси успішно відправлено!', { id: toastId });
+    const toastId = toast.loading('🚀 Формуємо серію рейсів...');
+
+    try {
+      const payload = {
+        from_warehouse_id: smartFromWarehouseId,
+        priority: dispatchForm.priority || 'NORMAL',
+        routes: smartRoutes.map(r => ({
+          vehicle_id: r.id,
+          // В preview r.items.id — це supply_request_id (див. GetRequestsForDispatch).
+          request_ids: r.items.map((i: any) => i.id),
+        })),
+      };
+
+      const res = await api.inventory.smartDispatchConfirm(payload);
+
+      toast.success(res.message || 'Всі рейси успішно відправлено!', { id: toastId });
       setShowSmartPreview(false);
       setSelectedReqIds(new Set());
+      setSmartFromWarehouseId('');
       loadData();
     } catch (error: any) {
       toast.error(error.message || 'Помилка при збереженні рейсів', { id: toastId });
@@ -555,13 +602,35 @@ export default function Requests() {
               )}
             </div>
 
+            {/* Вибір складу-відправника для всієї серії рейсів */}
+            <div className="form-group" style={{ marginBottom: '16px' }}>
+              <label style={{ fontWeight: 600 }}>📦 Склад-відправник (спільний для всіх рейсів)</label>
+              <select
+                className="erp-input"
+                value={smartFromWarehouseId}
+                onChange={e => setSmartFromWarehouseId(e.target.value)}
+                required
+              >
+                <option value="" disabled>Оберіть склад...</option>
+                {allowedSourceWarehouses.map(w => {
+                  const u = units.find(unit => unit.id === w.unit_id);
+                  return <option key={w.id} value={w.id}>{w.name}{u ? ` (${u.name})` : ''}</option>
+                })}
+              </select>
+              {allowedSourceWarehouses.length === 0 && (
+                <span className="error-text" style={{ marginTop: '4px' }}>
+                  Немає доступних складів з достатньою кількістю майна для цих заявок!
+                </span>
+              )}
+            </div>
+
             <div className="modal-actions">
               <button type="button" className="btn btn-secondary" onClick={() => setShowSmartPreview(false)}>Скасувати</button>
               <button 
                 type="button" 
                 className="btn btn-success" 
                 onClick={confirmSmartRoutes}
-                disabled={smartRoutes.length === 0}
+                disabled={smartRoutes.length === 0 || !smartFromWarehouseId}
               >
                 ✅ Затвердити та відправити рейси
               </button>

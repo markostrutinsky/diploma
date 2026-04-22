@@ -219,6 +219,7 @@ func main() {
 			requests.GET("/:id", reqHandler.GetByID)
 			// 🚀 PRO FEATURE: Smart Dispatch з захистом
 			requests.POST("/smart-dispatch-preview", middleware.RequireSubscriptionTier("PRO", dbPool), reqHandler.SmartDispatchPreview)
+			requests.POST("/smart-dispatch-confirm", middleware.RequireSubscriptionTier("PRO", dbPool), reqHandler.SmartDispatchConfirm)
 
 		}
 

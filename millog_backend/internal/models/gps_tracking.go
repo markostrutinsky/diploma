@@ -5,7 +5,7 @@ import "time"
 // GPSLocation represents a real-time GPS location of a vehicle
 type GPSLocation struct {
 	ID        int64     `json:"id"`
-	VehicleID int64     `json:"vehicle_id"`
+	VehicleID string    `json:"vehicle_id"` // UUID vehicles.id
 	UnitID    int64     `json:"unit_id"`
 	Latitude  float64   `json:"latitude"`
 	Longitude float64   `json:"longitude"`
@@ -20,7 +20,7 @@ type GPSLocation struct {
 // VehicleTrack represents a historical track of a vehicle
 type VehicleTrack struct {
 	ID            int64     `json:"id"`
-	VehicleID     int64     `json:"vehicle_id"`
+	VehicleID     string    `json:"vehicle_id"` // UUID vehicles.id
 	UnitID        int64     `json:"unit_id"`
 	StartTime     time.Time `json:"start_time"`
 	EndTime       time.Time `json:"end_time"`
@@ -48,7 +48,7 @@ type Geofence struct {
 // GeofenceAlert represents an alert when vehicle enters/exits geofence
 type GeofenceAlert struct {
 	ID         int64     `json:"id"`
-	VehicleID  int64     `json:"vehicle_id"`
+	VehicleID  string    `json:"vehicle_id"` // UUID vehicles.id
 	GeofenceID int64     `json:"geofence_id"`
 	EventType  string    `json:"event_type"` // ENTER, EXIT
 	Latitude   float64   `json:"latitude"`
@@ -59,7 +59,7 @@ type GeofenceAlert struct {
 
 // CreateGPSLocationRequest is the request body for submitting GPS data
 type CreateGPSLocationRequest struct {
-	VehicleID int64   `json:"vehicle_id" binding:"required"`
+	VehicleID string  `json:"vehicle_id" binding:"required,uuid"`
 	Latitude  float64 `json:"latitude" binding:"required"`
 	Longitude float64 `json:"longitude" binding:"required"`
 	Altitude  float64 `json:"altitude"`
@@ -70,7 +70,7 @@ type CreateGPSLocationRequest struct {
 
 // GetVehicleTrackRequest query parameters for vehicle history
 type GetVehicleTrackRequest struct {
-	VehicleID int64     `json:"vehicle_id" binding:"required"`
+	VehicleID string    `json:"vehicle_id" binding:"required,uuid"`
 	StartTime time.Time `json:"start_time" binding:"required"`
 	EndTime   time.Time `json:"end_time" binding:"required"`
 }

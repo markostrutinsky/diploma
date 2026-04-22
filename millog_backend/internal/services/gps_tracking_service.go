@@ -38,7 +38,7 @@ func (s *GPSTrackingService) RecordVehicleLocation(ctx context.Context, location
 }
 
 // GetVehicleLocation returns current position of a vehicle
-func (s *GPSTrackingService) GetVehicleLocation(ctx context.Context, vehicleID int64) (*models.GPSLocation, error) {
+func (s *GPSTrackingService) GetVehicleLocation(ctx context.Context, vehicleID string) (*models.GPSLocation, error) {
 	location, err := s.gpsRepo.GetLatestLocation(ctx, s.db, vehicleID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get vehicle location: %w", err)
@@ -55,8 +55,27 @@ func (s *GPSTrackingService) GetFleetLocations(ctx context.Context, unitID int64
 	return locations, nil
 }
 
+// GetVehiclePlates returns a map vehicleID(UUID) -> plate_number for all active vehicles.
+// Використовується у fleet-map, щоб показати читабельну назву.
+func (s *GPSTrackingService) GetVehiclePlates(ctx context.Context) (map[string]string, error) {
+	result := make(map[string]string)
+	rows, err := s.db.Query(ctx, `SELECT id, plate_number FROM vehicles`)
+	if err != nil {
+		return result, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, plate string
+		if err := rows.Scan(&id, &plate); err != nil {
+			continue
+		}
+		result[id] = plate
+	}
+	return result, nil
+}
+
 // GetVehicleTrajectory returns the path a vehicle traveled in a time window
-func (s *GPSTrackingService) GetVehicleTrajectory(ctx context.Context, vehicleID int64, startTime, endTime time.Time) ([]models.GPSLocation, error) {
+func (s *GPSTrackingService) GetVehicleTrajectory(ctx context.Context, vehicleID string, startTime, endTime time.Time) ([]models.GPSLocation, error) {
 	locations, err := s.gpsRepo.GetVehicleLocationsHistory(ctx, s.db, vehicleID, startTime, endTime)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get trajectory: %w", err)

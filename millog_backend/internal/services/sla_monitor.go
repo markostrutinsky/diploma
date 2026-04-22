@@ -98,3 +98,26 @@ func (s *SLAMonitor) CheckPendingRequests(ctx context.Context) (int, error) {
 
 	return len(requests), nil
 }
+
+// GetEscalatedCount повертає поточну кількість заявок зі статусом ESCALATED
+// (тих, що вже були ескальовані раніше і досі не опрацьовані).
+func (s *SLAMonitor) GetEscalatedCount(ctx context.Context) (int, error) {
+	var count int
+	err := s.db.QueryRow(ctx,
+		`SELECT COUNT(*) FROM supply_requests WHERE status = 'ESCALATED'`).Scan(&count)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// GetPendingOverdueSoonCount повертає кількість заявок у статусі PENDING,
+// які ще не досягли порогу ескалації, але вже мають вік > 50% від ліміту.
+func (s *SLAMonitor) GetPendingStats(ctx context.Context) (pending int, overdueSoon int, err error) {
+	err = s.db.QueryRow(ctx,
+		`SELECT
+		   COUNT(*) FILTER (WHERE status = 'PENDING'),
+		   COUNT(*) FILTER (WHERE status = 'PENDING' AND created_at < NOW() - INTERVAL '12 hours')
+		 FROM supply_requests`).Scan(&pending, &overdueSoon)
+	return
+}

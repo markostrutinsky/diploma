@@ -26,6 +26,33 @@ const GPSTracking: React.FC = () => {
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [refreshInterval, setRefreshInterval] = useState(30) // seconds
 
+  // Модалка з детальною інформацією по конкретній машині + історія маршруту
+  const [detailVehicle, setDetailVehicle] = useState<Vehicle | null>(null)
+  const [trajectory, setTrajectory] = useState<any[]>([])
+  const [trajectoryLoading, setTrajectoryLoading] = useState(false)
+
+  const openDetail = async (vehicle: Vehicle) => {
+    setDetailVehicle(vehicle)
+    setTrajectory([])
+    setTrajectoryLoading(true)
+    try {
+      const endTime = new Date().toISOString()
+      const startTime = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() // 24 год тому
+      const resp = await api.gps.getVehicleTrajectory(String(vehicle.vehicle_id), startTime, endTime)
+      const points = Array.isArray(resp?.locations) ? resp.locations : Array.isArray(resp) ? resp : []
+      setTrajectory(points)
+    } catch (err) {
+      setTrajectory([])
+    } finally {
+      setTrajectoryLoading(false)
+    }
+  }
+
+  const closeDetail = () => {
+    setDetailVehicle(null)
+    setTrajectory([])
+  }
+
   useEffect(() => {
     fetchFleetData()
     
@@ -121,8 +148,8 @@ const GPSTracking: React.FC = () => {
       </div>
 
       <div className="vehicles-grid">
-        {fleetData.vehicles.length > 0 ? (
-          fleetData.vehicles.map((vehicle) => (
+        {(fleetData.vehicles?.length ?? 0) > 0 ? (
+          (fleetData.vehicles ?? []).map((vehicle) => (
             <div key={vehicle.vehicle_id} className="vehicle-card">
               <div 
                 className="vehicle-marker"
@@ -136,21 +163,21 @@ const GPSTracking: React.FC = () => {
               
               <div className="vehicle-info">
                 <div className="vehicle-plate">
-                  {vehicle.plate_number || `Vehicle #${vehicle.vehicle_id}`}
+                  {vehicle.plate_number || `Авто №${vehicle.vehicle_id}`}
                 </div>
                 
                 <div className="vehicle-location">
                   <span className="coord lat">
-                    {vehicle.latitude.toFixed(4)}°N
+                    {Number(vehicle.latitude).toFixed(4)}°N
                   </span>
                   <span className="coord lon">
-                    {vehicle.longitude.toFixed(4)}°E
+                    {Number(vehicle.longitude).toFixed(4)}°E
                   </span>
                 </div>
 
                 <div className="vehicle-status">
                   <div className="speed-box">
-                    <span className="speed-value">{vehicle.speed.toFixed(1)}</span>
+                    <span className="speed-value">{Number(vehicle.speed).toFixed(1)}</span>
                     <span className="speed-unit">км/год</span>
                   </div>
                   
@@ -159,17 +186,14 @@ const GPSTracking: React.FC = () => {
                       {vehicle.speed === 0 ? '🛑 Припинена' : '🚗 Рухається'}
                     </span>
                     <span className="updated-time">
-                      {vehicle.updated_seconds_ago}с тому
+                      {vehicle.updated_seconds_ago ?? 0}с тому
                     </span>
                   </div>
                 </div>
 
                 <button 
                   className="btn-detail"
-                  onClick={() => {
-                    // TODO: Show vehicle details/trajectory
-                    alert(`Контроль машини #${vehicle.vehicle_id}`)
-                  }}
+                  onClick={() => openDetail(vehicle)}
                 >
                   Деталі
                 </button>
@@ -199,6 +223,76 @@ const GPSTracking: React.FC = () => {
           <span>Висока швидкість (&gt;60 км/год)</span>
         </div>
       </div>
+
+      {detailVehicle && (
+        <div className="gps-modal-overlay" onClick={closeDetail}>
+          <div className="gps-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="gps-modal-header">
+              <h2>🚗 {detailVehicle.plate_number || `Машина #${detailVehicle.vehicle_id}`}</h2>
+              <button className="gps-modal-close" onClick={closeDetail}>✕</button>
+            </div>
+            <div className="gps-modal-body">
+              <div className="gps-detail-grid">
+                <div className="gps-detail-item">
+                  <span className="gps-detail-label">Широта</span>
+                  <span className="gps-detail-value">{Number(detailVehicle.latitude).toFixed(6)}°</span>
+                </div>
+                <div className="gps-detail-item">
+                  <span className="gps-detail-label">Довгота</span>
+                  <span className="gps-detail-value">{Number(detailVehicle.longitude).toFixed(6)}°</span>
+                </div>
+                <div className="gps-detail-item">
+                  <span className="gps-detail-label">Швидкість</span>
+                  <span className="gps-detail-value">{Number(detailVehicle.speed).toFixed(1)} км/год</span>
+                </div>
+                <div className="gps-detail-item">
+                  <span className="gps-detail-label">Курс</span>
+                  <span className="gps-detail-value">{Math.round(detailVehicle.heading ?? 0)}°</span>
+                </div>
+                <div className="gps-detail-item">
+                  <span className="gps-detail-label">Останній пінг</span>
+                  <span className="gps-detail-value">{new Date(detailVehicle.timestamp).toLocaleString('uk-UA')}</span>
+                </div>
+                <div className="gps-detail-item">
+                  <span className="gps-detail-label">Статус</span>
+                  <span className="gps-detail-value">
+                    {detailVehicle.speed === 0 ? '🛑 Стоїть' : '🚗 Рухається'}
+                  </span>
+                </div>
+              </div>
+
+              <h3 className="gps-traj-title">📍 Маршрут за останні 24 години</h3>
+              {trajectoryLoading ? (
+                <p className="gps-traj-empty">Завантаження маршруту...</p>
+              ) : trajectory.length === 0 ? (
+                <p className="gps-traj-empty">Немає даних маршруту за вказаний період.</p>
+              ) : (
+                <div className="gps-traj-stats">
+                  <div className="gps-detail-item">
+                    <span className="gps-detail-label">Точок зафіксовано</span>
+                    <span className="gps-detail-value">{trajectory.length}</span>
+                  </div>
+                  <div className="gps-detail-item">
+                    <span className="gps-detail-label">Перша точка</span>
+                    <span className="gps-detail-value">
+                      {new Date(trajectory[0]?.timestamp).toLocaleString('uk-UA')}
+                    </span>
+                  </div>
+                  <div className="gps-detail-item">
+                    <span className="gps-detail-label">Остання точка</span>
+                    <span className="gps-detail-value">
+                      {new Date(trajectory[trajectory.length - 1]?.timestamp).toLocaleString('uk-UA')}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="gps-modal-footer">
+              <button className="btn-refresh" onClick={closeDetail}>Закрити</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

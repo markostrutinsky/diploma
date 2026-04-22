@@ -338,19 +338,49 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		// ==========================================
 
 		// Real-time GPS locations from vehicles
+		// ВАЖЛИВО: vehicle_id — UUID (vehicles.id теж UUID).
 		`CREATE TABLE IF NOT EXISTS gps_locations (
 			id BIGSERIAL PRIMARY KEY,
-			vehicle_id BIGINT NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
+			vehicle_id UUID NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
 			unit_id BIGINT NOT NULL REFERENCES units(id) ON DELETE CASCADE,
-			latitude DECIMAL(10,8) NOT NULL,
-			longitude DECIMAL(11,8) NOT NULL,
-			altitude DECIMAL(10,2),
-			speed DECIMAL(6,2),
-			heading DECIMAL(6,2),
-			accuracy DECIMAL(6,2),
+			latitude DOUBLE PRECISION NOT NULL,
+			longitude DOUBLE PRECISION NOT NULL,
+			altitude DOUBLE PRECISION,
+			speed DOUBLE PRECISION,
+			heading DOUBLE PRECISION,
+			accuracy DOUBLE PRECISION,
 			timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
 			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 		);`,
+
+		// Переводимо числові колонки з NUMERIC/DECIMAL у DOUBLE PRECISION,
+		// щоб pgx міг сканувати їх прямо у float64 без pgtype.Numeric.
+		`ALTER TABLE gps_locations
+			ALTER COLUMN latitude  TYPE DOUBLE PRECISION USING latitude::double precision,
+			ALTER COLUMN longitude TYPE DOUBLE PRECISION USING longitude::double precision,
+			ALTER COLUMN altitude  TYPE DOUBLE PRECISION USING altitude::double precision,
+			ALTER COLUMN speed     TYPE DOUBLE PRECISION USING speed::double precision,
+			ALTER COLUMN heading   TYPE DOUBLE PRECISION USING heading::double precision,
+			ALTER COLUMN accuracy  TYPE DOUBLE PRECISION USING accuracy::double precision;`,
+
+		// Fix для існуючих БД, де gps_locations.vehicle_id було створено як BIGINT.
+		// Таблиця в реальному житті ще не була заповнена (бачили це на сіді),
+		// тому безпечно TRUNCATE + перестворити колонку.
+		`DO $$
+		BEGIN
+			IF EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_schema = 'public'
+				  AND table_name = 'gps_locations'
+				  AND column_name = 'vehicle_id'
+				  AND data_type = 'bigint'
+			) THEN
+				TRUNCATE TABLE gps_locations;
+				ALTER TABLE gps_locations DROP COLUMN vehicle_id;
+				ALTER TABLE gps_locations
+					ADD COLUMN vehicle_id UUID NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE;
+			END IF;
+		END $$;`,
 
 		`CREATE INDEX IF NOT EXISTS idx_gps_locations_vehicle ON gps_locations(vehicle_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_gps_locations_unit ON gps_locations(unit_id);`,
@@ -362,32 +392,204 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 			id BIGSERIAL PRIMARY KEY,
 			unit_id BIGINT NOT NULL REFERENCES units(id) ON DELETE CASCADE,
 			name VARCHAR(255) NOT NULL,
-			latitude DECIMAL(10,8) NOT NULL,
-			longitude DECIMAL(11,8) NOT NULL,
-			radius DECIMAL(10,2) NOT NULL,
+			latitude DOUBLE PRECISION NOT NULL,
+			longitude DOUBLE PRECISION NOT NULL,
+			radius DOUBLE PRECISION NOT NULL,
 			type VARCHAR(50) NOT NULL,
 			active BOOLEAN DEFAULT true,
 			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 		);`,
 
+		`ALTER TABLE geofences
+			ALTER COLUMN latitude  TYPE DOUBLE PRECISION USING latitude::double precision,
+			ALTER COLUMN longitude TYPE DOUBLE PRECISION USING longitude::double precision,
+			ALTER COLUMN radius    TYPE DOUBLE PRECISION USING radius::double precision;`,
+
 		`CREATE INDEX IF NOT EXISTS idx_geofences_unit ON geofences(unit_id);`,
 
 		// Geofence breach alerts
+		// ВАЖЛИВО: vehicle_id — UUID (vehicles.id теж UUID).
 		`CREATE TABLE IF NOT EXISTS geofence_alerts (
 			id BIGSERIAL PRIMARY KEY,
-			vehicle_id BIGINT NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
+			vehicle_id UUID NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
 			geofence_id BIGINT NOT NULL REFERENCES geofences(id) ON DELETE CASCADE,
 			event_type VARCHAR(20) NOT NULL,
-			latitude DECIMAL(10,8) NOT NULL,
-			longitude DECIMAL(11,8) NOT NULL,
+			latitude DOUBLE PRECISION NOT NULL,
+			longitude DOUBLE PRECISION NOT NULL,
 			timestamp TIMESTAMP WITH TIME ZONE NOT NULL,
 			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 		);`,
 
+		`ALTER TABLE geofence_alerts
+			ALTER COLUMN latitude  TYPE DOUBLE PRECISION USING latitude::double precision,
+			ALTER COLUMN longitude TYPE DOUBLE PRECISION USING longitude::double precision;`,
+
+		// Fix типу vehicle_id у geofence_alerts для існуючих БД.
+		`DO $$
+		BEGIN
+			IF EXISTS (
+				SELECT 1 FROM information_schema.columns
+				WHERE table_schema = 'public'
+				  AND table_name = 'geofence_alerts'
+				  AND column_name = 'vehicle_id'
+				  AND data_type = 'bigint'
+			) THEN
+				TRUNCATE TABLE geofence_alerts;
+				ALTER TABLE geofence_alerts DROP COLUMN vehicle_id;
+				ALTER TABLE geofence_alerts
+					ADD COLUMN vehicle_id UUID NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE;
+			END IF;
+		END $$;`,
+
 		`CREATE INDEX IF NOT EXISTS idx_geofence_alerts_vehicle ON geofence_alerts(vehicle_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_geofence_alerts_geofence ON geofence_alerts(geofence_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_geofence_alerts_created ON geofence_alerts(created_at DESC);`,
+
+		// ==========================================
+		// MULTI-TENANT (tenants + tenant_id скрізь)
+		// ==========================================
+
+		// T1. Таблиця tenants
+		`CREATE TABLE IF NOT EXISTS tenants (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			name VARCHAR(255) NOT NULL UNIQUE,
+			slug VARCHAR(100) NOT NULL UNIQUE,
+			subscription_tier VARCHAR(30) NOT NULL DEFAULT 'FREE',
+			subscription_expires_at TIMESTAMP WITH TIME ZONE,
+			owner_email VARCHAR(255),
+			is_active BOOLEAN NOT NULL DEFAULT TRUE,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_tenants_slug ON tenants(slug);`,
+
+		// T2. Створити дефолтний tenant для існуючих даних (якщо даних немає — створиться пустий)
+		`INSERT INTO tenants (name, slug, subscription_tier, is_active)
+			SELECT 'Default Organization', 'default', 'ENTERPRISE', TRUE
+			WHERE NOT EXISTS (SELECT 1 FROM tenants WHERE slug = 'default');`,
+
+		// T3. Додати tenant_id до users
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;`,
+		`UPDATE users SET tenant_id = (SELECT id FROM tenants WHERE slug = 'default') WHERE tenant_id IS NULL;`,
+		`CREATE INDEX IF NOT EXISTS idx_users_tenant ON users(tenant_id);`,
+
+		// T4. Перебудувати UNIQUE на users: глобальні → per-tenant
+		`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_username_key;`,
+		`ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_key;`,
+		`DO $$ BEGIN
+			IF NOT EXISTS (
+				SELECT 1 FROM pg_constraint WHERE conname = 'users_tenant_username_unique'
+			) THEN
+				ALTER TABLE users ADD CONSTRAINT users_tenant_username_unique UNIQUE (tenant_id, username);
+			END IF;
+		END $$;`,
+		`DO $$ BEGIN
+			IF NOT EXISTS (
+				SELECT 1 FROM pg_constraint WHERE conname = 'users_tenant_email_unique'
+			) THEN
+				ALTER TABLE users ADD CONSTRAINT users_tenant_email_unique UNIQUE (tenant_id, email);
+			END IF;
+		END $$;`,
+
+		// T5. Додати tenant_id до units
+		`ALTER TABLE units ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;`,
+		`UPDATE units SET tenant_id = (SELECT id FROM tenants WHERE slug = 'default') WHERE tenant_id IS NULL;`,
+		`CREATE INDEX IF NOT EXISTS idx_units_tenant ON units(tenant_id);`,
+
+		// T6. Додати tenant_id до resource_categories (+ UNIQUE per tenant)
+		`ALTER TABLE resource_categories ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;`,
+		`UPDATE resource_categories SET tenant_id = (SELECT id FROM tenants WHERE slug = 'default') WHERE tenant_id IS NULL;`,
+		`ALTER TABLE resource_categories DROP CONSTRAINT IF EXISTS resource_categories_name_key;`,
+		`DO $$ BEGIN
+			IF NOT EXISTS (
+				SELECT 1 FROM pg_constraint WHERE conname = 'resource_categories_tenant_name_unique'
+			) THEN
+				ALTER TABLE resource_categories ADD CONSTRAINT resource_categories_tenant_name_unique UNIQUE (tenant_id, name);
+			END IF;
+		END $$;`,
+		`CREATE INDEX IF NOT EXISTS idx_resource_categories_tenant ON resource_categories(tenant_id);`,
+
+		// T7. Додати tenant_id до resources
+		`ALTER TABLE resources ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;`,
+		`UPDATE resources SET tenant_id = (SELECT id FROM tenants WHERE slug = 'default') WHERE tenant_id IS NULL;`,
+		`CREATE INDEX IF NOT EXISTS idx_resources_tenant ON resources(tenant_id);`,
+
+		// T8. Додати tenant_id до supply_requests
+		`ALTER TABLE supply_requests ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;`,
+		`UPDATE supply_requests SET tenant_id = (SELECT id FROM tenants WHERE slug = 'default') WHERE tenant_id IS NULL;`,
+		`CREATE INDEX IF NOT EXISTS idx_supply_requests_tenant ON supply_requests(tenant_id);`,
+
+		// T9. Додати tenant_id до vehicles (+ UNIQUE per tenant)
+		`ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;`,
+		`UPDATE vehicles SET tenant_id = (SELECT id FROM tenants WHERE slug = 'default') WHERE tenant_id IS NULL;`,
+		`ALTER TABLE vehicles DROP CONSTRAINT IF EXISTS vehicles_plate_number_key;`,
+		`DO $$ BEGIN
+			IF NOT EXISTS (
+				SELECT 1 FROM pg_constraint WHERE conname = 'vehicles_tenant_plate_unique'
+			) THEN
+				ALTER TABLE vehicles ADD CONSTRAINT vehicles_tenant_plate_unique UNIQUE (tenant_id, plate_number);
+			END IF;
+		END $$;`,
+		`CREATE INDEX IF NOT EXISTS idx_vehicles_tenant ON vehicles(tenant_id);`,
+
+		// T10. Додати tenant_id до fuel_records
+		`ALTER TABLE fuel_records ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;`,
+		`UPDATE fuel_records SET tenant_id = (SELECT id FROM tenants WHERE slug = 'default') WHERE tenant_id IS NULL;`,
+		`CREATE INDEX IF NOT EXISTS idx_fuel_records_tenant ON fuel_records(tenant_id);`,
+
+		// T11. Додати tenant_id до contractor_requests
+		`ALTER TABLE contractor_requests ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;`,
+		`UPDATE contractor_requests SET tenant_id = (SELECT id FROM tenants WHERE slug = 'default') WHERE tenant_id IS NULL;`,
+		`CREATE INDEX IF NOT EXISTS idx_contractor_requests_tenant ON contractor_requests(tenant_id);`,
+
+		// T12. Додати tenant_id до warehouses
+		`ALTER TABLE warehouses ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;`,
+		`UPDATE warehouses SET tenant_id = (SELECT id FROM tenants WHERE slug = 'default') WHERE tenant_id IS NULL;`,
+		`CREATE INDEX IF NOT EXISTS idx_warehouses_tenant ON warehouses(tenant_id);`,
+
+		// T13. Додати tenant_id до shipments
+		`ALTER TABLE shipments ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;`,
+		`UPDATE shipments SET tenant_id = (SELECT id FROM tenants WHERE slug = 'default') WHERE tenant_id IS NULL;`,
+		`CREATE INDEX IF NOT EXISTS idx_shipments_tenant ON shipments(tenant_id);`,
+
+		// T14. Додати tenant_id до audit_logs
+		`ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE SET NULL;`,
+		`UPDATE audit_logs SET tenant_id = (SELECT id FROM tenants WHERE slug = 'default') WHERE tenant_id IS NULL;`,
+		`CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant ON audit_logs(tenant_id);`,
+
+		// T15. Перенести subscription_tier з units на tenants.
+		// Беремо найвищий тариф серед units tenant-у (якщо був) і ставимо на tenant.
+		`DO $$
+		DECLARE r RECORD;
+		BEGIN
+			FOR r IN SELECT t.id AS tenant_id,
+					COALESCE(MAX(CASE u.subscription_tier
+						WHEN 'ENTERPRISE' THEN 3
+						WHEN 'PRO' THEN 2
+						WHEN 'BASIC' THEN 1
+						ELSE 0 END), 0) AS lvl
+				FROM tenants t
+				LEFT JOIN units u ON u.tenant_id = t.id
+				GROUP BY t.id
+			LOOP
+				UPDATE tenants SET subscription_tier = CASE r.lvl
+					WHEN 3 THEN 'ENTERPRISE'
+					WHEN 2 THEN 'PRO'
+					WHEN 1 THEN 'BASIC'
+					ELSE subscription_tier END
+				WHERE id = r.tenant_id AND r.lvl > 0;
+			END LOOP;
+		END $$;`,
+
+		// T16. Додати tenant_id у GPS таблиці (опціонально, лишаємо nullable — працює через units)
+		`ALTER TABLE gps_locations ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;`,
+		`UPDATE gps_locations gl SET tenant_id = u.tenant_id FROM units u WHERE gl.unit_id = u.id AND gl.tenant_id IS NULL;`,
+		`CREATE INDEX IF NOT EXISTS idx_gps_locations_tenant ON gps_locations(tenant_id);`,
+
+		`ALTER TABLE geofences ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;`,
+		`UPDATE geofences g SET tenant_id = u.tenant_id FROM units u WHERE g.unit_id = u.id AND g.tenant_id IS NULL;`,
+		`CREATE INDEX IF NOT EXISTS idx_geofences_tenant ON geofences(tenant_id);`,
 	}
 
 	for i, m := range migrations {

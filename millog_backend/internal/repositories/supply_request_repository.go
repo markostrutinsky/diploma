@@ -21,12 +21,20 @@ func (r *SupplyRequestRepository) Create(ctx context.Context, db DBExecutor, req
 	query := `INSERT INTO supply_requests (created_by, resource_id, quantity, status, target_warehouse_id)
 	VALUES ($1, $2, $3, $4, $5) RETURNING id, created_at, updated_at`
 
-	return db.QueryRow(ctx, query, req.CreatedBy, req.ResourceID, req.Quantity, req.Status, req.TargetWarehouseID).Scan(&req.ID, &req.CreatedAt, &req.UpdatedAt)
+	// target_warehouse_id — UUID, nullable. Порожній рядок не каститься до UUID, тому віддаємо NULL.
+	var targetWH interface{}
+	if req.TargetWarehouseID == "" {
+		targetWH = nil
+	} else {
+		targetWH = req.TargetWarehouseID
+	}
+
+	return db.QueryRow(ctx, query, req.CreatedBy, req.ResourceID, req.Quantity, req.Status, targetWH).Scan(&req.ID, &req.CreatedAt, &req.UpdatedAt)
 }
 
 func (r *SupplyRequestRepository) GetByID(ctx context.Context, db DBExecutor, id string) (*models.SupplyRequest, error) {
-	// ДОДАНО: target_warehouse_id у SELECT
-	query := `SELECT id, created_by, resource_id, quantity, status, target_warehouse_id, approved_by, approved_at, comment, created_at, updated_at
+	// ДОДАНО: target_warehouse_id у SELECT. COALESCE бо колонка nullable (ON DELETE SET NULL + старі записи).
+	query := `SELECT id, created_by, resource_id, quantity, status, COALESCE(target_warehouse_id::text, ''), approved_by, approved_at, comment, created_at, updated_at
 	FROM supply_requests WHERE id = $1`
 
 	var req models.SupplyRequest
@@ -45,8 +53,8 @@ func (r *SupplyRequestRepository) List(ctx context.Context, db DBExecutor, userR
 	var err error
 
 	if userRole == "ADMIN" || userRole == "CONTRACTOR" {
-		// ДОДАНО: target_warehouse_id у SELECT
-		query := `SELECT id, created_by, resource_id, quantity, status, target_warehouse_id, approved_by, approved_at, comment, created_at, updated_at
+		// COALESCE бо target_warehouse_id nullable (ON DELETE SET NULL + старі рядки)
+		query := `SELECT id, created_by, resource_id, quantity, status, COALESCE(target_warehouse_id::text, ''), approved_by, approved_at, comment, created_at, updated_at
 				  FROM supply_requests ORDER BY created_at DESC`
 		rows, err = db.Query(ctx, query)
 	} else {
@@ -54,7 +62,6 @@ func (r *SupplyRequestRepository) List(ctx context.Context, db DBExecutor, userR
 			return []models.SupplyRequest{}, nil
 		}
 
-		// ДОДАНО: sr.target_warehouse_id у SELECT
 		query := `
 			WITH RECURSIVE unit_tree AS (
 				SELECT id FROM units WHERE id = $1
@@ -62,7 +69,7 @@ func (r *SupplyRequestRepository) List(ctx context.Context, db DBExecutor, userR
 				SELECT u.id FROM units u
 				INNER JOIN unit_tree ut ON u.parent_id = ut.id
 			)
-			SELECT sr.id, sr.created_by, sr.resource_id, sr.quantity, sr.status, sr.target_warehouse_id, sr.approved_by, sr.approved_at, sr.comment, sr.created_at, sr.updated_at
+			SELECT sr.id, sr.created_by, sr.resource_id, sr.quantity, sr.status, COALESCE(sr.target_warehouse_id::text, ''), sr.approved_by, sr.approved_at, sr.comment, sr.created_at, sr.updated_at
 			FROM supply_requests sr
 			JOIN users u ON sr.created_by = u.id
 			WHERE u.unit_id IN (SELECT id FROM unit_tree)
@@ -171,7 +178,7 @@ func (r *SupplyRequestRepository) GetOverdueRequests(ctx context.Context, db *pg
 	threshold := time.Now().Add(-time.Duration(hoursLimit) * time.Hour)
 
 	query := `
-		SELECT id, created_by, target_warehouse_id, status, created_at 
+		SELECT id, created_by, COALESCE(target_warehouse_id::text, ''), status, created_at 
 		FROM supply_requests 
 		WHERE status = $1 AND created_at < $2
 	`
@@ -199,7 +206,7 @@ func (r *SupplyRequestRepository) GetEscalatedOverdueRequests(ctx context.Contex
 	// База перевірить, чи є в цьому підрозділі директор, керівник філії або відділу.
 	query := `
 		SELECT 
-			sr.id, sr.created_by, sr.target_warehouse_id, sr.status, sr.created_at,
+			sr.id, sr.created_by, COALESCE(sr.target_warehouse_id::text, ''), sr.status, sr.created_at,
 			COALESCE(
 				(SELECT u.email FROM users u 
 				 JOIN warehouses w ON u.unit_id = w.unit_id 

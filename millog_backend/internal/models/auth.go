@@ -123,6 +123,10 @@ type User struct {
 	UnitID       *int64     `json:"unit_id"`
 	CreatedAt    time.Time  `json:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at"`
+
+	// Обчислюване поле (не зберігається в users): найвищий тариф у ієрархії unit.
+	// Заповнюється в UserRepository.GetByID, використовується фронтом для feature-gating.
+	EffectiveSubscriptionTier string `json:"effective_subscription_tier,omitempty" gorm:"-"`
 }
 
 type CreateUserRequest struct {

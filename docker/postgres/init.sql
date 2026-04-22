@@ -1,10 +1,25 @@
 -- MilLog: повна схема БД (виконується при першому запуску PostgreSQL)
 
+-- 0. Тенанти (організації)
+CREATE TABLE IF NOT EXISTS tenants (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL UNIQUE,
+    slug VARCHAR(100) NOT NULL UNIQUE,
+    subscription_tier VARCHAR(30) NOT NULL DEFAULT 'FREE',
+    subscription_expires_at TIMESTAMP WITH TIME ZONE,
+    owner_email VARCHAR(255),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_tenants_slug ON tenants(slug);
+
 -- 1. Користувачі
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    username VARCHAR(100) NOT NULL UNIQUE,
-    email VARCHAR(255) NOT NULL UNIQUE,
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    username VARCHAR(100) NOT NULL,
+    email VARCHAR(255) NOT NULL,
     full_name VARCHAR(255),
     phone VARCHAR(50),
     password_hash TEXT,
@@ -12,10 +27,13 @@ CREATE TABLE IF NOT EXISTS users (
     status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
     unit_id BIGINT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (tenant_id, username),
+    UNIQUE (tenant_id, email)
 );
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
+CREATE INDEX IF NOT EXISTS idx_users_tenant ON users(tenant_id);
 
 -- 2. Invite-токени для встановлення паролю
 CREATE TABLE IF NOT EXISTS invite_tokens (
@@ -31,22 +49,28 @@ CREATE INDEX IF NOT EXISTS idx_invite_tokens_hash ON invite_tokens(token_hash);
 -- 3. Підрозділи (units має бути до resources через unit_id)
 CREATE TABLE IF NOT EXISTS units (
     id BIGSERIAL PRIMARY KEY,
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     parent_id BIGINT REFERENCES units(id) ON DELETE SET NULL,
     name VARCHAR(255) NOT NULL,
     unit_type VARCHAR(20) NOT NULL
 );
+CREATE INDEX IF NOT EXISTS idx_units_tenant ON units(tenant_id);
 
 -- 4. Категорії ресурсів
 CREATE TABLE IF NOT EXISTS resource_categories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(100) NOT NULL UNIQUE,
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
     description TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (tenant_id, name)
 );
+CREATE INDEX IF NOT EXISTS idx_resource_categories_tenant ON resource_categories(tenant_id);
 
 -- 5. Ресурси (зі складом unit_id)
 CREATE TABLE IF NOT EXISTS resources (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     category_id UUID NOT NULL REFERENCES resource_categories(id) ON DELETE RESTRICT,
     unit_id BIGINT REFERENCES units(id) ON DELETE SET NULL,
     name VARCHAR(255) NOT NULL,
@@ -61,10 +85,12 @@ CREATE TABLE IF NOT EXISTS resources (
 );
 CREATE INDEX IF NOT EXISTS idx_resources_category ON resources(category_id);
 CREATE INDEX IF NOT EXISTS idx_resources_unit ON resources(unit_id);
+CREATE INDEX IF NOT EXISTS idx_resources_tenant ON resources(tenant_id);
 
 -- 6. Заявки на постачання
 CREATE TABLE IF NOT EXISTS supply_requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     resource_id UUID NOT NULL REFERENCES resources(id) ON DELETE CASCADE,
     quantity INTEGER NOT NULL,
@@ -77,21 +103,26 @@ CREATE TABLE IF NOT EXISTS supply_requests (
 );
 CREATE INDEX IF NOT EXISTS idx_supply_requests_status ON supply_requests(status);
 CREATE INDEX IF NOT EXISTS idx_supply_requests_created_by ON supply_requests(created_by);
+CREATE INDEX IF NOT EXISTS idx_supply_requests_tenant ON supply_requests(tenant_id);
 
 -- 7. Транспорт
 CREATE TABLE IF NOT EXISTS vehicles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     brand VARCHAR(100) NOT NULL,
     model VARCHAR(100),
-    plate_number VARCHAR(20) NOT NULL UNIQUE,
+    plate_number VARCHAR(20) NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
     driver_id UUID REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (tenant_id, plate_number)
 );
+CREATE INDEX IF NOT EXISTS idx_vehicles_tenant ON vehicles(tenant_id);
 
 CREATE TABLE IF NOT EXISTS fuel_records (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     vehicle_id UUID NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
     liters DECIMAL(10,2) NOT NULL,
     odometer_km INTEGER,
@@ -100,10 +131,12 @@ CREATE TABLE IF NOT EXISTS fuel_records (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_fuel_records_vehicle ON fuel_records(vehicle_id);
+CREATE INDEX IF NOT EXISTS idx_fuel_records_tenant ON fuel_records(tenant_id);
 
 -- 8. Заявки для волонтерів
 CREATE TABLE IF NOT EXISTS contractor_requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
     created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     unit_id BIGINT REFERENCES units(id) ON DELETE SET NULL,
     title VARCHAR(255) NOT NULL,
@@ -115,6 +148,7 @@ CREATE TABLE IF NOT EXISTS contractor_requests (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_contractor_requests_status ON contractor_requests(status);
+CREATE INDEX IF NOT EXISTS idx_contractor_requests_tenant ON contractor_requests(tenant_id);
 
 -- 9. Refresh-токени
 CREATE TABLE IF NOT EXISTS refresh_tokens (

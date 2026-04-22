@@ -14,6 +14,59 @@ interface AuditLog {
   created_at: string;
 }
 
+// Українські переклади дій у системі
+const ACTION_LABELS: Record<string, { label: string; cls: string; icon: string }> = {
+  CREATE: { label: 'Створення', cls: 'badge-create', icon: '✨' },
+  UPDATE: { label: 'Оновлення', cls: 'badge-update', icon: '✏️' },
+  DELETE: { label: 'Видалення', cls: 'badge-delete', icon: '🗑️' },
+  WRITE_OFF: { label: 'Списання', cls: 'badge-warning', icon: '📉' },
+  ASSIGN: { label: 'Видача персоналу', cls: 'badge-primary', icon: '👤' },
+  RETURN: { label: 'Повернення на склад', cls: 'badge-primary', icon: '↩️' },
+  APPROVE: { label: 'Погодження', cls: 'badge-create', icon: '✅' },
+  REJECT: { label: 'Відхилення', cls: 'badge-delete', icon: '❌' },
+  CANCEL: { label: 'Скасування', cls: 'badge-neutral', icon: '🚫' },
+  DISPATCH: { label: 'Відправка рейсу', cls: 'badge-primary', icon: '🚚' },
+  DELIVER: { label: 'Доставка', cls: 'badge-create', icon: '📦' },
+  LOGIN: { label: 'Авторизація', cls: 'badge-neutral', icon: '🔑' },
+  LOGOUT: { label: 'Вихід', cls: 'badge-neutral', icon: '🚪' },
+  SLA_VIOLATION: { label: 'Порушення SLA', cls: 'badge-warning', icon: '⚠️' },
+  UNAUTHORIZED_PREMIUM_ACCESS: { label: 'Спроба premium доступу', cls: 'badge-delete', icon: '🔒' },
+};
+
+// Українські переклади сутностей
+const ENTITY_LABELS: Record<string, string> = {
+  VEHICLE: 'Автомобіль',
+  WAREHOUSE: 'Склад',
+  RESOURCE: 'Майно / Ресурс',
+  SUPPLY_REQUEST: 'Заявка на постачання',
+  CONTRACTOR_REQUEST: 'Заявка підряднику',
+  REQUEST: 'Заявка',
+  UNIT: 'Орг. одиниця',
+  USER: 'Користувач',
+  SHIPMENT: 'Рейс / Відправка',
+  FUEL_LOG: 'Журнал пального',
+  MAINTENANCE: 'ТО автомобіля',
+  AUDIT: 'Інвентаризація',
+  SECURITY: 'Безпека',
+  CATEGORY: 'Категорія',
+  RESOURCE_ASSIGNMENT: 'Видача майна',
+};
+
+const translateAction = (action: string): { label: string; cls: string; icon: string } => {
+  const direct = ACTION_LABELS[action?.toUpperCase()];
+  if (direct) return direct;
+  const act = (action || '').toUpperCase();
+  // Фолбек на підрядки, якщо система десь зберегла дію у нестандартному форматі
+  for (const key of Object.keys(ACTION_LABELS)) {
+    if (act.includes(key)) return ACTION_LABELS[key];
+  }
+  return { label: action || '—', cls: 'badge-neutral', icon: '📝' };
+};
+
+const translateEntity = (entity: string): string => {
+  return ENTITY_LABELS[entity?.toUpperCase()] || entity || '—';
+};
+
 const AuditLogs = () => {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,13 +98,13 @@ const AuditLogs = () => {
 
   // Генерація кольорових бейджів дій
   const getActionBadge = (action: string) => {
-    const act = action.toUpperCase();
-    if (act.includes('CREATE')) return <span className="audit-badge badge-create">Створення</span>;
-    if (act.includes('UPDATE')) return <span className="audit-badge badge-update">Оновлення</span>;
-    if (act.includes('DELETE')) return <span className="audit-badge badge-delete">Видалення</span>;
-    if (act.includes('WRITE_OFF')) return <span className="audit-badge badge-warning">Списання</span>;
-    if (act.includes('ASSIGN')) return <span className="audit-badge badge-primary">Видача персоналу</span>;
-    return <span className="audit-badge badge-neutral">{action}</span>;
+    const { label, cls, icon } = translateAction(action);
+    return (
+      <span className={`audit-badge ${cls}`} title={action}>
+        <span className="badge-icon">{icon}</span>
+        {label}
+      </span>
+    );
   };
 
   // Скорочення UUID до красивого хешу
@@ -72,6 +125,17 @@ const AuditLogs = () => {
 
     return matchesAction && matchesEntity && matchesSearch;
   });
+
+  // Статистика для заголовку
+  const stats = {
+    total: logs.length,
+    today: logs.filter(l => {
+      const d = new Date(l.created_at);
+      const now = new Date();
+      return d.toDateString() === now.toDateString();
+    }).length,
+    critical: logs.filter(l => /DELETE|WRITE_OFF|REJECT|SLA_VIOLATION|UNAUTHORIZED/i.test(l.action_type)).length,
+  };
 
   if (loading) {
     return (
@@ -98,6 +162,38 @@ const AuditLogs = () => {
         </div>
       </div>
 
+      {/* Статистика */}
+      <div className="audit-stats-grid">
+        <div className="audit-stat-card">
+          <div className="audit-stat-icon" style={{ background: '#eff6ff', color: '#2563eb' }}>📚</div>
+          <div>
+            <div className="audit-stat-val">{stats.total}</div>
+            <div className="audit-stat-lbl">Всього записів</div>
+          </div>
+        </div>
+        <div className="audit-stat-card">
+          <div className="audit-stat-icon" style={{ background: '#f0fdf4', color: '#16a34a' }}>📅</div>
+          <div>
+            <div className="audit-stat-val">{stats.today}</div>
+            <div className="audit-stat-lbl">Дій за сьогодні</div>
+          </div>
+        </div>
+        <div className="audit-stat-card">
+          <div className="audit-stat-icon" style={{ background: '#fef2f2', color: '#dc2626' }}>⚠️</div>
+          <div>
+            <div className="audit-stat-val">{stats.critical}</div>
+            <div className="audit-stat-lbl">Критичних дій</div>
+          </div>
+        </div>
+        <div className="audit-stat-card">
+          <div className="audit-stat-icon" style={{ background: '#fffbeb', color: '#d97706' }}>🔍</div>
+          <div>
+            <div className="audit-stat-val">{filteredLogs.length}</div>
+            <div className="audit-stat-lbl">У вибірці</div>
+          </div>
+        </div>
+      </div>
+
       {/* Панель фільтрів */}
       <div className="card audit-filters-card">
         <div className="audit-filters-grid">
@@ -110,19 +206,26 @@ const AuditLogs = () => {
           />
           <select className="erp-input" value={actionFilter} onChange={(e) => setActionFilter(e.target.value)}>
             <option value="ALL">Всі дії</option>
-            <option value="CREATE">Створення</option>
-            <option value="UPDATE">Оновлення</option>
-            <option value="DELETE">Видалення</option>
-            <option value="WRITE_OFF">Списання</option>
+            <option value="CREATE">✨ Створення</option>
+            <option value="UPDATE">✏️ Оновлення</option>
+            <option value="DELETE">🗑️ Видалення</option>
+            <option value="WRITE_OFF">📉 Списання</option>
+            <option value="ASSIGN">👤 Видача персоналу</option>
+            <option value="APPROVE">✅ Погодження</option>
+            <option value="REJECT">❌ Відхилення</option>
+            <option value="SLA_VIOLATION">⚠️ Порушення SLA</option>
           </select>
           <select className="erp-input" value={entityFilter} onChange={(e) => setEntityFilter(e.target.value)}>
             <option value="ALL">Всі об'єкти</option>
-            <option value="VEHICLE">Автопарк (VEHICLE)</option>
-            <option value="WAREHOUSE">Склади (WAREHOUSE)</option>
-            <option value="RESOURCE">Майно (RESOURCE)</option>
-            <option value="SUPPLY_REQUEST">Заявки (SUPPLY_REQUEST)</option>
-            <option value="UNIT">Орг. одиниці (UNIT)</option>
-            <option value="USER">Користувачі (USER)</option>
+            <option value="VEHICLE">🚗 Автомобіль</option>
+            <option value="WAREHOUSE">🏬 Склад</option>
+            <option value="RESOURCE">📦 Майно / Ресурс</option>
+            <option value="SUPPLY_REQUEST">📝 Заявка на постачання</option>
+            <option value="CONTRACTOR_REQUEST">🤝 Заявка підряднику</option>
+            <option value="UNIT">🏢 Орг. одиниця</option>
+            <option value="USER">👤 Користувач</option>
+            <option value="SHIPMENT">🚚 Рейс / Відправка</option>
+            <option value="SECURITY">🛡️ Безпека</option>
           </select>
         </div>
       </div>
@@ -139,9 +242,9 @@ const AuditLogs = () => {
             <thead>
               <tr>
                 <th style={{ width: '15%' }}>Дата та Час</th>
-                <th style={{ width: '25%' }}>Ініціатор (Користувач)</th>
-                <th style={{ width: '10%' }}>Дія</th>
-                <th style={{ width: '20%' }}>Об'єкт системи</th>
+                <th style={{ width: '22%' }}>Ініціатор (Користувач)</th>
+                <th style={{ width: '14%' }}>Дія</th>
+                <th style={{ width: '19%' }}>Об'єкт системи</th>
                 <th style={{ width: '30%' }}>Деталі операції</th>
               </tr>
             </thead>
@@ -167,7 +270,7 @@ const AuditLogs = () => {
                   <td>{getActionBadge(log.action_type)}</td>
                   <td>
                     <div className="entity-tag">
-                      {log.entity_type}
+                      <span className="entity-ua">{translateEntity(log.entity_type)}</span>
                       <span className="entity-id-short">
                         {getEntityHash(log.entity_id)}
                       </span>
@@ -183,8 +286,8 @@ const AuditLogs = () => {
         )}
       </div>
 
-      <div style={{ marginTop: '20px', fontSize: '12px', color: '#94a3b8', textAlign: 'center' }}>
-        Записи зберігаються автоматично та не підлягають редагуванню згідно з політикою безпеки проекту Millog.
+      <div className="audit-footer-note">
+        🔒 Записи зберігаються автоматично та не підлягають редагуванню згідно з політикою безпеки проекту Omnilog.
       </div>
     </div>
   );

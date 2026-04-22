@@ -151,15 +151,39 @@ func (r *UserRepository) GetByEmail(ctx context.Context, db DBExecutor, email st
 }
 
 func (r *UserRepository) GetByID(ctx context.Context, db DBExecutor, id string) (*models.User, error) {
-	query := `SELECT id, username, email, full_name, phone, password_hash, role, status, unit_id, created_at, updated_at
-	FROM users WHERE id = $1`
+	// LEFT JOIN з рекурсивним обчисленням найвищого тарифу по ієрархії юніта.
+	// Якщо unit_id IS NULL — повертаємо 'BASIC'.
+	query := `
+		WITH RECURSIVE unit_hierarchy AS (
+			SELECT id, parent_id, subscription_tier FROM units WHERE id = (SELECT unit_id FROM users WHERE id = $1)
+			UNION ALL
+			SELECT u.id, u.parent_id, u.subscription_tier
+			FROM units u
+			JOIN unit_hierarchy uh ON u.id = uh.parent_id
+		)
+		SELECT u.id, u.username, u.email, u.full_name, u.phone, u.password_hash, u.role, u.status, u.unit_id, u.created_at, u.updated_at,
+			COALESCE((
+				SELECT subscription_tier FROM unit_hierarchy
+				ORDER BY CASE subscription_tier
+					WHEN 'ENTERPRISE' THEN 0
+					WHEN 'PRO' THEN 1
+					ELSE 2
+				END
+				LIMIT 1
+			), 'BASIC') AS effective_tier
+		FROM users u
+		WHERE u.id = $1`
 	var u models.User
 	err := db.QueryRow(ctx, query, id).Scan(
 		&u.ID, &u.Username, &u.Email, &u.FullName, &u.Phone, &u.PasswordHash,
-		&u.Role, &u.Status, &u.UnitID, &u.CreatedAt, &u.UpdatedAt,
+		&u.Role, &u.Status, &u.UnitID, &u.CreatedAt, &u.UpdatedAt, &u.EffectiveSubscriptionTier,
 	)
 	if err != nil {
 		return nil, err
+	}
+	// ADMIN завжди отримує максимальний тариф (для демо/підтримки)
+	if u.Role == models.RoleAdmin {
+		u.EffectiveSubscriptionTier = "ENTERPRISE"
 	}
 	return &u, nil
 }

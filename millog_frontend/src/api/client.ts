@@ -72,7 +72,13 @@ export const api = {
         body: JSON.stringify(body),
       }),
     getAuditLogs: () => request<any[]>('/admin/audit-logs'),
-    triggerSLACheck: () => request<{ message: string; escalated_count: number }>('/admin/sla/trigger', {
+    triggerSLACheck: () => request<{
+      message: string;
+      escalated_count: number;
+      existing_escalated?: number;
+      pending_total?: number;
+      pending_near_sla?: number;
+    }>('/admin/sla/trigger', {
       method: 'POST',
     }),
   },
@@ -221,15 +227,19 @@ export const api = {
       }),
 
     smartDispatchPreview: (requestIds: string[]) =>
-      request<SmartDispatchResult>('/inventory/smart-dispatch-preview', {
+      request<SmartDispatchResult>('/requests/smart-dispatch-preview', {
         method: 'POST',
         body: JSON.stringify({ request_ids: requestIds }),
       }),
 
-    smartDispatchConfirm: (routes: VehicleBin[]) =>
-      request<{ message: string }>('/inventory/smart-dispatch-confirm', {
+    smartDispatchConfirm: (payload: {
+      from_warehouse_id: string;
+      priority?: string;
+      routes: { vehicle_id: string; request_ids: string[] }[];
+    }) =>
+      request<{ message: string; count: number }>('/requests/smart-dispatch-confirm', {
         method: 'POST',
-        body: JSON.stringify({ routes }),
+        body: JSON.stringify(payload),
       }),
 
     downloadImportTemplate: async () => {

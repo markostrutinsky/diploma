@@ -107,9 +107,14 @@ export default function Layout({ children }: LayoutProps) {
 
             {/* 2. Аналітика */}
             {canSeeAnalytics && (
-              <Link to="/analytics" className={location.pathname === '/analytics' ? 'active' : ''}>
-                Аналітика
-              </Link>
+              <>
+                <Link to="/analytics" className={location.pathname === '/analytics' ? 'active' : ''}>
+                  Аналітика
+                </Link>
+                <Link to="/kpi" className={location.pathname === '/kpi' ? 'active' : ''}>
+                  📊 KPI (SLA / TCO / Ризики)
+                </Link>
+              </>
             )}
 
             {/* 3. Складський Блок (Майно та Склади) */}
@@ -126,9 +131,20 @@ export default function Layout({ children }: LayoutProps) {
 
             {/* 4. Транспортний блок */}
             {canSeeTransport && (
-              <Link to="/vehicles" className={location.pathname === '/vehicles' ? 'active' : ''}>
-                Автопарк
-              </Link>
+              <>
+                <Link to="/vehicles" className={location.pathname === '/vehicles' ? 'active' : ''}>
+                  Автопарк
+                </Link>
+                <Link to="/gps" className={location.pathname === '/gps' ? 'active' : ''}>
+                  🌍 GPS Трекінг
+                </Link>
+                <Link to="/maintenance" className={location.pathname === '/maintenance' ? 'active' : ''}>
+                  🔮 Графік ТО
+                </Link>
+                <Link to="/fuel-anomalies" className={location.pathname === '/fuel-anomalies' ? 'active' : ''}>
+                  🛡️ Антифрод пального
+                </Link>
+              </>
             )}
 
             {/* 5. Заявки */}
@@ -183,10 +199,14 @@ export default function Layout({ children }: LayoutProps) {
                 <Link to="/audit" className={location.pathname === '/audit' ? 'active' : ''}>
                   🛡️ Журнал аудиту
                 </Link>
-                <Link to="/billing" className={location.pathname === '/billing' ? 'active' : ''}>
-                  💎 Тарифні плани
-                </Link>
               </>
+            )}
+
+            {/* Тарифні плани — бачать ті, хто бачить аналітику (керівники) */}
+            {canSeeAnalytics && (
+              <Link to="/billing" className={location.pathname === '/billing' ? 'active' : ''}>
+                💎 Тарифні плани
+              </Link>
             )}
 
           </nav>

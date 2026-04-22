@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"time"
 
 	"millog_backend/internal/models"
 	"millog_backend/internal/repositories"
@@ -40,16 +41,43 @@ func NewRequestService(reqRepo *repositories.SupplyRequestRepository, resRepo *r
 }
 
 func (s *RequestService) Create(ctx context.Context, userID string, req *models.CreateSupplyRequest) (*models.SupplyRequest, error) {
+	// Дізнаємось роль автора, щоб заявки адміна одразу йшли у APPROVED
+	// (адмін не має над собою ієрархії, тому самопогодження — єдиний шлях).
+	creator, err := s.userRepo.GetByID(ctx, s.dbPool, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load creator: %w", err)
+	}
+
+	initialStatus := models.RequestPending
+	if creator.Role == models.RoleAdmin {
+		initialStatus = models.RequestApproved
+	}
+
 	sr := &models.SupplyRequest{
 		CreatedBy:         userID,
 		ResourceID:        req.ResourceID,
 		Quantity:          req.Quantity,
-		Status:            models.RequestPending,
+		Status:            initialStatus,
 		TargetWarehouseID: req.TargetWarehouseID,
+	}
+
+	if creator.Role == models.RoleAdmin {
+		approvedBy := userID
+		sr.ApprovedBy = &approvedBy
+		now := time.Now()
+		sr.ApprovedAt = &now
 	}
 
 	if err := s.requestRepo.Create(ctx, s.dbPool, sr); err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Для адміна одразу проставляємо approved_by/approved_at в БД.
+	if creator.Role == models.RoleAdmin {
+		if err := s.requestRepo.Approve(ctx, s.dbPool, sr.ID, userID, true, ""); err != nil {
+			// Не валимо запит — заявка вже створена, просто логуємо.
+			return sr, nil
+		}
 	}
 
 	return sr, nil
@@ -195,4 +223,82 @@ func (s *RequestService) GetSmartDispatchPreview(ctx context.Context, reqIDs []s
 	}
 
 	return &result, nil
+}
+
+// ConfirmSmartDispatch бере затверджений розподіл (vehicle -> request_ids),
+// для кожної машини формує окремий CreateShipmentRequest і викликає ту саму
+// транзакційну логіку, що й ручна відправка рейсу (з резервуванням майна).
+// Повертає кількість успішно створених рейсів.
+func (s *RequestService) ConfirmSmartDispatch(ctx context.Context, req *models.SmartDispatchConfirmReq) (int, error) {
+	if len(req.Routes) == 0 {
+		return 0, errors.New("маршрути не передані")
+	}
+	if req.Priority == "" {
+		req.Priority = "NORMAL"
+	}
+
+	// 1. Підвантажуємо всі заявки одним проходом і перевіряємо інваріанти.
+	details := make(map[string]*models.SupplyRequest)
+	toWarehouseID := ""
+	for _, route := range req.Routes {
+		for _, rid := range route.RequestIDs {
+			if _, ok := details[rid]; ok {
+				return 0, fmt.Errorf("заявка %s присутня в кількох маршрутах", rid)
+			}
+			sr, err := s.requestRepo.GetByID(ctx, s.dbPool, rid)
+			if err != nil {
+				return 0, fmt.Errorf("не знайдено заявку %s: %w", rid, err)
+			}
+			if sr.Status != models.RequestApproved && sr.Status != models.RequestPending {
+				return 0, fmt.Errorf("заявка %s вже оброблена (status=%s)", rid, sr.Status)
+			}
+			if sr.TargetWarehouseID == "" {
+				return 0, fmt.Errorf("заявка %s не має цільового складу — Smart Розподіл неможливий", rid)
+			}
+			if toWarehouseID == "" {
+				toWarehouseID = sr.TargetWarehouseID
+			} else if sr.TargetWarehouseID != toWarehouseID {
+				return 0, errors.New("обрані заявки йдуть на різні цільові склади")
+			}
+			details[rid] = sr
+		}
+	}
+
+	if toWarehouseID == "" {
+		return 0, errors.New("не вдалося визначити цільовий склад")
+	}
+	if req.FromWarehouseID == toWarehouseID {
+		return 0, errors.New("склад відправлення та отримання не можуть збігатися")
+	}
+
+	// 2. Формуємо й відправляємо рейси по одному. Якщо котрийсь рейс впаде
+	// (не вистачило майна/авто зайняте) — повертаємо скільки встигли, щоб
+	// оператор побачив, де саме проблема.
+	successfulShipments := 0
+	for idx, route := range req.Routes {
+		items := make([]models.ShipmentItemRequest, 0, len(route.RequestIDs))
+		for _, rid := range route.RequestIDs {
+			d := details[rid]
+			reqID := d.ID
+			items = append(items, models.ShipmentItemRequest{
+				ResourceID: d.ResourceID,
+				Quantity:   d.Quantity,
+				RequestID:  &reqID,
+			})
+		}
+
+		shipReq := models.CreateShipmentRequest{
+			FromWarehouseID: req.FromWarehouseID,
+			ToWarehouseID:   toWarehouseID,
+			VehicleID:       route.VehicleID,
+			Priority:        req.Priority,
+			Items:           items,
+		}
+
+		if err := s.resourceRepo.CreateShipment(ctx, s.dbPool, shipReq); err != nil {
+			return successfulShipments, fmt.Errorf("рейс #%d (машина %s): %w", idx+1, route.VehicleID, err)
+		}
+		successfulShipments++
+	}
+	return successfulShipments, nil
 }

@@ -43,10 +43,10 @@ export default function Home() {
         .finally(() => setLoading(false))
     } else {
       Promise.all([
-        api.inventory.listResources(undefined), 
-        api.inventory.listCategories(), 
-        api.requests.list(),
-        api.units.list()
+        api.inventory.listResources(undefined).catch(() => []),
+        api.inventory.listCategories().catch(() => []),
+        api.requests.list().catch(() => []),
+        api.units.list().catch(() => [])
       ])
         .then(([res, cats, reqs, units]) => {
           const safeRes = Array.isArray(res) ? res : []

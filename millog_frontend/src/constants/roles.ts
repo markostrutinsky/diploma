@@ -276,8 +276,10 @@ export const FEATURES = {
   predictive_maintenance: { minTier: 'PRO' as Tier, label: 'Прогноз ТО за пробігом' },
   excel_import: { minTier: 'PRO' as Tier, label: 'Масовий імпорт з Excel' },
   audit_log_extended: { minTier: 'PRO' as Tier, label: 'Журнал аудиту понад 7 днів' },
-  priority_support: { minTier: 'ENTERPRISE' as Tier, label: 'Пріоритетна підтримка' },
-  multi_region: { minTier: 'ENTERPRISE' as Tier, label: 'Мульти-регіональна консолідація' },
+  // Примітка: «Пріоритетна підтримка» та «Мульти-регіональна консолідація»
+  // лишились тільки як маркетинговий текст на сторінці Billing — у коді
+  // жодного окремого gate'а під них немає, тому тут ми їх не декларуємо,
+  // аби hasFeature() не зміг повернути false на фічу, якої реально немає.
 } as const
 
 export type FeatureKey = keyof typeof FEATURES

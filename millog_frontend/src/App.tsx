@@ -92,22 +92,22 @@ function App() {
 
           <Route 
             path="/kpi" 
-            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.superAdmin]}><KPIDashboard /></ProtectedRoute>} 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.analytics]}><KPIDashboard /></ProtectedRoute>} 
           />
 
           <Route 
             path="/gps" 
-            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.superAdmin]}><GPSTracking /></ProtectedRoute>} 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.transport]}><GPSTracking /></ProtectedRoute>} 
           />
 
           <Route 
             path="/maintenance" 
-            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.superAdmin]}><MaintenanceSchedule /></ProtectedRoute>} 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.transport]}><MaintenanceSchedule /></ProtectedRoute>} 
           />
 
           <Route 
             path="/fuel-anomalies" 
-            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.superAdmin]}><FuelAnomalies /></ProtectedRoute>} 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.transport]}><FuelAnomalies /></ProtectedRoute>} 
           />
 
           <Route 
@@ -126,7 +126,7 @@ function App() {
 
           <Route 
             path="/billing" 
-            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.superAdmin]}><Billing /></ProtectedRoute>} 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.analytics]}><Billing /></ProtectedRoute>} 
           />
 
           {/* Редирект для всього іншого */}

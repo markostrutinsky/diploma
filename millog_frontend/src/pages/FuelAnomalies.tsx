@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import toast, { Toaster } from 'react-hot-toast';
 import { api } from '../api/client';
 import './FuelAnomalies.css';
 
@@ -28,6 +29,8 @@ export function FuelAnomalies() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterLevel, setFilterLevel] = useState<'ALL' | 'LOW' | 'MEDIUM' | 'HIGH'>('ALL');
+  const [investigating, setInvestigating] = useState<FuelAnomaly | null>(null);
+  const [alertsEnabled, setAlertsEnabled] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
     fetchFuelAnomalies();
@@ -84,9 +87,9 @@ export function FuelAnomalies() {
     return '#ef4444'; // red
   };
 
-  const filteredAnomalies = anomalyData?.anomalies.filter(item =>
+  const filteredAnomalies = (anomalyData?.anomalies ?? []).filter(item =>
     filterLevel === 'ALL' || item.investigation_level === filterLevel
-  ) || [];
+  );
 
   if (loading) {
     return <div className="anomalies-container"><div className="loading">Завантаження анализу аномалій...</div></div>;
@@ -196,13 +199,106 @@ export function FuelAnomalies() {
               </div>
 
               <div className="card-actions">
-                <button className="btn-investigate">🔍 Розслідувати</button>
-                <button className="btn-alert">🚨 Встановити оповіщення</button>
+                <button
+                  className="btn-investigate"
+                  onClick={() => setInvestigating(anomaly)}
+                >
+                  🔍 Розслідувати
+                </button>
+                <button
+                  className={`btn-alert ${alertsEnabled[anomaly.id] ? 'active' : ''}`}
+                  onClick={() => {
+                    setAlertsEnabled((prev) => {
+                      const next = { ...prev, [anomaly.id]: !prev[anomaly.id] };
+                      if (next[anomaly.id]) {
+                        toast.success(
+                          `🚨 Сповіщення для ${anomaly.vehicle_plate} увімкнено. Ви отримаєте email при повторенні аномалії.`,
+                          { duration: 4500 }
+                        );
+                      } else {
+                        toast(`🔕 Сповіщення для ${anomaly.vehicle_plate} вимкнено`, { duration: 3000 });
+                      }
+                      return next;
+                    });
+                  }}
+                >
+                  {alertsEnabled[anomaly.id] ? '🔔 Сповіщення увімкнено' : '🚨 Встановити сповіщення'}
+                </button>
               </div>
             </div>
           ))
         )}
       </div>
+
+      {investigating && (
+        <div className="fuel-modal-overlay" onClick={() => setInvestigating(null)}>
+          <div className="fuel-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="fuel-modal-header">
+              <h2>🔍 Розслідування: {investigating.vehicle_plate}</h2>
+              <button className="fuel-modal-close" onClick={() => setInvestigating(null)}>✕</button>
+            </div>
+            <div className="fuel-modal-body">
+              <div className="fuel-modal-row">
+                <span className="label">Тип аномалії:</span>
+                <span className="value">{getAnomalyTypeLabel(investigating.anomaly_type)}</span>
+              </div>
+              <div className="fuel-modal-row">
+                <span className="label">Рівень загрози:</span>
+                <span className="value">{getLevelLabel(investigating.investigation_level)}</span>
+              </div>
+              <div className="fuel-modal-row">
+                <span className="label">Рейтинг ризику:</span>
+                <span className="value" style={{ color: getRiskColor(investigating.risk_score) }}>
+                  {investigating.risk_score}/100
+                </span>
+              </div>
+              <div className="fuel-modal-row">
+                <span className="label">Впевненість AI:</span>
+                <span className="value">{investigating.confidence}%</span>
+              </div>
+              <div className="fuel-modal-row">
+                <span className="label">Останнє виявлення:</span>
+                <span className="value">{new Date(investigating.last_detected).toLocaleString('uk-UA')}</span>
+              </div>
+              <div className="fuel-modal-row">
+                <span className="label">Потенційні втрати:</span>
+                <span className="value" style={{ color: '#dc2626' }}>
+                  {Math.round(investigating.potential_loss)} ₴/місяць
+                </span>
+              </div>
+              <div className="fuel-modal-details">
+                <strong>📋 Деталі виявлення:</strong>
+                <p>{investigating.details}</p>
+              </div>
+              <div className="fuel-modal-steps">
+                <strong>✅ Рекомендовані дії:</strong>
+                <ol>
+                  <li>Зв'язатися з водієм машини та запитати пояснення по факту.</li>
+                  <li>Перевірити чеки АЗС та співставити з бортовим комп'ютером.</li>
+                  <li>Звірити маршрут GPS з датою/часом заправки.</li>
+                  <li>Скласти службову записку при підтвердженні фроду.</li>
+                </ol>
+              </div>
+            </div>
+            <div className="fuel-modal-footer">
+              <button
+                className="btn-investigate"
+                onClick={() => {
+                  toast.success('📝 Розслідування відкрито у внутрішньому трекері', { duration: 4000 });
+                  setInvestigating(null);
+                }}
+              >
+                Відкрити службове розслідування
+              </button>
+              <button className="btn-alert" onClick={() => setInvestigating(null)}>
+                Закрити
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Toaster position="top-right" />
     </div>
   );
 }
