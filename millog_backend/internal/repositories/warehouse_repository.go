@@ -13,23 +13,31 @@ func NewWarehouseRepository() *WarehouseRepository {
 }
 
 func (r *WarehouseRepository) Create(ctx context.Context, db DBExecutor, w *models.Warehouse) error {
-	query := `INSERT INTO warehouses (unit_id, name, location_type, latitude, longitude)
-	          VALUES ($1, $2, $3, $4, $5) RETURNING id, created_at, updated_at`
-
-	return db.QueryRow(ctx, query, w.UnitID, w.Name, w.LocationType, w.Latitude, w.Longitude).
+	tid := TenantFromCtx(ctx)
+	if tid == "" {
+		query := `INSERT INTO warehouses (unit_id, name, location_type, latitude, longitude)
+		          VALUES ($1, $2, $3, $4, $5) RETURNING id, created_at, updated_at`
+		return db.QueryRow(ctx, query, w.UnitID, w.Name, w.LocationType, w.Latitude, w.Longitude).
+			Scan(&w.ID, &w.CreatedAt, &w.UpdatedAt)
+	}
+	query := `INSERT INTO warehouses (unit_id, name, location_type, latitude, longitude, tenant_id)
+	          VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, created_at, updated_at`
+	return db.QueryRow(ctx, query, w.UnitID, w.Name, w.LocationType, w.Latitude, w.Longitude, tid).
 		Scan(&w.ID, &w.CreatedAt, &w.UpdatedAt)
 }
 func (r *WarehouseRepository) ListByUnit(ctx context.Context, db DBExecutor, unitID int64) ([]models.Warehouse, error) {
 	var list []models.Warehouse
 
 	if unitID == 0 {
-		// Для Адміна - показуємо взагалі всі склади без ієрархії
+		// Для Адміна - всі склади поточного tenant
+		args := []any{}
+		tFilter := tenantFilter(ctx, "", "WHERE", &args)
 		query := `
             SELECT id, unit_id, name, location_type, latitude, longitude, created_at, updated_at
-            FROM warehouses
+            FROM warehouses` + tFilter + `
             ORDER BY name`
 
-		rows, err := db.Query(ctx, query)
+		rows, err := db.Query(ctx, query, args...)
 		if err != nil {
 			return nil, err
 		}
@@ -47,7 +55,8 @@ func (r *WarehouseRepository) ListByUnit(ctx context.Context, db DBExecutor, uni
 		}
 
 	} else {
-		// Для командирів - склади їхнього підрозділу ТА підлеглих (рекурсія)
+		args := []any{unitID}
+		tFilter := tenantFilter(ctx, "w", "AND", &args)
 		query := `
             WITH RECURSIVE unit_hierarchy AS (
                 SELECT id FROM units WHERE id = $1
@@ -55,12 +64,12 @@ func (r *WarehouseRepository) ListByUnit(ctx context.Context, db DBExecutor, uni
                 SELECT u.id FROM units u
                 JOIN unit_hierarchy uh ON u.parent_id = uh.id
             )
-            SELECT id, unit_id, name, location_type, latitude, longitude, created_at, updated_at
-            FROM warehouses
-            WHERE unit_id IN (SELECT id FROM unit_hierarchy)
-            ORDER BY name`
+            SELECT w.id, w.unit_id, w.name, w.location_type, w.latitude, w.longitude, w.created_at, w.updated_at
+            FROM warehouses w
+            WHERE w.unit_id IN (SELECT id FROM unit_hierarchy)` + tFilter + `
+            ORDER BY w.name`
 
-		rows, err := db.Query(ctx, query, unitID)
+		rows, err := db.Query(ctx, query, args...)
 		if err != nil {
 			return nil, err
 		}
@@ -87,13 +96,14 @@ func (r *WarehouseRepository) ListByUnit(ctx context.Context, db DBExecutor, uni
 
 // Додай цей метод до WarehouseRepository
 func (r *WarehouseRepository) UpdateLocation(ctx context.Context, db DBExecutor, warehouseID string, lat, lng float64) error {
+	args := []any{lat, lng, warehouseID}
+	tFilter := tenantFilter(ctx, "", "AND", &args)
 	query := `
 		UPDATE warehouses 
 		SET latitude = $1, longitude = $2, updated_at = CURRENT_TIMESTAMP 
-		WHERE id = $3
-	`
+		WHERE id = $3` + tFilter
 
-	result, err := db.Exec(ctx, query, lat, lng, warehouseID)
+	result, err := db.Exec(ctx, query, args...)
 	if err != nil {
 		return err
 	}
@@ -107,14 +117,18 @@ func (r *WarehouseRepository) UpdateLocation(ctx context.Context, db DBExecutor,
 
 // Update оновлює базові параметри складу
 func (r *WarehouseRepository) Update(ctx context.Context, db DBExecutor, id string, name string, capacityLevel string, zoneType string) error {
-	query := `UPDATE warehouses SET name = $1, capacity_level = $2, zone_type = $3 WHERE id = $4`
-	_, err := db.Exec(ctx, query, name, capacityLevel, zoneType, id)
+	args := []any{name, capacityLevel, zoneType, id}
+	tFilter := tenantFilter(ctx, "", "AND", &args)
+	query := `UPDATE warehouses SET name = $1, capacity_level = $2, zone_type = $3 WHERE id = $4` + tFilter
+	_, err := db.Exec(ctx, query, args...)
 	return err
 }
 
 // Delete безповоротно видаляє склад
 func (r *WarehouseRepository) Delete(ctx context.Context, db DBExecutor, id string) error {
-	query := `DELETE FROM warehouses WHERE id = $1`
-	_, err := db.Exec(ctx, query, id)
+	args := []any{id}
+	tFilter := tenantFilter(ctx, "", "AND", &args)
+	query := `DELETE FROM warehouses WHERE id = $1` + tFilter
+	_, err := db.Exec(ctx, query, args...)
 	return err
 }

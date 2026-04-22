@@ -16,35 +16,40 @@ func NewVehicleRepository() *VehicleRepository {
 }
 
 func (r *VehicleRepository) Create(ctx context.Context, db DBExecutor, v *models.Vehicle) error {
-	query := `
+	tid := TenantFromCtx(ctx)
+	if tid == "" {
+		query := `
         INSERT INTO vehicles (
             brand, model, plate_number, type, capacity_kg, status, driver_id, tank_capacity, fuel_norm
-        ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7, $8, $9
-        ) RETURNING id, maintenance_interval_km, last_maintenance_odometer, created_at, updated_at
-    `
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING id, maintenance_interval_km, last_maintenance_odometer, created_at, updated_at`
+		err := db.QueryRow(ctx, query,
+			v.Brand, v.Model, v.PlateNumber, v.Type, v.CapacityKg, v.Status, v.DriverID, v.TankCapacity, v.FuelNorm,
+		).Scan(&v.ID, &v.MaintenanceIntervalKm, &v.LastMaintenanceOdometer, &v.CreatedAt, &v.UpdatedAt)
+		if err != nil {
+			return fmt.Errorf("помилка створення авто: %w", err)
+		}
+		return nil
+	}
+
+	query := `
+        INSERT INTO vehicles (
+            brand, model, plate_number, type, capacity_kg, status, driver_id, tank_capacity, fuel_norm, tenant_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING id, maintenance_interval_km, last_maintenance_odometer, created_at, updated_at`
 
 	err := db.QueryRow(ctx, query,
-		v.Brand,
-		v.Model,
-		v.PlateNumber,
-		v.Type,
-		v.CapacityKg,
-		v.Status,
-		v.DriverID,
-		v.TankCapacity,
-		v.FuelNorm,
+		v.Brand, v.Model, v.PlateNumber, v.Type, v.CapacityKg, v.Status, v.DriverID, v.TankCapacity, v.FuelNorm, tid,
 	).Scan(&v.ID, &v.MaintenanceIntervalKm, &v.LastMaintenanceOdometer, &v.CreatedAt, &v.UpdatedAt)
-
 	if err != nil {
 		return fmt.Errorf("помилка створення авто: %w", err)
 	}
-
 	return nil
 }
 
 func (r *VehicleRepository) GetAll(ctx context.Context, db DBExecutor) ([]models.Vehicle, error) {
-	// CTE вираховує різницю пробігу та часу за останні 30 днів для кожної машини
+	args := []any{}
+	tFilter := tenantFilter(ctx, "v", "WHERE", &args)
 	query := `
         WITH VehicleStats AS (
             SELECT 
@@ -65,8 +70,6 @@ func (r *VehicleRepository) GetAll(ctx context.Context, db DBExecutor) ([]models
                 WHERE vehicle_id = v.id AND odometer_km IS NOT NULL 
                 ORDER BY created_at DESC LIMIT 1
             ), 0) AS current_odometer,
-            
-            -- 🔥 ВИРАХОВУЄМО СЕРЕДНІЙ ПРОБІГ (захист від ділення на нуль)
             COALESCE(
                 (vs.last_odo - vs.first_odo)::float / 
                 NULLIF(EXTRACT(EPOCH FROM (vs.last_date - vs.first_date))/86400, 0), 
@@ -74,11 +77,11 @@ func (r *VehicleRepository) GetAll(ctx context.Context, db DBExecutor) ([]models
 
         FROM vehicles v
         LEFT JOIN users u ON v.driver_id = u.id
-        LEFT JOIN VehicleStats vs ON v.id = vs.vehicle_id
+        LEFT JOIN VehicleStats vs ON v.id = vs.vehicle_id` + tFilter + `
         ORDER BY v.created_at DESC
     `
 
-	rows, err := db.Query(ctx, query)
+	rows, err := db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("помилка отримання списку авто: %w", err)
 	}
@@ -126,6 +129,8 @@ func (r *VehicleRepository) GetAll(ctx context.Context, db DBExecutor) ([]models
 }
 
 func (r *VehicleRepository) GetByID(ctx context.Context, id string, db DBExecutor) (*models.Vehicle, error) {
+	args := []any{id}
+	tFilter := tenantFilter(ctx, "v", "AND", &args)
 	query := `
         WITH VehicleStats AS (
             SELECT 
@@ -153,11 +158,11 @@ func (r *VehicleRepository) GetByID(ctx context.Context, id string, db DBExecuto
         FROM vehicles v
         LEFT JOIN users u ON v.driver_id = u.id
         LEFT JOIN VehicleStats vs ON v.id = vs.vehicle_id
-        WHERE v.id = $1
+        WHERE v.id = $1` + tFilter + `
     `
 
 	var v models.Vehicle
-	err := db.QueryRow(ctx, query, id).Scan(
+	err := db.QueryRow(ctx, query, args...).Scan(
 		&v.ID, &v.Brand, &v.Model, &v.PlateNumber, &v.Type, &v.CapacityKg, &v.Status, &v.DriverID, &v.DriverName,
 		&v.TankCapacity, &v.FuelNorm, &v.MaintenanceIntervalKm, &v.LastMaintenanceOdometer,
 		&v.CreatedAt, &v.UpdatedAt, &v.CurrentOdometer, &v.AvgKmPerDay,
@@ -192,13 +197,14 @@ func (r *VehicleRepository) GetByID(ctx context.Context, id string, db DBExecuto
 }
 
 func (r *VehicleRepository) UpdateStatus(ctx context.Context, id string, status string, reason string, db DBExecutor) error {
+	args := []any{status, reason, id}
+	tFilter := tenantFilter(ctx, "", "AND", &args)
 	query := `
         UPDATE vehicles 
         SET status = $1, status_reason = $2, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $3
-    `
+        WHERE id = $3` + tFilter
 
-	cmdTag, err := db.Exec(ctx, query, status, reason, id)
+	cmdTag, err := db.Exec(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("помилка оновлення статусу: %w", err)
 	}
@@ -346,20 +352,26 @@ func (r *VehicleRepository) GetDriverHistory(ctx context.Context, vehicleID stri
 
 // Update оновлює базові параметри автомобіля
 func (r *VehicleRepository) Update(ctx context.Context, db DBExecutor, id string, brand string, model string, plateNumber string, capacityKg float64) error {
-	query := `UPDATE vehicles SET brand = $1, model = $2, plate_number = $3, capacity_kg = $4 WHERE id = $5`
-	_, err := db.Exec(ctx, query, brand, model, plateNumber, capacityKg, id)
+	args := []any{brand, model, plateNumber, capacityKg, id}
+	tFilter := tenantFilter(ctx, "", "AND", &args)
+	query := `UPDATE vehicles SET brand = $1, model = $2, plate_number = $3, capacity_kg = $4 WHERE id = $5` + tFilter
+	_, err := db.Exec(ctx, query, args...)
 	return err
 }
 
 // Delete безповоротно видаляє транспортний засіб
 func (r *VehicleRepository) Delete(ctx context.Context, db DBExecutor, id string) error {
-	query := `DELETE FROM vehicles WHERE id = $1`
-	_, err := db.Exec(ctx, query, id)
+	args := []any{id}
+	tFilter := tenantFilter(ctx, "", "AND", &args)
+	query := `DELETE FROM vehicles WHERE id = $1` + tFilter
+	_, err := db.Exec(ctx, query, args...)
 	return err
 }
 
 // GetAvailableForRoute повертає вільні авто, які належать підрозділу відправника АБО отримувача
 func (r *VehicleRepository) GetAvailableForRoute(ctx context.Context, db DBExecutor, senderUnitID int64, receiverUnitID int64) ([]models.Vehicle, error) {
+	args := []any{senderUnitID, receiverUnitID}
+	tFilter := tenantFilter(ctx, "v", "AND", &args)
 	query := `
 		SELECT v.id, v.brand, v.model, v.plate_number, v.type, v.capacity_kg, 
 		       v.status, v.driver_id, v.tank_capacity, v.fuel_norm, 
@@ -368,11 +380,11 @@ func (r *VehicleRepository) GetAvailableForRoute(ctx context.Context, db DBExecu
 		FROM vehicles v
 		INNER JOIN users u ON v.driver_id = u.id
 		WHERE v.status = 'ACTIVE' 
-		  AND (u.unit_id = $1 OR u.unit_id = $2)
+		  AND (u.unit_id = $1 OR u.unit_id = $2)` + tFilter + `
 		ORDER BY v.brand, v.model
 	`
 
-	rows, err := db.Query(ctx, query, senderUnitID, receiverUnitID)
+	rows, err := db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

@@ -19,46 +19,53 @@ func NewResourceRepository() *ResourceRepository {
 }
 
 func (r *ResourceRepository) Create(ctx context.Context, db DBExecutor, res *models.Resource) error {
-	// ДОДАНО: barcode в INSERT та VALUES ($12)
-	query := `INSERT INTO resources (category_id, unit_id, name, description, quantity, unit_type, serial_number, barcode, warehouse_id, condition, min_quantity, weight_kg)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id, created_at, updated_at`
-
 	if res.WarehouseID != nil && *res.WarehouseID == "" {
 		res.WarehouseID = nil
 	}
 
+	tid := TenantFromCtx(ctx)
+	if tid == "" {
+		query := `INSERT INTO resources (category_id, unit_id, name, description, quantity, unit_type, serial_number, barcode, warehouse_id, condition, min_quantity, weight_kg)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id, created_at, updated_at`
+		return db.QueryRow(ctx, query,
+			res.CategoryID, res.UnitID, res.Name, res.Description, res.Quantity, res.UnitType, res.SerialNumber,
+			res.Barcode, res.WarehouseID, res.Condition, res.MinQuantity, res.WeightKg,
+		).Scan(&res.ID, &res.CreatedAt, &res.UpdatedAt)
+	}
+
+	query := `INSERT INTO resources (category_id, unit_id, name, description, quantity, unit_type, serial_number, barcode, warehouse_id, condition, min_quantity, weight_kg, tenant_id)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id, created_at, updated_at`
 	return db.QueryRow(ctx, query,
 		res.CategoryID, res.UnitID, res.Name, res.Description, res.Quantity, res.UnitType, res.SerialNumber,
-		res.Barcode, // 🔥 ДОДАНО
-		res.WarehouseID, res.Condition, res.MinQuantity, res.WeightKg,
+		res.Barcode, res.WarehouseID, res.Condition, res.MinQuantity, res.WeightKg, tid,
 	).Scan(&res.ID, &res.CreatedAt, &res.UpdatedAt)
 }
 
 func (r *ResourceRepository) GetByID(ctx context.Context, db DBExecutor, id string) (*models.Resource, error) {
-	// Додай COALESCE(r.barcode, '') у SELECT після серійного номера
+	args := []any{id}
+	tFilter := tenantFilter(ctx, "r", "AND", &args)
 	query := `
         SELECT 
             r.id, r.category_id, COALESCE(r.unit_id, 0), r.name, COALESCE(r.description, ''), 
             r.quantity, COALESCE(SUM(ra.quantity) FILTER (WHERE ra.status = 'ACTIVE'), 0) as issued_quantity, 
             COALESCE(r.unit_type, 'PCS'), COALESCE(r.serial_number, ''), 
-            COALESCE(r.barcode, ''), -- 🔥 ДОДАНО
+            COALESCE(r.barcode, ''),
             COALESCE(CAST(r.warehouse_id AS TEXT), ''), r.condition, r.min_quantity, 
 			r.weight_kg,
             r.created_at, r.updated_at
         FROM resources r
         LEFT JOIN resource_assignments ra ON r.id = ra.resource_id
-        WHERE r.id = $1
+        WHERE r.id = $1` + tFilter + `
         GROUP BY r.id`
 
 	var res models.Resource
-	err := db.QueryRow(ctx, query, id).Scan(
+	err := db.QueryRow(ctx, query, args...).Scan(
 		&res.ID, &res.CategoryID, &res.UnitID, &res.Name, &res.Description,
 		&res.Quantity, &res.IssuedQuantity, &res.UnitType, &res.SerialNumber,
-		&res.Barcode, // 🔥 ДОДАНО (на 10-му місці)
+		&res.Barcode,
 		&res.WarehouseID, &res.Condition, &res.MinQuantity, &res.WeightKg, &res.CreatedAt, &res.UpdatedAt,
 	)
 	if err != nil {
-		fmt.Println("🚨 SCAN ERROR IN GetByID:", err)
 		return nil, err
 	}
 	return &res, nil
@@ -69,6 +76,8 @@ func (r *ResourceRepository) List(ctx context.Context, db DBExecutor, unitID *in
 	args := []interface{}{}
 
 	if unitID != nil {
+		args = append(args, *unitID)
+		tFilter := tenantFilter(ctx, "r", "AND", &args)
 		query = `
         WITH RECURSIVE unit_hierarchy AS (
             SELECT id FROM units WHERE id = $1
@@ -78,31 +87,30 @@ func (r *ResourceRepository) List(ctx context.Context, db DBExecutor, unitID *in
         )
         SELECT 
             r.id, r.category_id, COALESCE(r.unit_id, 0), r.name, COALESCE(r.description, ''), 
-            r.quantity, -- Залишок на складі
-            COALESCE(SUM(ra.quantity) FILTER (WHERE ra.status = 'ACTIVE'), 0) as issued_quantity, -- Видано на руки
+            r.quantity,
+            COALESCE(SUM(ra.quantity) FILTER (WHERE ra.status = 'ACTIVE'), 0) as issued_quantity,
             COALESCE(r.unit_type, 'PCS'), COALESCE(r.serial_number, ''), COALESCE(r.barcode, ''), 
             COALESCE(CAST(r.warehouse_id AS TEXT), ''), r.condition, r.min_quantity, 
 			r.weight_kg,
             r.created_at, r.updated_at
         FROM resources r
         LEFT JOIN resource_assignments ra ON r.id = ra.resource_id
-        WHERE r.unit_id IN (SELECT id FROM unit_hierarchy)
-        GROUP BY r.id -- Обов'язково групуємо, бо використовуємо SUM
+        WHERE r.unit_id IN (SELECT id FROM unit_hierarchy)` + tFilter + `
+        GROUP BY r.id
         ORDER BY r.name`
-
-		args = append(args, *unitID)
 	} else {
+		tFilter := tenantFilter(ctx, "r", "WHERE", &args)
 		query = `
         SELECT 
             r.id, r.category_id, COALESCE(r.unit_id, 0), r.name, COALESCE(r.description, ''), 
-            r.quantity, -- Залишок на складі
-            COALESCE(SUM(ra.quantity) FILTER (WHERE ra.status = 'ACTIVE'), 0) as issued_quantity, -- Видано на руки
+            r.quantity,
+            COALESCE(SUM(ra.quantity) FILTER (WHERE ra.status = 'ACTIVE'), 0) as issued_quantity,
             COALESCE(r.unit_type, 'PCS'), COALESCE(r.serial_number, ''), COALESCE(r.barcode, ''),
             COALESCE(CAST(r.warehouse_id AS TEXT), ''), r.condition, r.min_quantity, 
 			r.weight_kg,
             r.created_at, r.updated_at
         FROM resources r
-        LEFT JOIN resource_assignments ra ON r.id = ra.resource_id
+        LEFT JOIN resource_assignments ra ON r.id = ra.resource_id` + tFilter + `
         GROUP BY r.id
         ORDER BY r.name`
 	}
@@ -252,6 +260,10 @@ func (r *ResourceRepository) Update(ctx context.Context, db DBExecutor, id strin
 
 	query += fmt.Sprintf(" WHERE id = $%d", argID)
 	args = append(args, id)
+	argID++
+	tFilter := tenantFilter(ctx, "", "AND", &args)
+	query += tFilter
+	_ = argID
 
 	result, err := db.Exec(ctx, query, args...)
 	if err != nil {
@@ -266,8 +278,10 @@ func (r *ResourceRepository) Update(ctx context.Context, db DBExecutor, id strin
 }
 
 func (r *ResourceRepository) Delete(ctx context.Context, db DBExecutor, id string) error {
-	query := `DELETE FROM resources WHERE id = $1`
-	result, err := db.Exec(ctx, query, id)
+	args := []any{id}
+	tFilter := tenantFilter(ctx, "", "AND", &args)
+	query := `DELETE FROM resources WHERE id = $1` + tFilter
+	result, err := db.Exec(ctx, query, args...)
 	if err != nil {
 		return err
 	}
@@ -531,21 +545,23 @@ func (r *ResourceRepository) CreateShipment(ctx context.Context, db *pgxpool.Poo
 
 // GetByWarehouse повертає всі доступні товари на конкретному складі
 func (r *ResourceRepository) GetByWarehouse(ctx context.Context, db DBExecutor, warehouseID string) ([]models.InventoryItem, error) {
+	args := []any{warehouseID}
+	tFilter := tenantFilter(ctx, "r", "AND", &args)
 	query := `
 		SELECT 
 			r.id, 
-			CAST(r.warehouse_id AS TEXT), -- БЕЗПЕЧНИЙ КАСТ
+			CAST(r.warehouse_id AS TEXT),
 			r.name, 
 			COALESCE(c.name, 'Без категорії') as category, 
 			r.quantity, 
 			r.weight_kg
 		FROM resources r
 		LEFT JOIN resource_categories c ON r.category_id = c.id
-		WHERE r.warehouse_id = $1 AND r.quantity > 0
+		WHERE r.warehouse_id = $1 AND r.quantity > 0` + tFilter + `
 		ORDER BY r.name ASC
 	`
 
-	rows, err := db.Query(ctx, query, warehouseID)
+	rows, err := db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("помилка отримання залишків складу: %w", err)
 	}
@@ -818,8 +834,10 @@ func (r *ResourceRepository) SubmitInventoryAudit(ctx context.Context, db DBExec
 }
 
 func (r *CategoryRepository) GetAll(ctx context.Context, db DBExecutor) ([]models.ResourceCategory, error) {
-	query := `SELECT id, name FROM resource_categories`
-	rows, err := db.Query(ctx, query)
+	args := []any{}
+	tFilter := tenantFilter(ctx, "", "WHERE", &args)
+	query := `SELECT id, name FROM resource_categories` + tFilter
+	rows, err := db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -837,13 +855,14 @@ func (r *CategoryRepository) GetAll(ctx context.Context, db DBExecutor) ([]model
 	return categories, nil
 }
 
-// Шукає ресурс за іменем та ID складу
 func (r *ResourceRepository) GetByNameAndWarehouse(ctx context.Context, db DBExecutor, name string, warehouseID string) (*models.Resource, error) {
-	query := `SELECT id, quantity FROM resources WHERE name = $1 AND warehouse_id = $2 LIMIT 1`
+	args := []any{name, warehouseID}
+	tFilter := tenantFilter(ctx, "", "AND", &args)
+	query := `SELECT id, quantity FROM resources WHERE name = $1 AND warehouse_id = $2` + tFilter + ` LIMIT 1`
 	var res models.Resource
-	err := db.QueryRow(ctx, query, name, warehouseID).Scan(&res.ID, &res.Quantity)
+	err := db.QueryRow(ctx, query, args...).Scan(&res.ID, &res.Quantity)
 	if err != nil {
-		return nil, err // Якщо не знайдено, поверне помилку pgx.ErrNoRows
+		return nil, err
 	}
 	return &res, nil
 }

@@ -17,11 +17,6 @@ func NewSupplyRequestRepository() *SupplyRequestRepository {
 }
 
 func (r *SupplyRequestRepository) Create(ctx context.Context, db DBExecutor, req *models.SupplyRequest) error {
-	// ДОДАНО: target_warehouse_id у запит
-	query := `INSERT INTO supply_requests (created_by, resource_id, quantity, status, target_warehouse_id)
-	VALUES ($1, $2, $3, $4, $5) RETURNING id, created_at, updated_at`
-
-	// target_warehouse_id — UUID, nullable. Порожній рядок не каститься до UUID, тому віддаємо NULL.
 	var targetWH interface{}
 	if req.TargetWarehouseID == "" {
 		targetWH = nil
@@ -29,16 +24,25 @@ func (r *SupplyRequestRepository) Create(ctx context.Context, db DBExecutor, req
 		targetWH = req.TargetWarehouseID
 	}
 
-	return db.QueryRow(ctx, query, req.CreatedBy, req.ResourceID, req.Quantity, req.Status, targetWH).Scan(&req.ID, &req.CreatedAt, &req.UpdatedAt)
+	tid := TenantFromCtx(ctx)
+	if tid == "" {
+		query := `INSERT INTO supply_requests (created_by, resource_id, quantity, status, target_warehouse_id)
+		VALUES ($1, $2, $3, $4, $5) RETURNING id, created_at, updated_at`
+		return db.QueryRow(ctx, query, req.CreatedBy, req.ResourceID, req.Quantity, req.Status, targetWH).Scan(&req.ID, &req.CreatedAt, &req.UpdatedAt)
+	}
+	query := `INSERT INTO supply_requests (created_by, resource_id, quantity, status, target_warehouse_id, tenant_id)
+	VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, created_at, updated_at`
+	return db.QueryRow(ctx, query, req.CreatedBy, req.ResourceID, req.Quantity, req.Status, targetWH, tid).Scan(&req.ID, &req.CreatedAt, &req.UpdatedAt)
 }
 
 func (r *SupplyRequestRepository) GetByID(ctx context.Context, db DBExecutor, id string) (*models.SupplyRequest, error) {
-	// ДОДАНО: target_warehouse_id у SELECT. COALESCE бо колонка nullable (ON DELETE SET NULL + старі записи).
+	args := []any{id}
+	tFilter := tenantFilter(ctx, "", "AND", &args)
 	query := `SELECT id, created_by, resource_id, quantity, status, COALESCE(target_warehouse_id::text, ''), approved_by, approved_at, comment, created_at, updated_at
-	FROM supply_requests WHERE id = $1`
+	FROM supply_requests WHERE id = $1` + tFilter
 
 	var req models.SupplyRequest
-	err := db.QueryRow(ctx, query, id).Scan(
+	err := db.QueryRow(ctx, query, args...).Scan(
 		&req.ID, &req.CreatedBy, &req.ResourceID, &req.Quantity, &req.Status, &req.TargetWarehouseID,
 		&req.ApprovedBy, &req.ApprovedAt, &req.Comment, &req.CreatedAt, &req.UpdatedAt,
 	)
@@ -52,16 +56,18 @@ func (r *SupplyRequestRepository) List(ctx context.Context, db DBExecutor, userR
 	var rows pgx.Rows
 	var err error
 
-	if userRole == "ADMIN" || userRole == "CONTRACTOR" {
-		// COALESCE бо target_warehouse_id nullable (ON DELETE SET NULL + старі рядки)
+	if userRole == "ADMIN" || userRole == "TENANT_ADMIN" || userRole == "SYSTEM_ADMIN" || userRole == "CONTRACTOR" {
+		args := []any{}
+		tFilter := tenantFilter(ctx, "", "WHERE", &args)
 		query := `SELECT id, created_by, resource_id, quantity, status, COALESCE(target_warehouse_id::text, ''), approved_by, approved_at, comment, created_at, updated_at
-				  FROM supply_requests ORDER BY created_at DESC`
-		rows, err = db.Query(ctx, query)
+				  FROM supply_requests` + tFilter + ` ORDER BY created_at DESC`
+		rows, err = db.Query(ctx, query, args...)
 	} else {
 		if userUnitID == nil {
 			return []models.SupplyRequest{}, nil
 		}
-
+		args := []any{*userUnitID}
+		tFilter := tenantFilter(ctx, "sr", "AND", &args)
 		query := `
 			WITH RECURSIVE unit_tree AS (
 				SELECT id FROM units WHERE id = $1
@@ -72,10 +78,10 @@ func (r *SupplyRequestRepository) List(ctx context.Context, db DBExecutor, userR
 			SELECT sr.id, sr.created_by, sr.resource_id, sr.quantity, sr.status, COALESCE(sr.target_warehouse_id::text, ''), sr.approved_by, sr.approved_at, sr.comment, sr.created_at, sr.updated_at
 			FROM supply_requests sr
 			JOIN users u ON sr.created_by = u.id
-			WHERE u.unit_id IN (SELECT id FROM unit_tree)
+			WHERE u.unit_id IN (SELECT id FROM unit_tree)` + tFilter + `
 			ORDER BY sr.created_at DESC
 		`
-		rows, err = db.Query(ctx, query, *userUnitID)
+		rows, err = db.Query(ctx, query, args...)
 	}
 
 	if err != nil {
@@ -86,7 +92,6 @@ func (r *SupplyRequestRepository) List(ctx context.Context, db DBExecutor, userR
 	var list []models.SupplyRequest
 	for rows.Next() {
 		var req models.SupplyRequest
-		// ДОДАНО: &req.TargetWarehouseID у Scan
 		if err := rows.Scan(&req.ID, &req.CreatedBy, &req.ResourceID, &req.Quantity, &req.Status, &req.TargetWarehouseID,
 			&req.ApprovedBy, &req.ApprovedAt, &req.Comment, &req.CreatedAt, &req.UpdatedAt); err != nil {
 			return nil, err
@@ -109,16 +114,20 @@ func (r *SupplyRequestRepository) Approve(ctx context.Context, db DBExecutor, id
 		validApprovedBy = approvedBy
 	}
 
-	query := `UPDATE supply_requests SET status = $1, approved_by = $2, approved_at = CURRENT_TIMESTAMP, comment = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4`
+	args := []any{status, validApprovedBy, comment, id}
+	tFilter := tenantFilter(ctx, "", "AND", &args)
+	query := `UPDATE supply_requests SET status = $1, approved_by = $2, approved_at = CURRENT_TIMESTAMP, comment = $3, updated_at = CURRENT_TIMESTAMP WHERE id = $4` + tFilter
 
-	_, err := db.Exec(ctx, query, status, validApprovedBy, comment, id)
+	_, err := db.Exec(ctx, query, args...)
 	return err
 }
 
 // UpdateStatus змінює статус та додає коментар (наприклад, причину відмови)
 func (r *SupplyRequestRepository) UpdateStatus(ctx context.Context, db DBExecutor, id string, status string, comment string) error {
-	query := `UPDATE supply_requests SET status = $1, comment = $2 WHERE id = $3`
-	_, err := db.Exec(ctx, query, status, comment, id)
+	args := []any{status, comment, id}
+	tFilter := tenantFilter(ctx, "", "AND", &args)
+	query := `UPDATE supply_requests SET status = $1, comment = $2 WHERE id = $3` + tFilter
+	_, err := db.Exec(ctx, query, args...)
 	return err
 }
 

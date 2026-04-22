@@ -115,23 +115,28 @@ func (r *FuelRepository) CreateFuelRecord(ctx context.Context, record *models.Fu
 		}
 	}
 	// 5. Запис у базу
-	query := `
+	tid := TenantFromCtx(ctx)
+	if tid == "" {
+		query := `
         INSERT INTO fuel_records (
             vehicle_id, liters, odometer_km, record_type, created_by, is_anomaly, anomaly_reason
-        ) VALUES (
-            $1, $2, $3, $4, $5, $6, $7
-        ) RETURNING id, created_at
-    `
-
-	err = tx.QueryRow(ctx, query,
-		record.VehicleID,
-		record.Liters,
-		record.OdometerKm,
-		record.RecordType,
-		record.CreatedBy,
-		record.IsAnomaly,
-		record.AnomalyReason,
-	).Scan(&record.ID, &record.CreatedAt)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id, created_at`
+		err = tx.QueryRow(ctx, query,
+			record.VehicleID, record.Liters, record.OdometerKm, record.RecordType,
+			record.CreatedBy, record.IsAnomaly, record.AnomalyReason,
+		).Scan(&record.ID, &record.CreatedAt)
+	} else {
+		query := `
+        INSERT INTO fuel_records (
+            vehicle_id, liters, odometer_km, record_type, created_by, is_anomaly, anomaly_reason, tenant_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING id, created_at`
+		err = tx.QueryRow(ctx, query,
+			record.VehicleID, record.Liters, record.OdometerKm, record.RecordType,
+			record.CreatedBy, record.IsAnomaly, record.AnomalyReason, tid,
+		).Scan(&record.ID, &record.CreatedAt)
+	}
 
 	if err != nil {
 		return fmt.Errorf("помилка створення запису пального: %w", err)
@@ -146,14 +151,16 @@ func (r *FuelRepository) CreateFuelRecord(ctx context.Context, record *models.Fu
 }
 
 func (r *FuelRepository) GetRecordsByVehicleID(ctx context.Context, vehicleID string, db DBExecutor) ([]*models.FuelRecord, error) {
+	args := []any{vehicleID}
+	tFilter := tenantFilter(ctx, "", "AND", &args)
 	query := `
         SELECT id, vehicle_id, liters, odometer_km, record_type, is_anomaly, anomaly_reason, created_by, created_at 
         FROM fuel_records 
-        WHERE vehicle_id = $1 
+        WHERE vehicle_id = $1` + tFilter + `
         ORDER BY created_at DESC
     `
 
-	rows, err := db.Query(ctx, query, vehicleID)
+	rows, err := db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
