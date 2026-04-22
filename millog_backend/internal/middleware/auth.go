@@ -14,10 +14,11 @@ import (
 )
 
 type Claims struct {
-	UserID string          `json:"user_id"`
-	Email  string          `json:"email"`
-	Role   models.UserRole `json:"role"`
-	UnitID int64           `json:"unit_id"`
+	UserID   string          `json:"user_id"`
+	TenantID string          `json:"tenant_id"`
+	Email    string          `json:"email"`
+	Role     models.UserRole `json:"role"`
+	UnitID   int64           `json:"unit_id"`
 	jwt.RegisteredClaims
 }
 
@@ -57,11 +58,12 @@ func AuthMiddleware(jwtSecret string, db *pgxpool.Pool) gin.HandlerFunc {
 
 		// === НОВИЙ БЛОК: ПЕРЕВІРКА В БАЗІ ДАНИХ ===
 		var status string
+		var tenantID *string
 		// 🛡️ Додаємо таймаут до контексту (2 сек) щоб не висіти на БД
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
 		defer cancel()
-		
-		err = db.QueryRow(ctx, "SELECT status FROM users WHERE id = $1", claims.UserID).Scan(&status)
+
+		err = db.QueryRow(ctx, "SELECT status, tenant_id FROM users WHERE id = $1", claims.UserID).Scan(&status, &tenantID)
 
 		// Якщо користувача видалили з БД або його статус BLOCKED - відхиляємо запит
 		if err != nil || status == "BLOCKED" {
@@ -71,11 +73,17 @@ func AuthMiddleware(jwtSecret string, db *pgxpool.Pool) gin.HandlerFunc {
 		}
 		// ==========================================
 
+		// Якщо tenant_id у БД є, а у claims пустий/інший — беремо з БД (свіжіший source of truth)
+		if tenantID != nil && *tenantID != "" {
+			claims.TenantID = *tenantID
+		}
+
 		// Якщо все добре і статус ACTIVE — пускаємо далі
 		c.Set("user_id", claims.UserID)
 		c.Set("user_email", claims.Email)
 		c.Set("user_role", claims.Role)
 		c.Set("unit_id", claims.UnitID)
+		c.Set("tenant_id", claims.TenantID)
 		c.Set("claims", claims)
 
 		c.Next()
