@@ -85,14 +85,7 @@ export default function Login() {
           <>
             <h1>Omnilog</h1>
             <p>Увійдіть до системи</p>
-            <p className="login-hint">
-              <Link to="/signup"><strong>✨ Створити організацію</strong></Link>
-              {' · '}
-              <Link to="/bootstrap">Перший запуск — створіть адміна</Link>
-              {' · '}
-              {/* 🔥 Змінено з "Реєстрація волонтера" на "Реєстрація підрядника" */}
-              <Link to="/register">Реєстрація підрядника</Link>
-            </p>
+            
             <form onSubmit={handleSubmit}>
               <input
                 type="email"
@@ -130,6 +123,37 @@ export default function Login() {
                 {loading ? 'Вхід...' : 'Увійти'}
               </button>
             </form>
+
+            {/* Великі кнопки для інших сценаріїв */}
+            <div className="login-actions">
+              <div className="login-action-section">
+                <p className="action-label">🆕 Новий користувач?</p>
+                <Link to="/signup" className="btn btn-success btn-large">
+                  ✨ Створити організацію
+                </Link>
+                <p className="action-hint">Перший запуск для нового бізнесу</p>
+              </div>
+
+              <div className="login-action-divider">або</div>
+
+              <div className="login-action-section">
+                <p className="action-label">🏢 Уже маєте організацію?</p>
+                <Link to="/bootstrap" className="btn btn-info btn-large">
+                  ⚙️ Перший запуск — створіть адміна
+                </Link>
+                <p className="action-hint">Ініціалізація першого адміністратора</p>
+              </div>
+
+              <div className="login-action-divider">або</div>
+
+              <div className="login-action-section">
+                <p className="action-label">👷 Підрядник?</p>
+                <Link to="/register" className="btn btn-warning btn-large">
+                  📝 Реєстрація підрядника
+                </Link>
+                <p className="action-hint">Приєднайтесь як зовнішній виконавець</p>
+              </div>
+            </div>
           </>
         )}
       </div>
