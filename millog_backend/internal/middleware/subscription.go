@@ -15,9 +15,10 @@ import (
 
 // SubscriptionTierWeight визначає іерархію тарифів
 var SubscriptionTierWeight = map[string]int{
-	"BASIC":      0,
-	"PRO":        1,
-	"ENTERPRISE": 2,
+	"FREE":       0,
+	"BASIC":      1,
+	"PRO":        2,
+	"ENTERPRISE": 3,
 }
 
 // RequireSubscriptionTier перевіряє, чи користувач має достатній тариф
@@ -33,20 +34,20 @@ func RequireSubscriptionTier(minTier string, dbPool *pgxpool.Pool) gin.HandlerFu
 
 		claims := claimsVal.(*Claims)
 
-		// ADMIN завжди має доступ (для демо та підтримки)
-		if claims.Role == models.RoleAdmin {
+		// SYSTEM_ADMIN завжди має доступ до всіх фіч (підтримка платформи).
+		// Застаріле ADMIN також трактуємо як tenant-адміна — для нього тариф перевіряється нижче.
+		if claims.Role == models.RoleSystemAdmin {
 			c.Next()
 			return
 		}
 
-		// Отримуємо subscription_tier користувача через його unit_id
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
 		defer cancel()
 
-		userTier, err := getUserSubscriptionTier(ctx, dbPool, claims.UnitID)
+		userTier, err := getTenantSubscriptionTier(ctx, dbPool, claims.TenantID, claims.UnitID)
 		if err != nil {
-			slog.Error("Failed to fetch user subscription tier", "error", err, "unitID", claims.UnitID)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка отримання тарифу користувача"})
+			slog.Error("Failed to fetch subscription tier", "error", err, "tenantID", claims.TenantID)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка отримання тарифу"})
 			c.Abort()
 			return
 		}
@@ -57,7 +58,7 @@ func RequireSubscriptionTier(minTier string, dbPool *pgxpool.Pool) gin.HandlerFu
 
 		if userWeight < requiredWeight {
 			// Логуємо спробу несанкціонованого доступу
-			logUnauthorizedPremiumAccess(c, dbPool, claims.ID, minTier, userTier)
+			logUnauthorizedPremiumAccess(c, dbPool, claims.UserID, minTier, userTier)
 
 			c.JSON(http.StatusPaymentRequired, gin.H{
 				"error":         "Функція доступна тільки на тарифі: " + minTier,
@@ -76,47 +77,43 @@ func RequireSubscriptionTier(minTier string, dbPool *pgxpool.Pool) gin.HandlerFu
 	}
 }
 
-// getUserSubscriptionTier отримує тариф користувача з БД
-// Спочатку дивиться на його unit_id (тариф одиниці успадковується)
-// Потім перевіряє батьківські одиниці (успадкування вверх)
-func getUserSubscriptionTier(ctx context.Context, dbPool *pgxpool.Pool, unitID int64) (string, error) {
-	if unitID == 0 {
-		// Користувач без підрозділу — BASIC
-		return "BASIC", nil
+// getTenantSubscriptionTier бере тариф з tenants.subscription_tier.
+// Fallback на units.subscription_tier — сумісність зі старими даними, де tenant ще не виставлений.
+func getTenantSubscriptionTier(ctx context.Context, dbPool *pgxpool.Pool, tenantID string, unitID int64) (string, error) {
+	// 1. Основне джерело істини — tenants.
+	if tenantID != "" {
+		var tier string
+		err := dbPool.QueryRow(ctx, `SELECT subscription_tier FROM tenants WHERE id = $1`, tenantID).Scan(&tier)
+		if err == nil && tier != "" {
+			return tier, nil
+		}
 	}
 
-	// Робимо рекурсивний запит для отримання найвищого тарифу в ієрархії
+	// 2. Fallback для legacy даних — рекурсивно по units
+	if unitID == 0 {
+		return "FREE", nil
+	}
 	query := `
 		WITH RECURSIVE unit_hierarchy AS (
 			SELECT id, parent_id, subscription_tier, 1 as depth
-			FROM units
-			WHERE id = $1
+			FROM units WHERE id = $1
 			UNION ALL
 			SELECT u.id, u.parent_id, u.subscription_tier, uh.depth + 1
-			FROM units u
-			JOIN unit_hierarchy uh ON u.parent_id = uh.id
+			FROM units u JOIN unit_hierarchy uh ON u.parent_id = uh.id
 		)
-		SELECT subscription_tier 
-		FROM unit_hierarchy
-		ORDER BY (CASE 
-			WHEN subscription_tier = 'ENTERPRISE' THEN 2
-			WHEN subscription_tier = 'PRO' THEN 1
-			ELSE 0 
-		END) DESC
-		LIMIT 1
-	`
+		SELECT subscription_tier FROM unit_hierarchy
+		ORDER BY (CASE
+			WHEN subscription_tier = 'ENTERPRISE' THEN 3
+			WHEN subscription_tier = 'PRO' THEN 2
+			WHEN subscription_tier = 'BASIC' THEN 1
+			ELSE 0 END) DESC
+		LIMIT 1`
 
 	var tier string
 	err := dbPool.QueryRow(ctx, query, unitID).Scan(&tier)
-	if err != nil {
-		// Якщо не знайдена одиниця, повертаємо BASIC
-		return "BASIC", nil
+	if err != nil || tier == "" {
+		return "FREE", nil
 	}
-
-	if tier == "" {
-		return "BASIC", nil
-	}
-
 	return tier, nil
 }
 

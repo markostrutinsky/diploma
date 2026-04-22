@@ -18,6 +18,13 @@ type SubscriptionLimits struct {
 }
 
 var LimitsByTier = map[string]SubscriptionLimits{
+	"FREE": {
+		MaxWarehouses: 1,
+		MaxResources:  20,
+		MaxUsers:      5,
+		MaxVehicles:   1,
+		Unlimited:     false,
+	},
 	"BASIC": {
 		MaxWarehouses: 10,
 		MaxResources:  100,
