@@ -83,51 +83,55 @@ export default function Login() {
           </>
         ) : (
           <>
-            <h1>Omnilog</h1>
-            <p>Увійдіть до системи</p>
-            
-            <form onSubmit={handleSubmit}>
-              <input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-              <input
-                type="password"
-                placeholder="Пароль"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                style={{ marginBottom: '0.5rem' }} 
-              />
+            <div className="login-form-section">
+              <h1>Omnilog</h1>
+              <p>Увійдіть до системи</p>
               
-              <div className="forgot-password-container">
-                <button 
-                  type="button" 
-                  className="forgot-password-link"
-                  onClick={() => {
-                    setResetEmail(email) 
-                    setIsForgotMode(true)
-                    setError(null)
-                  }}
-                >
-                  Забули пароль?
+              <form onSubmit={handleSubmit}>
+                <input
+                  type="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+                <input
+                  type="password"
+                  placeholder="Пароль"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  style={{ marginBottom: '0.5rem' }} 
+                />
+                
+                <div className="forgot-password-container">
+                  <button 
+                    type="button" 
+                    className="forgot-password-link"
+                    onClick={() => {
+                      setResetEmail(email) 
+                      setIsForgotMode(true)
+                      setError(null)
+                    }}
+                  >
+                    Забули пароль?
+                  </button>
+                </div>
+
+                {error && <div className="form-error">{error}</div>}
+                
+                <button type="submit" className="btn btn-primary" disabled={loading}>
+                  {loading ? 'Вхід...' : 'Увійти'}
                 </button>
-              </div>
+              </form>
+            </div>
 
-              {error && <div className="form-error">{error}</div>}
+            {/* Варіанти справа */}
+            <div className="login-options-section">
+              <h2>Вперше у нас?</h2>
               
-              <button type="submit" className="btn btn-primary" disabled={loading}>
-                {loading ? 'Вхід...' : 'Увійти'}
-              </button>
-            </form>
-
-            {/* Великі кнопки для інших сценаріїв */}
-            <div className="login-actions">
               <div className="login-action-section">
-                <p className="action-label">🆕 Новий користувач?</p>
+                <p className="action-label">🆕 Новий бізнес</p>
                 <Link to="/signup" className="btn btn-success btn-large">
                   ✨ Створити організацію
                 </Link>
@@ -137,21 +141,11 @@ export default function Login() {
               <div className="login-action-divider">або</div>
 
               <div className="login-action-section">
-                <p className="action-label">🏢 Уже маєте організацію?</p>
-                <Link to="/bootstrap" className="btn btn-info btn-large">
-                  ⚙️ Перший запуск — створіть адміна
-                </Link>
-                <p className="action-hint">Ініціалізація першого адміністратора</p>
-              </div>
-
-              <div className="login-action-divider">або</div>
-
-              <div className="login-action-section">
-                <p className="action-label">👷 Підрядник?</p>
+                <p className="action-label">👷 Підрядник</p>
                 <Link to="/register" className="btn btn-warning btn-large">
                   📝 Реєстрація підрядника
                 </Link>
-                <p className="action-hint">Приєднайтесь як зовнішній виконавець</p>
+                <p className="action-hint">Приєднайтесь як виконавець</p>
               </div>
             </div>
           </>
