@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"millog_backend/internal/repositories"
+	"Omnilog_backend/internal/repositories"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )

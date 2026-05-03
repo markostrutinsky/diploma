@@ -14,12 +14,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
 
-	"millog_backend/internal/database"
-	"millog_backend/internal/handlers"
-	"millog_backend/internal/middleware"
-	"millog_backend/internal/models"
-	"millog_backend/internal/repositories"
-	"millog_backend/internal/services"
+	"Omnilog_backend/internal/database"
+	"Omnilog_backend/internal/handlers"
+	"Omnilog_backend/internal/middleware"
+	"Omnilog_backend/internal/models"
+	"Omnilog_backend/internal/repositories"
+	"Omnilog_backend/internal/services"
 )
 
 func main() {
@@ -294,8 +294,10 @@ func main() {
 		analyticsGroup := api.Group("/analytics")
 		analyticsGroup.Use(middleware.AuthMiddleware(jwtSecret, dbPool))
 		{
-			// 🚀 PRO FEATURE: Advanced analytics з захистом
-			analyticsGroup.GET("/dashboard", middleware.RequireSubscriptionTier("PRO", dbPool), analyticsHandler.GetDashboard)
+			// Базовий дашборд (SLA/TCO/ризики) доступний на всіх тарифах —
+			// це перегляд власних даних, а не платна аналітика.
+			analyticsGroup.GET("/dashboard", analyticsHandler.GetDashboard)
+			// 🚀 PRO FEATURE: Smart-поповнення (дія, а не перегляд)
 			analyticsGroup.POST("/auto-replenish", middleware.RequireSubscriptionTier("PRO", dbPool), analyticsHandler.AutoReplenish)
 			// 🚀 НОВІ PRO FEATURES: KPI та Forecast
 			analyticsGroup.GET("/kpi", middleware.RequireSubscriptionTier("PRO", dbPool), analyticsHandler.GetAdvancedKPIs)

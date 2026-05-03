@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import { api } from '../api/client';
+import { usePermissions } from '../hooks/usePermissions';
+import { PaywallScreen } from '../components/FeatureGate';
 import './MaintenanceSchedule.css';
 
 interface MaintenanceItem {
@@ -25,6 +27,8 @@ interface MaintenanceScheduleData {
 }
 
 export function MaintenanceSchedule() {
+  const perms = usePermissions();
+  const hasAccess = perms.hasFeature('predictive_maintenance');
   const [scheduleData, setScheduleData] = useState<MaintenanceScheduleData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,8 +36,12 @@ export function MaintenanceSchedule() {
   const [detailItem, setDetailItem] = useState<MaintenanceItem | null>(null);
 
   useEffect(() => {
+    if (!hasAccess) {
+      setLoading(false);
+      return;
+    }
     fetchMaintenanceSchedule();
-  }, []);
+  }, [hasAccess]);
 
   const fetchMaintenanceSchedule = async () => {
     try {
@@ -42,8 +50,9 @@ export function MaintenanceSchedule() {
       const response = await api.analytics.getPredictiveMaintenanceSchedule();
       setScheduleData(response);
     } catch (err: any) {
-      if (err.response?.status === 402) {
-        setError('Предиктивне обслуговування доступне тільки для PRO підписки');
+      if (err.response?.status === 402 || String(err.message || '').includes('402')) {
+        // Тариф не дозволяє — показуємо paywall
+        setError(null);
       } else {
         setError('Помилка при завантаженні графіка ТО');
       }
@@ -93,6 +102,15 @@ export function MaintenanceSchedule() {
   const filteredSchedules = (scheduleData?.schedules ?? []).filter(item =>
     filterPriority === 'ALL' || item.priority === filterPriority
   );
+
+  if (!hasAccess) {
+    return (
+      <PaywallScreen
+        feature="predictive_maintenance"
+        description="Автоматичне планування ТО на основі пробігу, історії обслуговування та інтервалів виробника. Менше непланових простоїв — більше вчасних рейсів."
+      />
+    );
+  }
 
   if (loading) {
     return <div className="maintenance-container"><div className="loading">Завантаження графіка ТО...</div></div>;

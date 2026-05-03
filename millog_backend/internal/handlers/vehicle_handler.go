@@ -1,10 +1,10 @@
 package handlers
 
 import (
+	"Omnilog_backend/internal/models"
+	"Omnilog_backend/internal/services"
 	"context"
 	"fmt"
-	"millog_backend/internal/models"
-	"millog_backend/internal/services"
 	"net/http"
 	"path/filepath"
 	"strconv"

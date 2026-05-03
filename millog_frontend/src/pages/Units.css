@@ -15,7 +15,7 @@
 }
 
 .commander-name.pending {
-  color: #64748b; 
+  color: var(--text-muted); 
 }
 
 .commander-status-badge {
@@ -72,9 +72,9 @@
 
 /* Кнопка редагування (Синя) */
 .btn-unit-edit {
-  background-color: #eff6ff;
+  background-color: rgba(59, 130, 246, 0.1);
   color: #2563eb;
-  border-color: #dbeafe;
+  border-color: rgba(59, 130, 246, 0.3);
 }
 
 .btn-unit-edit:hover {
@@ -84,14 +84,14 @@
 
 /* Кнопка видалення (Червона) */
 .btn-unit-delete {
-  background-color: #fff1f2;
+  background-color: rgba(239, 68, 68, 0.1);
   color: #e11d48;
   border-color: #ffe4e6;
 }
 
 .btn-unit-delete:hover {
-  background-color: #ffe4e6;
-  border-color: #fecdd3;
+  background-color: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
 }
 
 /* Стиль для секції командира */
@@ -103,13 +103,13 @@
 
 .cmdr-name-text {
   font-weight: 500;
-  color: #1e293b;
+  color: var(--text-bright);
 }
 
 .btn-cmdr-change {
-  background-color: #f8fafc;
-  color: #64748b;
-  border: 1px solid #e2e8f0;
+  background-color: var(--bg-input);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
   padding: 4px 10px;
   border-radius: 4px;
   font-size: 12px;
@@ -117,14 +117,14 @@
 }
 
 .btn-cmdr-change:hover {
-  background-color: #f1f5f9;
-  color: #334155;
-  border-color: #cbd5e1;
+  background-color: var(--bg-input);
+  color: var(--text);
+  border-color: var(--border);
 }
 
 /* Велика кнопка призначити */
 .btn-cmdr-assign {
-  background-color: #f0fdf4;
+  background-color: rgba(16, 185, 129, 0.1);
   color: #166534;
   border: 1px dashed #bbf7d0;
   padding: 6px 12px;
@@ -135,7 +135,7 @@
 }
 
 .btn-cmdr-assign:hover {
-  background-color: #dcfce7;
+  background-color: rgba(16, 185, 129, 0.15);
   border-style: solid;
 }
 
@@ -165,9 +165,9 @@
 
 /* Синя кнопка Редагувати */
 .btn-unit-edit {
-  background-color: #eff6ff;
+  background-color: rgba(59, 130, 246, 0.1);
   color: #2563eb;
-  border-color: #dbeafe;
+  border-color: rgba(59, 130, 246, 0.3);
 }
 
 .btn-unit-edit:hover {
@@ -176,11 +176,11 @@
 
 /* Червона кнопка Видалити */
 .btn-unit-delete {
-  background-color: #fff1f2;
+  background-color: rgba(239, 68, 68, 0.1);
   color: #e11d48;
   border-color: #ffe4e6;
 }
 
 .btn-unit-delete:hover {
-  background-color: #ffe4e6;
+  background-color: rgba(239, 68, 68, 0.15);
 }

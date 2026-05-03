@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"millog_backend/internal/models"
-	"millog_backend/internal/repositories"
+	"Omnilog_backend/internal/models"
+	"Omnilog_backend/internal/repositories"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -252,7 +252,7 @@ func (s *InventoryService) GenerateShipmentPDF(ctx context.Context, shipmentID s
 }
 
 func (s *InventoryService) GenerateResourceQR(resourceID string) ([]byte, error) {
-	content := fmt.Sprintf("millog-resource:%s", resourceID)
+	content := fmt.Sprintf("Omnilog-resource:%s", resourceID)
 
 	pngImage, err := qrcode.Encode(content, qrcode.Medium, 256)
 	if err != nil {

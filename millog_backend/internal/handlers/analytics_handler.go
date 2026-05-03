@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"time"
 
-	"millog_backend/internal/models"
-	"millog_backend/internal/services"
+	"Omnilog_backend/internal/models"
+	"Omnilog_backend/internal/services"
 
 	"github.com/gin-gonic/gin"
 )

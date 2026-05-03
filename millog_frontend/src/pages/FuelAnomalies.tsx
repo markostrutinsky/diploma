@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
 import { api } from '../api/client';
+import { usePermissions } from '../hooks/usePermissions';
+import { PaywallScreen } from '../components/FeatureGate';
 import './FuelAnomalies.css';
 
 interface FuelAnomaly {
@@ -25,6 +27,8 @@ interface FuelAnomalyData {
 }
 
 export function FuelAnomalies() {
+  const perms = usePermissions();
+  const hasAccess = perms.hasFeature('fuel_antifraud');
   const [anomalyData, setAnomalyData] = useState<FuelAnomalyData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,8 +37,12 @@ export function FuelAnomalies() {
   const [alertsEnabled, setAlertsEnabled] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
+    if (!hasAccess) {
+      setLoading(false);
+      return;
+    }
     fetchFuelAnomalies();
-  }, []);
+  }, [hasAccess]);
 
   const fetchFuelAnomalies = async () => {
     try {
@@ -43,8 +51,9 @@ export function FuelAnomalies() {
       const response = await api.analytics.getFuelAnomalyDetection();
       setAnomalyData(response);
     } catch (err: any) {
-      if (err.response?.status === 402) {
-        setError('Антифрод-система доступна тільки для PRO підписки');
+      if (err.response?.status === 402 || String(err.message || '').includes('402')) {
+        // Тариф не дозволяє — рендеримо paywall замість червоної плашки
+        setError(null);
       } else {
         setError('Помилка при завантаженні анализу аномалій');
       }
@@ -90,6 +99,15 @@ export function FuelAnomalies() {
   const filteredAnomalies = (anomalyData?.anomalies ?? []).filter(item =>
     filterLevel === 'ALL' || item.investigation_level === filterLevel
   );
+
+  if (!hasAccess) {
+    return (
+      <PaywallScreen
+        feature="fuel_antifraud"
+        description="AI-детекція підозрілих заправок, цінових аномалій та ненормального споживання. Типова організація економить 5–12% бюджету пального вже в перший місяць."
+      />
+    );
+  }
 
   if (loading) {
     return <div className="anomalies-container"><div className="loading">Завантаження анализу аномалій...</div></div>;

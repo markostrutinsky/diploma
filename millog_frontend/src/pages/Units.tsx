@@ -6,6 +6,8 @@ import toast, { Toaster } from 'react-hot-toast'
 import './Units.css'
 
 const ROLE_UNIT_CREATION_MAP: Record<string, string[]> = {
+  'SYSTEM_ADMIN': ['REGION', 'BRANCH', 'DEPARTMENT', 'TEAM'],
+  'TENANT_ADMIN': ['REGION', 'BRANCH', 'DEPARTMENT', 'TEAM'],
   'ADMIN': ['REGION', 'BRANCH', 'DEPARTMENT', 'TEAM'],
   'REGION_DIRECTOR': ['BRANCH', 'DEPARTMENT', 'TEAM'],
   'REGION_LOGISTICIAN': ['BRANCH', 'DEPARTMENT', 'TEAM'],
@@ -44,16 +46,25 @@ export default function Units() {
   const allowedUnitTypes = ROLE_UNIT_CREATION_MAP[currentUserRole] || []
   const canManageUnits = perms.can('unit_manage')
 
+  // 🔍 Тимчасовий дебаг
+  useEffect(() => {
+    if (user) {
+      console.log('👤 Current user:', { id: user.id, role: user.role, tenant_id: user.tenant_id, email: user.email })
+    }
+  }, [user])
+
   const expectedParentType = REQUIRED_PARENT_TYPE[form.unit_type]
   const availableParents = units.filter(u => u.unit_type === expectedParentType && u.id !== editingUnit?.id)
 
   const loadData = () => {
     setLoading(true)
     Promise.all([
-      api.units.list().catch(() => []),
-      api.users.listManagers().catch(() => []) // Колишній listCommanders
+      api.units.list().catch((err) => { console.error('units.list failed:', err); return [] }),
+      api.users.listManagers().catch((err) => { console.error('users.listManagers failed:', err); return [] })
     ])
       .then(([unitsData, managersData]) => {
+        console.log('📦 Loaded units:', unitsData)
+        console.log('👤 Loaded managers:', managersData)
         setUnits(Array.isArray(unitsData) ? unitsData : [])
         setManagers(Array.isArray(managersData) ? managersData : [])
       })
@@ -184,6 +195,7 @@ export default function Units() {
               <div className="form-group">
                 <label>Тип</label>
                 <select value={form.unit_type} onChange={(e) => setForm({ ...form, unit_type: e.target.value, parent_id: '' })} required disabled={isProcessing}>
+                  <option value="" disabled>-- Оберіть тип --</option>
                   {allowedUnitTypes.map(type => <option key={type} value={type}>{UNIT_TYPE_NAMES[type] || type}</option>)}
                 </select>
               </div>
@@ -234,7 +246,7 @@ export default function Units() {
                   ))}
                 </select>
                 {availableUsers.length === 0 && (
-                  <p style={{ color: '#64748b', fontSize: '12px', marginTop: '8px' }}>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '8px' }}>
                     Немає вільних користувачів з відповідною роллю. Створіть нового користувача в розділі "Користувачі".
                   </p>
                 )}
@@ -260,9 +272,16 @@ export default function Units() {
             </tr>
           </thead>
           <tbody>
-            {units.map((u) => {
-              const manager = getManager(u.id);
-              return (
+            {units.length === 0 ? (
+              <tr>
+                <td colSpan={canManageUnits ? 5 : 4} style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
+                  Жодної організаційної одиниці не створено. Натисніть кнопку "Додати одиницю", щоб почати.
+                </td>
+              </tr>
+            ) : (
+              units.map((u) => {
+                const manager = getManager(u.id);
+                return (
                 <tr key={u.id}>
                   <td className="font-bold">{u.name}</td>
                   <td><span className="unit-type-tag">{UNIT_TYPE_NAMES[u.unit_type] || u.unit_type}</span></td>
@@ -291,7 +310,7 @@ export default function Units() {
                     <td style={{ width: '1%', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         <button 
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: '#eff6ff', color: '#2563eb', border: '1px solid #dbeafe', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: 'rgba(59, 130, 246, 0.12)', color: '#2563eb', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}
                           onClick={() => handleOpenEdit(u)}
                           title="Редагувати"
                         >
@@ -300,7 +319,7 @@ export default function Units() {
                         </button>
                         
                         <button 
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: '#fff1f2', color: '#e11d48', border: '1px solid #ffe4e6', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: 'rgba(239, 68, 68, 0.12)', color: '#e11d48', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}
                           onClick={() => setUnitToDelete(u)}
                           title="Видалити"
                         >
@@ -312,7 +331,8 @@ export default function Units() {
                   )}
                 </tr>
               )
-            })}
+            })
+            )}
           </tbody>
         </table>
       </div>

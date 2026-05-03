@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"millog_backend/internal/models"
+	"Omnilog_backend/internal/models"
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -15,7 +15,6 @@ import (
 
 // SubscriptionTierWeight визначає іерархію тарифів
 var SubscriptionTierWeight = map[string]int{
-	"FREE":       0,
 	"BASIC":      1,
 	"PRO":        2,
 	"ENTERPRISE": 3,
@@ -91,7 +90,7 @@ func getTenantSubscriptionTier(ctx context.Context, dbPool *pgxpool.Pool, tenant
 
 	// 2. Fallback для legacy даних — рекурсивно по units
 	if unitID == 0 {
-		return "FREE", nil
+		return "BASIC", nil
 	}
 	query := `
 		WITH RECURSIVE unit_hierarchy AS (
@@ -112,7 +111,7 @@ func getTenantSubscriptionTier(ctx context.Context, dbPool *pgxpool.Pool, tenant
 	var tier string
 	err := dbPool.QueryRow(ctx, query, unitID).Scan(&tier)
 	if err != nil || tier == "" {
-		return "FREE", nil
+		return "BASIC", nil
 	}
 	return tier, nil
 }

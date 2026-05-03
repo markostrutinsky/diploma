@@ -1,0 +1,68 @@
+# SSL сертифікати (локальна розробка)
+certs/*.pem
+certs/*.key
+certs/*.crt
+
+# Environment files
+.env
+*.env.local
+*.env.development
+*.env.production
+
+# Docker volumes
+postgres_data/
+pgdata/
+
+# Backend (Go)
+millog_backend/millog_backend
+millog_backend/main
+Omnilog_backend/Omnilog_backend
+Omnilog_backend/.env
+*.test
+*.out
+__debug_bin
+tmp/
+
+# Frontend (Node.js/React)
+millog_frontend/node_modules/
+millog_frontend/dist/
+millog_frontend/build/
+millog_frontend/.env
+millog_frontend/.env.local
+millog_frontend/.vite/
+*.tsbuildinfo
+
+# Scripts (Python)
+scripts/**/__pycache__/
+scripts/**/*.pyc
+scripts/**/venv/
+scripts/**/.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.vim/
+
+# OS
+.DS_Store
+Thumbs.db
+*.bak
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+logs/
+
+# Documentation временные файлы
+*.md.backup
+*.md~
+
+# Compiled output
+*.o
+*.a
+*.so
+*.exe

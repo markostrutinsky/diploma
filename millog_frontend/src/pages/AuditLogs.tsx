@@ -165,28 +165,28 @@ const AuditLogs = () => {
       {/* Статистика */}
       <div className="audit-stats-grid">
         <div className="audit-stat-card">
-          <div className="audit-stat-icon" style={{ background: '#eff6ff', color: '#2563eb' }}>📚</div>
+          <div className="audit-stat-icon" style={{ background: 'rgba(59, 130, 246, 0.12)', color: '#2563eb' }}>📚</div>
           <div>
             <div className="audit-stat-val">{stats.total}</div>
             <div className="audit-stat-lbl">Всього записів</div>
           </div>
         </div>
         <div className="audit-stat-card">
-          <div className="audit-stat-icon" style={{ background: '#f0fdf4', color: '#16a34a' }}>📅</div>
+          <div className="audit-stat-icon" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#16a34a' }}>📅</div>
           <div>
             <div className="audit-stat-val">{stats.today}</div>
             <div className="audit-stat-lbl">Дій за сьогодні</div>
           </div>
         </div>
         <div className="audit-stat-card">
-          <div className="audit-stat-icon" style={{ background: '#fef2f2', color: '#dc2626' }}>⚠️</div>
+          <div className="audit-stat-icon" style={{ background: 'rgba(239, 68, 68, 0.12)', color: '#dc2626' }}>⚠️</div>
           <div>
             <div className="audit-stat-val">{stats.critical}</div>
             <div className="audit-stat-lbl">Критичних дій</div>
           </div>
         </div>
         <div className="audit-stat-card">
-          <div className="audit-stat-icon" style={{ background: '#fffbeb', color: '#d97706' }}>🔍</div>
+          <div className="audit-stat-icon" style={{ background: 'rgba(245, 158, 11, 0.12)', color: '#d97706' }}>🔍</div>
           <div>
             <div className="audit-stat-val">{filteredLogs.length}</div>
             <div className="audit-stat-lbl">У вибірці</div>

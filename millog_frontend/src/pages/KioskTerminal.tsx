@@ -35,7 +35,7 @@ export default function KioskTerminal() {
         (decodedText) => {
           // Обробка твоїх фірмових QR-кодів (якщо вони мають префікс)
           let finalCode = decodedText;
-          if (decodedText.startsWith('millog-resource:')) {
+          if (decodedText.startsWith('Omnilog-resource:')) {
             finalCode = decodedText.split(':')[1];
           }
           
@@ -169,7 +169,7 @@ export default function KioskTerminal() {
           </button>
 
           {isCameraOpen && (
-            <div style={{ marginTop: '20px', background: '#f8fafc', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+            <div style={{ marginTop: '20px', background: 'var(--bg-input)', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)' }}>
               <div id="kiosk-qr-reader"></div>
             </div>
           )}

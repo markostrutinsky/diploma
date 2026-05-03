@@ -17,7 +17,7 @@
 }
 
 .audit-modal-wrapper .audit-modal-content {
-  background: #ffffff;
+  background: var(--bg-card);
   border-radius: 12px;
   width: 100%;
   max-width: 1100px;
@@ -31,17 +31,17 @@
 /* Шапка модалки */
 .audit-modal-wrapper .audit-header {
   padding: 20px 24px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #f8fafc;
+  background-color: var(--bg-input);
 }
 
 .audit-modal-wrapper .audit-header h3 {
   margin: 0;
   font-size: 18px;
-  color: #0f172a;
+  color: var(--text-bright);
 }
 
 .audit-modal-wrapper .warehouse-name-highlight {
@@ -67,14 +67,14 @@
 }
 
 .audit-modal-wrapper .scanner-container {
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border);
   border-radius: 8px;
   overflow: hidden;
   background: #000;
 }
 
 .audit-modal-wrapper .audit-hint-box {
-  background-color: #eff6ff;
+  background-color: rgba(59, 130, 246, 0.1);
   border: 1px solid #bfdbfe;
   padding: 16px;
   border-radius: 8px;
@@ -85,7 +85,7 @@
 
 /* Права панель (Таблиця звірки) */
 .audit-modal-wrapper .table-panel {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   border-radius: 8px;
   overflow-y: auto;
   max-height: calc(90vh - 180px);
@@ -99,13 +99,13 @@
 .audit-modal-wrapper .audit-table thead th {
   position: sticky;
   top: 0;
-  background-color: #f1f5f9;
+  background-color: var(--bg-input);
   padding: 12px 16px;
   font-size: 13px;
   font-weight: 600;
-  color: #475569;
+  color: var(--text);
   text-transform: uppercase;
-  border-bottom: 2px solid #e2e8f0;
+  border-bottom: 2px solid var(--border);
   z-index: 10;
   text-align: left;
 }
@@ -113,19 +113,19 @@
 .audit-modal-wrapper .audit-table tbody td {
   padding: 10px 16px;
   font-size: 14px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border);
   vertical-align: middle;
-  color: #1e293b;
+  color: var(--text-bright);
 }
 
 /* Рядок, який вже перевірено */
 .audit-modal-wrapper .row-verified {
-  background-color: #f0fdf4;
+  background-color: rgba(16, 185, 129, 0.1);
 }
 
 /* Рядок, який ще очікує перевірки */
 .audit-modal-wrapper .row-pending {
-  background-color: #ffffff;
+  background-color: var(--bg-card);
 }
 
 .audit-modal-wrapper .status-icon {
@@ -137,7 +137,7 @@
 .audit-modal-wrapper .qty-input {
   width: 70px;
   padding: 6px 8px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border);
   border-radius: 6px;
   text-align: center;
   font-size: 14px;
@@ -154,8 +154,8 @@
 /* Підвал модалки */
 .audit-modal-wrapper .audit-footer {
   padding: 16px 24px;
-  border-top: 1px solid #e2e8f0;
-  background-color: #f8fafc;
+  border-top: 1px solid var(--border);
+  background-color: var(--bg-input);
   display: flex;
   justify-content: flex-end;
   gap: 12px;

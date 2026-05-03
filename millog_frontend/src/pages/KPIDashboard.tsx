@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { api } from '../api/client'
+import { usePermissions } from '../hooks/usePermissions'
+import { PaywallScreen } from '../components/FeatureGate'
 import './KPIDashboard.css'
 
 interface KPIDashboard {
@@ -32,13 +34,19 @@ interface KPIDashboard {
 }
 
 const KPIDashboard: React.FC = () => {
+  const perms = usePermissions()
+  const hasAccess = perms.hasFeature('advanced_analytics')
   const [kpiData, setKpiData] = useState<KPIDashboard | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (!hasAccess) {
+      setLoading(false)
+      return
+    }
     fetchKPIData()
-  }, [])
+  }, [hasAccess])
 
   const fetchKPIData = async () => {
     try {
@@ -49,13 +57,23 @@ const KPIDashboard: React.FC = () => {
     } catch (err: any) {
       const message = err.message || ''
       if (message.includes('402')) {
-        setError('Ця фіча доступна лише для PRO та ENTERPRISE. Оновіть ваш план.')
+        // Тариф не дозволяє — показуємо красиву заглушку, а не червону плашку
+        setError(null)
       } else {
         setError('Помилка при завантаженні KPI даних')
       }
     } finally {
       setLoading(false)
     }
+  }
+
+  if (!hasAccess) {
+    return (
+      <PaywallScreen
+        feature="advanced_analytics"
+        description="Показники SLA, TCO, ризиків та прогноз дефіциту допомагають керівнику приймати стратегічні рішення на основі даних, а не відчуттів."
+      />
+    )
   }
 
   if (loading) {

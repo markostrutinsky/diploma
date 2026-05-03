@@ -1,9 +1,9 @@
 package repositories
 
 import (
+	"Omnilog_backend/internal/models"
 	"context"
 	"errors"
-	"millog_backend/internal/models"
 )
 
 type WarehouseRepository struct{}

@@ -6,8 +6,8 @@ import (
 	"math"
 	"time"
 
-	"millog_backend/internal/models"
-	"millog_backend/internal/repositories"
+	"Omnilog_backend/internal/models"
+	"Omnilog_backend/internal/repositories"
 )
 
 type GPSTrackingService struct {

@@ -158,6 +158,8 @@ type CreateShipmentRequest struct {
 }
 
 var FuelRecordCreatorRoles = []UserRole{
+	RoleSystemAdmin,
+	RoleTenantAdmin,
 	RoleAdmin,
 	RoleRegionDirector,
 	RoleBranchManager,

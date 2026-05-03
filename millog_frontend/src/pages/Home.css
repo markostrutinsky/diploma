@@ -1,17 +1,20 @@
 .dashboard-container {
-  max-width: 1200px;
+  max-width: 1400px;
   width: 100%;
 }
 
 .page-header {
-  margin-bottom: 2rem;
+  margin-bottom: 2.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
 }
 
 .page-header h1 {
-  margin: 0 0 0.25rem;
-  font-size: 1.75rem;
-  font-weight: 600;
-  color: var(--text);
+  margin: 0 0 0.5rem;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--text-bright);
+  letter-spacing: -0.02em;
 }
 
 .page-subtitle {
@@ -23,44 +26,67 @@
 /* 1. Блок статистики */
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1.25rem;
-  margin-bottom: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
 }
 
 .stat-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 1.5rem;
+  border-radius: 10px;
+  padding: 1.75rem;
   text-decoration: none;
   color: inherit;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: all 0.3s ease;
   display: flex;
   flex-direction: column;
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-light));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s ease;
 }
 
 .stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  border-color: var(--border-dark);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-light);
+}
+
+.stat-card:hover::before {
+  transform: scaleX(1);
 }
 
 .stat-value {
-  font-size: 2rem;
+  font-size: 2.25rem;
   font-weight: 700;
-  color: var(--text);
-  margin-bottom: 0.25rem;
+  color: var(--text-bright);
+  margin-bottom: 0.5rem;
+  line-height: 1;
 }
 
 .stat-label {
   font-size: 0.875rem;
   color: var(--text-muted);
   font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .stat-warning .stat-value {
-  color: #d97706; /* Темно-оранжевий */
+  color: var(--warning);
 }
 
 /* 2. Блок швидких дій */
@@ -69,10 +95,10 @@
 }
 
 .quick-actions-section h2 {
-  font-size: 1.125rem;
+  font-size: 1.25rem;
   font-weight: 600;
-  margin: 0 0 1rem;
-  color: var(--text);
+  margin: 0 0 1.25rem;
+  color: var(--text-bright);
 }
 
 .actions-row {
@@ -85,17 +111,21 @@
   background: var(--bg-card);
   border: 1px solid var(--border);
   color: var(--text);
-  padding: 0.75rem 1.5rem;
-  border-radius: 6px;
+  padding: 0.875rem 1.75rem;
+  border-radius: 8px;
   text-decoration: none;
-  font-weight: 500;
-  font-size: 0.95rem;
-  transition: all 0.2s;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  transition: all 0.2s ease;
+  box-shadow: var(--shadow-sm);
 }
 
 .action-button:hover {
-  background: var(--bg-hover, #f8fafc);
-  border-color: var(--border-dark);
+  background: var(--bg-card-hover);
+  border-color: var(--border-light);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  color: var(--text-bright);
 }
 
 /* 3. Головна сітка віджетів */
@@ -103,6 +133,7 @@
   display: grid;
   grid-template-columns: 1fr;
   gap: 1.5rem;
+  background: transparent;
 }
 
 @media (min-width: 900px) {
@@ -115,20 +146,29 @@
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  background: transparent;
 }
 
 .widgets-side-column {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  background: transparent;
 }
 
 /* Спільні стилі для віджетів */
 .erp-widget {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 1.5rem;
+  border-radius: 10px;
+  padding: 1.75rem;
+  box-shadow: var(--shadow-sm);
+  transition: all 0.2s ease;
+}
+
+.erp-widget:hover {
+  border-color: var(--border-light);
+  box-shadow: var(--shadow-md);
 }
 
 .widget-header {
@@ -144,26 +184,29 @@
   font-size: 1.125rem;
   font-weight: 600;
   margin: 0;
-  color: var(--text);
+  color: var(--text-bright);
 }
 
 .widget-badge {
-  background: #f1f5f9;
-  color: #475569;
+  background: var(--bg-hover);
+  color: var(--text-muted);
   font-size: 0.75rem;
-  padding: 0.2rem 0.5rem;
+  padding: 0.3rem 0.6rem;
   border-radius: 12px;
   font-weight: 600;
+  border: 1px solid var(--border);
 }
 
 .widget-link {
-  color: #3b82f6;
+  color: var(--accent-light);
   text-decoration: none;
   font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 600;
+  transition: color 0.2s ease;
 }
 
 .widget-link:hover {
+  color: var(--accent);
   text-decoration: underline;
 }
 
@@ -184,7 +227,7 @@
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 1rem 1.25rem;
-  background: #fafafa;
+  background: var(--bg-input);
 }
 
 .metric-header {
@@ -206,7 +249,7 @@
   display: flex;
   align-items: baseline;
   gap: 0.5rem;
-  background: white;
+  background: var(--bg-input);
   padding: 0.25rem 0.75rem;
   border-radius: 20px;
   border: 1px solid var(--border);
@@ -319,27 +362,27 @@
 }
 
 .warning-alert {
-  background: #fffbeb;
-  border: 1px solid #fde68a;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.3);
 }
-.warning-alert strong { color: #92400e; }
-.warning-alert span { color: #b45309; }
+.warning-alert strong { color: #fbbf24; }
+.warning-alert span { color: #f59e0b; }
 
 .info-alert {
-  background: #eff6ff;
-  border: 1px solid #bfdbfe;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
 }
-.info-alert strong { color: #1e40af; }
-.info-alert span { color: #2563eb; }
+.info-alert strong { color: #60a5fa; }
+.info-alert span { color: #3b82f6; }
 
 .success-alert {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
   cursor: default; /* Не клікабельна */
 }
 .success-alert:hover { transform: none; }
-.success-alert strong { color: #166534; }
-.success-alert span { color: #15803d; }
+.success-alert strong { color: #22c55e; }
+.success-alert span { color: #16a34a; }
 
 .alert-icon {
   font-size: 1.5rem;
@@ -376,11 +419,11 @@
   background: transparent;
 }
 .metrics-list::-webkit-scrollbar-thumb {
-  background-color: #cbd5e1;
+  background-color: var(--border-light);
   border-radius: 10px;
 }
 .metrics-list::-webkit-scrollbar-thumb:hover {
-  background-color: #94a3b8;
+  background-color: var(--text-muted);
 }
 
 .feed-list {
@@ -398,18 +441,18 @@
   background: transparent;
 }
 .feed-list::-webkit-scrollbar-thumb {
-  background-color: #cbd5e1;
+  background-color: var(--border-light);
   border-radius: 10px;
 }
 .feed-list::-webkit-scrollbar-thumb:hover {
-  background-color: #94a3b8;
+  background-color: var(--text-muted);
 }
 
 /* Заодно робимо так, щоб довгі тексти в логах не розривали верстку */
 .feed-content {
   word-break: break-word; 
   padding-bottom: 12px;
-  border-bottom: 1px solid #f1f5f9; /* Тонка лінія між логами для краси */
+  border-bottom: 1px solid var(--border); /* Тонка лінія між логами для краси */
 }
 
 .feed-item:last-child .feed-content {

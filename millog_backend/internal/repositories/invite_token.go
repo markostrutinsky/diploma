@@ -1,8 +1,8 @@
 package repositories
 
 import (
+	"Omnilog_backend/internal/models"
 	"context"
-	"millog_backend/internal/models"
 )
 
 type InviteTokenRepository struct {

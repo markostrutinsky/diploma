@@ -1,13 +1,13 @@
 package services
 
 import (
+	"Omnilog_backend/internal/middleware"
+	"Omnilog_backend/internal/models"
+	"Omnilog_backend/internal/repositories"
+	"Omnilog_backend/internal/tokens"
 	"context"
 	"errors"
 	"fmt"
-	"millog_backend/internal/middleware"
-	"millog_backend/internal/models"
-	"millog_backend/internal/repositories"
-	"millog_backend/internal/tokens"
 	"os"
 	"strings"
 	"time"
@@ -54,17 +54,27 @@ func (s *AuthService) RegisterUser(ctx context.Context, request *models.CreateUs
 		return nil, fmt.Errorf("волонтери реєструються самостійно через сторінку реєстрації")
 	}
 
+	// SYSTEM_ADMIN — платформний, крос-тенантний. Він не створює звичайних користувачів
+	// у конкретних організаціях через цей endpoint.
+	if creatorRole == models.RoleSystemAdmin {
+		return nil, fmt.Errorf("платформний адмін не створює користувачів у tenant — використайте TENANT_ADMIN організації")
+	}
+
+	// Явно забороняємо створення SYSTEM_ADMIN через цей endpoint будь-кому.
+	if role == models.RoleSystemAdmin {
+		return nil, fmt.Errorf("роль SYSTEM_ADMIN не створюється через адмінку організації")
+	}
+
 	if !creatorRole.CanCreate(role) {
 		return nil, fmt.Errorf("ваша посада не має прав для створення користувача з роллю %s", role)
 	}
 
-	// Tenant-isolation: створюємо користувача лише всередині свого tenant
-	// (SYSTEM_ADMIN без tenant не може створювати звичайних користувачів через цей endpoint).
+	// Tenant-isolation: створюємо користувача лише всередині свого tenant.
 	var tenantID *string
 	if creatorTenantID != "" {
 		tid := creatorTenantID
 		tenantID = &tid
-	} else if role != models.RoleSystemAdmin {
+	} else {
 		return nil, fmt.Errorf("неможливо створити користувача без tenant контексту")
 	}
 
@@ -252,7 +262,7 @@ func (s *AuthService) CreateTenant(ctx context.Context, req *models.CreateTenant
 	// 1. Створити tenant
 	var tenantID string
 	insertTenant := `INSERT INTO tenants (name, slug, subscription_tier, owner_email, is_active)
-		VALUES ($1, $2, 'FREE', $3, TRUE)
+		VALUES ($1, $2, 'BASIC', $3, TRUE)
 		RETURNING id`
 	if err := tx.QueryRow(ctx, insertTenant, req.OrganizationName, slug, req.OwnerEmail).Scan(&tenantID); err != nil {
 		return "", "", fmt.Errorf("не вдалося створити організацію (можливо slug/name уже зайняті): %w", err)
@@ -315,6 +325,8 @@ func (s *AuthService) parseRole(r string) models.UserRole {
 		return models.RoleBranchStorekeeper
 	case "DEPT_SUPERVISOR":
 		return models.RoleDeptSupervisor
+	case "EMPLOYEE":
+		return models.RoleEmployee
 	case "CONTRACTOR":
 		return models.RoleContractor
 	default:
@@ -528,7 +540,20 @@ func (s *AuthService) UpdateRoleAndUnit(ctx context.Context, commanderID string,
 }
 
 func (s *AuthService) isRoleChangePermitted(commanderRole string, targetRole string) bool {
-	if commanderRole == string(models.RoleAdmin) {
+	// Нікому з tenant-рівня (включно з TENANT_ADMIN/ADMIN) не можна призначати SYSTEM_ADMIN:
+	// платформний адмін створюється лише через bootstrap / напряму платформою.
+	if commanderRole != string(models.RoleSystemAdmin) && targetRole == string(models.RoleSystemAdmin) {
+		return false
+	}
+
+	// Власник організації (TENANT_ADMIN або legacy ADMIN) може призначати будь-яку роль
+	// у межах свого tenant (крім SYSTEM_ADMIN, що відсіклося вище).
+	if commanderRole == string(models.RoleTenantAdmin) || commanderRole == string(models.RoleAdmin) {
+		return true
+	}
+
+	// SYSTEM_ADMIN — повні права.
+	if commanderRole == string(models.RoleSystemAdmin) {
 		return true
 	}
 

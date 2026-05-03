@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GPS Simulator для MilLog / OmniLog.
+GPS Simulator для Omnilog / OmniLog.
 
 Імітує передачу GPS-координат від транспортних засобів, які ЗАРАЗ перебувають
 у рейсі (таблиця `shipments`). На карті «GPS Трекінг» з'являються тільки машини
@@ -378,7 +378,7 @@ def run_free_mode(conn: psycopg.Connection, args: argparse.Namespace, stop: dict
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="GPS simulator for MilLog vehicles")
+    parser = argparse.ArgumentParser(description="GPS simulator for Omnilog vehicles")
     parser.add_argument("--dsn", default=DEFAULT_DSN, help="PostgreSQL DSN (env SEED_DSN)")
     parser.add_argument(
         "--mode",

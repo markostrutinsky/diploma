@@ -2,9 +2,11 @@ import React, { useEffect, useState } from 'react'
 import { api, type Vehicle, type FuelRecordType, type FuelRecord, type MaintenanceRecord, type SystemUser, type DriverHistoryRecord} from '../api/client'
 import { usePermissions } from '../hooks/usePermissions'
 import toast, { Toaster } from 'react-hot-toast'
+import { useNavigate } from 'react-router-dom'
 import './Vehicles.css' 
 
 export default function Vehicles() {
+  const navigate = useNavigate()
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [usersList, setUsersList] = useState<SystemUser[]>([])
   const [loading, setLoading] = useState(true)
@@ -116,8 +118,38 @@ export default function Vehicles() {
       setNewVehicle({ brand: '', model: '', plate_number: '', type: 'VAN', capacity_kg: 1500, tank_capacity: 0, fuel_norm: 0, driver_id: '' })
       loadData()
       setShowVehicleForm(false)
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Помилка створення авто')
+    } catch (err: any) {
+      // Перевіряємо, чи це помилка ліміту (402 Payment Required)
+      if (err?.response?.status === 402 || err?.message?.includes('ліміт') || err?.message?.includes('Ліміт')) {
+        const errorMsg = err?.response?.data?.error || err?.message || 'Досягнуто ліміт транспортних засобів для вашого тарифу';
+        toast.error(
+          (t) => (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <strong>🚫 {errorMsg}</strong>
+              <button
+                onClick={() => {
+                  toast.dismiss(t.id);
+                  navigate('/billing');
+                }}
+                style={{
+                  padding: '8px 16px',
+                  background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: '600'
+                }}
+              >
+                💎 Оновити тариф
+              </button>
+            </div>
+          ),
+          { duration: 8000 }
+        );
+      } else {
+        toast.error(err?.message || 'Помилка створення авто');
+      }
     } finally {
       setIsProcessing(false)
     }

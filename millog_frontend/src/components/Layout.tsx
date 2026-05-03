@@ -195,7 +195,7 @@ export default function Layout({ children }: LayoutProps) {
             )}
             
             {/* 8. Права Суперадміна */}
-            {isAdmin && (
+            {(isAdmin || isSystemAdmin || hasRole(userRole, ROLE_GROUPS.superAdmin)) && (
               <>
                 <Link to="/audit" className={location.pathname === '/audit' ? 'active' : ''}>
                   🛡️ Журнал аудиту

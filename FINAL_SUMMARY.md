@@ -1,4 +1,4 @@
-# 🎓 MilLog Enterprise - Дипломний проект: Фінальний Звіт
+# 🎓 Omnilog Enterprise - Дипломний проект: Фінальний Звіт
 
 **Дата завершення**: 22 квітня 2026 р.  
 **Статус**: ✅ **ГОТОВО ДО ЗАХИСТУ**
@@ -7,7 +7,7 @@
 
 ## 📊 Огляд проекту
 
-**MilLog** - це omfattende enterprise-nivel система управління логістикою, розроблена для військових логістичних операцій з наступними компонентами:
+**Omnilog** - це omfattende enterprise-nivel система управління логістикою, розроблена для військових логістичних операцій з наступними компонентами:
 
 ### Архітектура стеку
 ```
@@ -123,7 +123,7 @@ DevOps:    Docker + Docker Compose + Nginx
 
 ## 📁 Структура проекту
 
-### Backend (`millog_backend/`)
+### Backend (`Omnilog_backend/`)
 ```
 internal/
 ├── models/           # Data structures
@@ -153,7 +153,7 @@ internal/
 main.go [UPDATED] +7 routes
 ```
 
-### Frontend (`millog_frontend/`)
+### Frontend (`Omnilog_frontend/`)
 ```
 src/
 ├── pages/
@@ -385,10 +385,10 @@ Commit 4: ✅ Complete Frontend: Maintenance Schedule & Fuel Anomalies Component
 ## 📚 Ключові файли для защиту
 
 1. **PREMIUM_FEATURES_IMPLEMENTATION.md** - 1100+ рядків з деталями 5 фіч
-2. **Backend**: `millog_backend/internal/{models,repositories,services,handlers}/gps*`
-3. **Frontend**: `millog_frontend/src/pages/{KPIDashboard,GPSTracking,MaintenanceSchedule,FuelAnomalies}.tsx`
-4. **API**: `millog_frontend/src/api/client.ts` - 11 нових endpoints
-5. **Routes**: `millog_frontend/src/App.tsx` - 4 нові маршрути
+2. **Backend**: `Omnilog_backend/internal/{models,repositories,services,handlers}/gps*`
+3. **Frontend**: `Omnilog_frontend/src/pages/{KPIDashboard,GPSTracking,MaintenanceSchedule,FuelAnomalies}.tsx`
+4. **API**: `Omnilog_frontend/src/api/client.ts` - 11 нових endpoints
+5. **Routes**: `Omnilog_frontend/src/App.tsx` - 4 нові маршрути
 
 ---
 

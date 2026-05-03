@@ -7,8 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"millog_backend/internal/models"
-	"millog_backend/internal/repositories"
+	"Omnilog_backend/internal/models"
+	"Omnilog_backend/internal/repositories"
 )
 
 // PlatformHandler обробляє ендпойнти платформного адміна (SYSTEM_ADMIN).

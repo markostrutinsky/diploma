@@ -31,8 +31,8 @@
 }
 
 .inventory-page .card { 
-  background: #ffffff; 
-  border: 1px solid #e5e7eb; 
+  background: var(--bg-card); 
+  border: 1px solid var(--border); 
   border-radius: 8px; 
   padding: 24px; 
   overflow: visible; /* Щоб меню не обрізалося */
@@ -42,7 +42,7 @@
   margin: 0 0 16px; 
   font-size: 16px; 
   font-weight: 600; 
-  color: #0f172a; 
+  color: var(--text-bright); 
 }
 
 /* =========================================
@@ -74,13 +74,13 @@
 }
 
 .inventory-page .page-actions .btn-secondary {
-  background-color: #ffffff;
-  color: #1e293b;
-  border: 1px solid #cbd5e1;
+  background-color: var(--bg-card);
+  color: var(--text-bright);
+  border: 1px solid var(--border);
 }
 
 .inventory-page .page-actions .btn-secondary:hover {
-  background-color: #f1f5f9;
+  background-color: var(--bg-input);
 }
 
 .inventory-page .filter-select.erp-input {
@@ -89,7 +89,7 @@
   min-width: 200px;
   margin: 0;
   padding: 0 12px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border);
   border-radius: 6px;
 }
 
@@ -113,18 +113,18 @@
   transition: all 0.2s ease;
   gap: 12px;
   min-height: 48px;
-  color: #495057;
+  color: var(--text);
   font-size: 15px;
 }
 
 .inventory-page .category-item:hover { 
-  background-color: #f1f3f5; 
+  background-color: var(--bg-input); 
 }
 
 .inventory-page .category-item.active-category { 
-  background-color: #e9ecef; 
+  background-color: var(--border); 
   font-weight: 600; 
-  color: #0d47a1; 
+  color: var(--accent); 
 }
 
 .inventory-page .category-name-text {
@@ -159,8 +159,8 @@
   transition: all 0.2s ease;
 }
 
-.inventory-page .btn-icon-small:hover { background: #e2e8f0; color: #0f172a; }
-.inventory-page .btn-icon-small.delete:hover { background: #fee2e2; color: #ef4444; }
+.inventory-page .btn-icon-small:hover { background: var(--border); color: var(--text-bright); }
+.inventory-page .btn-icon-small.delete:hover { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
 
 /* =========================================
    ТАБЛИЦЯ "РЕСУРСИ" (Жорсткий контроль)
@@ -184,30 +184,30 @@
   white-space: normal;
   padding: 12px; 
   text-align: left; 
-  border-bottom: 1px solid #e2e8f0; 
+  border-bottom: 1px solid var(--border); 
   vertical-align: middle;
 }
 
 .inventory-page .table-inventory th { 
   font-weight: 600; 
-  color: #475569; 
-  background-color: #f8fafc; 
+  color: var(--text); 
+  background-color: var(--bg-input); 
 }
 
 /* Специфічні елементи таблиці */
 .inventory-page .location-stack { display: flex; flex-direction: column; gap: 6px; }
-.inventory-page .stock-info { font-size: 13px; color: #334155; background-color: #f1f5f9; padding: 4px 8px; border-radius: 6px; display: inline-block; width: fit-content; }
-.inventory-page .issued-info { font-size: 13px; color: #1d4ed8; background-color: #eff6ff; padding: 4px 8px; border-radius: 6px; display: inline-block; width: fit-content; }
+.inventory-page .stock-info { font-size: 13px; color: var(--text); background-color: var(--bg-input); padding: 4px 8px; border-radius: 6px; display: inline-block; width: fit-content; }
+.inventory-page .issued-info { font-size: 13px; color: var(--accent); background-color: rgba(59, 130, 246, 0.1); padding: 4px 8px; border-radius: 6px; display: inline-block; width: fit-content; }
 
-.inventory-page .unit-header-row td { font-weight: 600; color: #495057; padding: 12px; border-top: 2px solid #dee2e6; background-color: #f8f9fa; }
-.inventory-page .my-unit-header td { color: #0d47a1; background-color: #e3f2fd; }
-.inventory-page .my-unit-badge { font-size: 12px; color: #1976d2; background: #dbeafe; padding: 2px 6px; border-radius: 4px; margin-left: 8px; font-weight: normal; }
+.inventory-page .unit-header-row td { font-weight: 600; color: var(--text); padding: 12px; border-top: 2px solid #dee2e6; background-color: var(--bg-input); }
+.inventory-page .my-unit-header td { color: var(--accent); background-color: rgba(59, 130, 246, 0.15); }
+.inventory-page .my-unit-badge { font-size: 12px; color: #1976d2; background: rgba(59, 130, 246, 0.15); padding: 2px 6px; border-radius: 4px; margin-left: 8px; font-weight: normal; }
 
 .inventory-page .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
-.inventory-page .badge-success { background: #dcfce7; color: #059669; }
-.inventory-page .badge-warning { background: #fef3c7; color: #d97706; }
-.inventory-page .badge-critical { background: #fee2e2; color: #dc2626; }
-.inventory-page .badge-neutral { background-color: #f1f5f9; color: #475569; }
+.inventory-page .badge-success { background: rgba(16, 185, 129, 0.15); color: #059669; }
+.inventory-page .badge-warning { background: rgba(245, 158, 11, 0.15); color: #d97706; }
+.inventory-page .badge-critical { background: rgba(239, 68, 68, 0.15); color: #dc2626; }
+.inventory-page .badge-neutral { background-color: var(--bg-input); color: var(--text); }
 
 /* =========================================
    МЕНЮ ДІЙ (3 КРАПКИ) В ТАБЛИЦІ
@@ -221,23 +221,23 @@
   align-items: center; justify-content: center; border-radius: 6px; transition: 0.2s; 
 }
 .inventory-page .btn-kebab:hover, 
-.inventory-page .btn-kebab.active { background: #f1f5f9; color: #0f172a; }
+.inventory-page .btn-kebab.active { background: var(--bg-input); color: var(--text-bright); }
 
 .inventory-page .actions-dropdown-menu { 
-  position: absolute; right: 0; top: calc(100% + 4px); background: #ffffff; 
-  border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); 
+  position: absolute; right: 0; top: calc(100% + 4px); background: var(--bg-card); 
+  border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); 
   z-index: 1000; min-width: 220px; padding: 6px; 
 }
 
 .inventory-page .actions-dropdown-menu button { 
-  display: flex; width: 100%; padding: 10px 12px; font-size: 13px; color: #334155; 
+  display: flex; width: 100%; padding: 10px 12px; font-size: 13px; color: var(--text); 
   background: none; border: none; text-align: left; cursor: pointer; 
   border-radius: 6px; transition: 0.2s; font-family: inherit; font-weight: 500;
 }
-.inventory-page .actions-dropdown-menu button:hover { background: #f8fafc; color: #0f172a; }
+.inventory-page .actions-dropdown-menu button:hover { background: var(--bg-input); color: var(--text-bright); }
 .inventory-page .actions-dropdown-menu .text-danger { color: #ef4444; }
-.inventory-page .actions-dropdown-menu .text-danger:hover { background-color: #fef2f2; color: #dc2626; }
-.inventory-page .dropdown-divider { height: 1px; background-color: #e2e8f0; margin: 4px 0; }
+.inventory-page .actions-dropdown-menu .text-danger:hover { background-color: rgba(239, 68, 68, 0.1); color: #dc2626; }
+.inventory-page .dropdown-divider { height: 1px; background-color: var(--border); margin: 4px 0; }
 
 /* =========================================
    МОДАЛЬНІ ВІКНА (Ізольований клас .inventory-modal)
@@ -249,14 +249,14 @@
 }
 
 .inventory-modal .modal { 
-  background: white; border-radius: 12px; padding: 24px; 
+  background: var(--bg-card); border-radius: 12px; padding: 24px; 
   width: 100%; max-width: 550px; 
   max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); 
   box-sizing: border-box; 
 }
 
 .inventory-modal .modal h3 {
-  margin-top: 0; margin-bottom: 20px; color: #0f172a;
+  margin-top: 0; margin-bottom: 20px; color: var(--text-bright);
 }
     
 .inventory-modal .form-group { 
@@ -264,7 +264,7 @@
 }
 
 .inventory-modal .form-group label { 
-  display: block; font-size: 12px; font-weight: 600; color: #475569; 
+  display: block; font-size: 12px; font-weight: 600; color: var(--text); 
   margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;
 }
     
@@ -273,8 +273,8 @@
 .inventory-modal .form-group textarea, 
 .inventory-modal .erp-input {
   width: 100%; box-sizing: border-box;
-  padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; 
-  font-size: 14px; background-color: #fff; color: #0f172a; font-family: inherit;
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; 
+  font-size: 14px; background-color: var(--bg-card); color: var(--text-bright); font-family: inherit;
 }
 
 .inventory-modal .form-group input:focus, 
@@ -295,15 +295,15 @@
     
 .inventory-modal .modal-actions { 
   display: flex; justify-content: flex-end; gap: 12px; margin-top: 32px; 
-  padding-top: 16px; border-top: 1px solid #e2e8f0; 
+  padding-top: 16px; border-top: 1px solid var(--border); 
 }
 
 .inventory-modal .btn-primary { background-color: #2563eb; color: #ffffff; border: 1px solid transparent; border-radius: 6px; padding: 10px 20px; font-size: 14px; font-weight: 500; cursor: pointer; transition: 0.2s; }
-.inventory-modal .btn-primary:hover:not(:disabled) { background-color: #1d4ed8; }
+.inventory-modal .btn-primary:hover:not(:disabled) { background-color: var(--accent); }
 .inventory-modal .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
-.inventory-modal .btn-secondary { background-color: #ffffff; color: #334155; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 20px; font-size: 14px; font-weight: 500; cursor: pointer; transition: 0.2s; }
-.inventory-modal .btn-secondary:hover { background-color: #f1f5f9; }
+.inventory-modal .btn-secondary { background-color: var(--bg-card); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 10px 20px; font-size: 14px; font-weight: 500; cursor: pointer; transition: 0.2s; }
+.inventory-modal .btn-secondary:hover { background-color: var(--bg-input); }
 
 .inventory-modal .btn-danger { background-color: #dc2626; color: #ffffff; border: 1px solid transparent; border-radius: 6px; padding: 10px 20px; font-size: 14px; font-weight: 500; cursor: pointer; transition: 0.2s; }
 .inventory-modal .btn-danger:hover { background-color: #b91c1c; }
@@ -315,24 +315,24 @@
 .inventory-modal .qr-modal .modal-header h3 { margin: 0; }
 .inventory-modal .qr-modal-body { padding: 20px; }
 .inventory-modal .qr-resource-name { font-weight: 600; margin-bottom: 15px; font-size: 16px; }
-.inventory-modal .qr-image-wrapper { background: #ffffff; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; display: inline-block; }
+.inventory-modal .qr-image-wrapper { background: var(--bg-card); padding: 10px; border-radius: 8px; border: 1px solid var(--border); display: inline-block; }
 .inventory-modal .qr-image { width: 200px; height: 200px; display: block; }
-.inventory-modal .qr-id-info { font-size: 12px; color: #64748b; margin-top: 15px; }
-.inventory-modal .qr-id-code { background: #f1f5f9; padding: 2px 4px; border-radius: 4px; }
+.inventory-modal .qr-id-info { font-size: 12px; color: var(--text-muted); margin-top: 15px; }
+.inventory-modal .qr-id-code { background: var(--bg-input); padding: 2px 4px; border-radius: 4px; }
 .inventory-modal .qr-modal-actions { flex-direction: column; gap: 10px; margin-top: 20px; }
 .inventory-modal .btn-block { width: 100%; justify-content: center; }
 
 .inventory-modal .scanner-modal { max-width: 400px; }
 .inventory-modal .scanner-modal-body { padding: 20px 0; }
 .inventory-modal .qr-reader-container { width: 100%; border-radius: 8px; overflow: hidden; }
-.inventory-modal .scanner-permission-text { text-align: center; font-size: 13px; color: #64748b; margin-top: 15px; }
+.inventory-modal .scanner-permission-text { text-align: center; font-size: 13px; color: var(--text-muted); margin-top: 15px; }
 
 .inventory-modal .scan-result-icon { text-align: center; margin-bottom: 20px; }
 .inventory-modal .scan-result-icon span { font-size: 40px; display: block; margin-bottom: 10px; }
-.inventory-modal .scan-result-icon h2 { margin: 0; color: #0f172a; font-size: 20px; }
+.inventory-modal .scan-result-icon h2 { margin: 0; color: var(--text-bright); font-size: 20px; }
 .inventory-modal .scan-result-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-.inventory-modal .scan-result-table td { padding: 10px 0; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
+.inventory-modal .scan-result-table td { padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
 .inventory-modal .scan-result-table tr:last-child td { border-bottom: none; }
-.inventory-modal .scan-result-label { color: #64748b; }
-.inventory-modal .scan-result-value { text-align: right; font-weight: 600; color: #0f172a; }
+.inventory-modal .scan-result-label { color: var(--text-muted); }
+.inventory-modal .scan-result-value { text-align: right; font-weight: 600; color: var(--text-bright); }
 .inventory-modal .scan-result-id { text-align: right; font-size: 12px; color: #94a3b8; }

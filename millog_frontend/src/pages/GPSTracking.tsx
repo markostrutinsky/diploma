@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { api } from '../api/client'
+import { usePermissions } from '../hooks/usePermissions'
+import { PaywallScreen } from '../components/FeatureGate'
 import './GPSTracking.css'
 
 interface Vehicle {
@@ -20,6 +22,8 @@ interface FleetMapData {
 }
 
 const GPSTracking: React.FC = () => {
+  const perms = usePermissions()
+  const hasAccess = perms.hasFeature('gps_tracking')
   const [fleetData, setFleetData] = useState<FleetMapData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -54,13 +58,17 @@ const GPSTracking: React.FC = () => {
   }
 
   useEffect(() => {
+    if (!hasAccess) {
+      setLoading(false)
+      return
+    }
     fetchFleetData()
-    
+
     if (autoRefresh) {
       const interval = setInterval(fetchFleetData, refreshInterval * 1000)
       return () => clearInterval(interval)
     }
-  }, [autoRefresh, refreshInterval])
+  }, [autoRefresh, refreshInterval, hasAccess])
 
   const fetchFleetData = async () => {
     try {
@@ -70,7 +78,8 @@ const GPSTracking: React.FC = () => {
     } catch (err: any) {
       const message = err.message || ''
       if (message.includes('402')) {
-        setError('GPS трекінг доступний лише для PRO та ENTERPRISE')
+        // Тариф не підтримує — показуємо paywall
+        setError(null)
       } else {
         setError('Помилка при завантаженні GPS даних')
       }
@@ -88,6 +97,15 @@ const GPSTracking: React.FC = () => {
 
   const getHeadingRotation = (heading?: number | null): number => {
     return heading ?? 0
+  }
+
+  if (!hasAccess) {
+    return (
+      <PaywallScreen
+        feature="gps_tracking"
+        description="Real-time карта, історія маршрутів за 24 години, геозони та контроль швидкості — щоб диспетчер бачив усі машини в одному вікні."
+      />
+    )
   }
 
   if (loading && !fleetData) {

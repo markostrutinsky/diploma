@@ -1,10 +1,10 @@
 package handlers
 
 import (
+	"Omnilog_backend/internal/middleware"
+	"Omnilog_backend/internal/models"
+	"Omnilog_backend/internal/services"
 	"context"
-	"millog_backend/internal/middleware"
-	"millog_backend/internal/models"
-	"millog_backend/internal/services"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -41,9 +41,9 @@ func (h *WarehouseHandler) Create(c *gin.Context) {
 	claims := claimsVal.(*middleware.Claims)
 
 	// Логіка доступу:
-	// Якщо це НЕ Адмін, примусово ставимо його власний UnitID.
+	// Якщо це НЕ Адмін (platform/tenant), примусово ставимо його власний UnitID.
 	// Якщо Адмін — дозволяємо зберегти той UnitID, який прийшов з фронтенду.
-	if claims.Role != models.RoleAdmin {
+	if !claims.Role.IsPlatformAdmin() && !claims.Role.IsTenantOwner() {
 		if claims.UnitID == 0 {
 			c.JSON(http.StatusForbidden, gin.H{"error": "відмовлено в доступі: ваш профіль не прив'язаний до підрозділу"})
 			return
@@ -84,7 +84,7 @@ func (h *WarehouseHandler) List(c *gin.Context) {
 
 	var targetUnitID int64
 
-	if claims.Role == models.RoleAdmin {
+	if claims.Role.IsPlatformAdmin() || claims.Role.IsTenantOwner() {
 		targetUnitID = 0
 	} else {
 		if claims.UnitID == 0 {

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MilLog / OmniLog — скрипт заповнення тестової БД.
+Omnilog / OmniLog — скрипт заповнення тестової БД.
 
 Створює багаторегіональну структуру (single-tenant, але з ізольованими
 піддеревами одиниць), щоб можна було перевірити:
@@ -391,51 +391,51 @@ def seed(conn: psycopg.Connection, reset: bool) -> None:
         print("→ Створюю користувачів…")
         user_specs: list[UserSpec] = [
             # Super-admin без unit_id
-            UserSpec("admin@millog.local", "Головний Адмін", "ADMIN", None),
-            UserSpec("admin2@millog.local", "Резервний Адмін", "ADMIN", None),
+            UserSpec("admin@Omnilog.local", "Головний Адмін", "ADMIN", None),
+            UserSpec("admin2@Omnilog.local", "Резервний Адмін", "ADMIN", None),
 
             # --- Захід (PRO) ---
-            UserSpec("director.west@millog.local", "Оксана Директорова (PRO)", "REGION_DIRECTOR", "west"),
-            UserSpec("logist.west@millog.local", "Петро Логіст (PRO)", "REGION_LOGISTICIAN", "west"),
-            UserSpec("storekeeper.west@millog.local", "Марта Комірникова (PRO)", "REGION_STOREKEEPER", "west"),
-            UserSpec("manager.lviv@millog.local", "Богдан Менеджерів", "BRANCH_MANAGER", "west_lviv"),
-            UserSpec("logist.lviv@millog.local", "Ірина Логіст Львів", "BRANCH_LOGISTICIAN", "west_lviv"),
-            UserSpec("storekeeper.lviv@millog.local", "Олег Комірник Львів", "BRANCH_STOREKEEPER", "west_lviv"),
-            UserSpec("manager.ivf@millog.local", "Ярослав Менеджер ІФ", "BRANCH_MANAGER", "west_ivf"),
-            UserSpec("dept.lviv@millog.local", "Роман Начвідділу Львів", "DEPT_MANAGER", "west_lviv_dept"),
-            UserSpec("supervisor.lviv@millog.local", "Анна Супервайзер Львів", "DEPT_SUPERVISOR", "west_lviv_dept"),
-            UserSpec("team.lviv@millog.local", "Василь Тімлід Львів", "TEAM_LEAD", "west_lviv_team"),
-            UserSpec("employee1.lviv@millog.local", "Михайло Працівник", "EMPLOYEE", "west_lviv_team"),
-            UserSpec("employee2.lviv@millog.local", "Тарас Працівник", "EMPLOYEE", "west_lviv_team"),
+            UserSpec("director.west@Omnilog.local", "Оксана Директорова (PRO)", "REGION_DIRECTOR", "west"),
+            UserSpec("logist.west@Omnilog.local", "Петро Логіст (PRO)", "REGION_LOGISTICIAN", "west"),
+            UserSpec("storekeeper.west@Omnilog.local", "Марта Комірникова (PRO)", "REGION_STOREKEEPER", "west"),
+            UserSpec("manager.lviv@Omnilog.local", "Богдан Менеджерів", "BRANCH_MANAGER", "west_lviv"),
+            UserSpec("logist.lviv@Omnilog.local", "Ірина Логіст Львів", "BRANCH_LOGISTICIAN", "west_lviv"),
+            UserSpec("storekeeper.lviv@Omnilog.local", "Олег Комірник Львів", "BRANCH_STOREKEEPER", "west_lviv"),
+            UserSpec("manager.ivf@Omnilog.local", "Ярослав Менеджер ІФ", "BRANCH_MANAGER", "west_ivf"),
+            UserSpec("dept.lviv@Omnilog.local", "Роман Начвідділу Львів", "DEPT_MANAGER", "west_lviv_dept"),
+            UserSpec("supervisor.lviv@Omnilog.local", "Анна Супервайзер Львів", "DEPT_SUPERVISOR", "west_lviv_dept"),
+            UserSpec("team.lviv@Omnilog.local", "Василь Тімлід Львів", "TEAM_LEAD", "west_lviv_team"),
+            UserSpec("employee1.lviv@Omnilog.local", "Михайло Працівник", "EMPLOYEE", "west_lviv_team"),
+            UserSpec("employee2.lviv@Omnilog.local", "Тарас Працівник", "EMPLOYEE", "west_lviv_team"),
 
             # --- Центр (BASIC) ---
-            UserSpec("director.center@millog.local", "Сергій Директор (BASIC)", "REGION_DIRECTOR", "center"),
-            UserSpec("logist.center@millog.local", "Юлія Логіст Центр", "REGION_LOGISTICIAN", "center"),
-            UserSpec("storekeeper.center@millog.local", "Дмитро Комірник Центр", "REGION_STOREKEEPER", "center"),
-            UserSpec("manager.kyiv@millog.local", "Наталя Менеджер Київ", "BRANCH_MANAGER", "center_kyiv"),
-            UserSpec("logist.kyiv@millog.local", "Олексій Логіст Київ", "BRANCH_LOGISTICIAN", "center_kyiv"),
-            UserSpec("storekeeper.kyiv@millog.local", "Світлана Комірник Київ", "BRANCH_STOREKEEPER", "center_kyiv"),
-            UserSpec("dept.kyiv@millog.local", "Віктор Начвідділу Київ", "DEPT_MANAGER", "center_kyiv_dept"),
+            UserSpec("director.center@Omnilog.local", "Сергій Директор (BASIC)", "REGION_DIRECTOR", "center"),
+            UserSpec("logist.center@Omnilog.local", "Юлія Логіст Центр", "REGION_LOGISTICIAN", "center"),
+            UserSpec("storekeeper.center@Omnilog.local", "Дмитро Комірник Центр", "REGION_STOREKEEPER", "center"),
+            UserSpec("manager.kyiv@Omnilog.local", "Наталя Менеджер Київ", "BRANCH_MANAGER", "center_kyiv"),
+            UserSpec("logist.kyiv@Omnilog.local", "Олексій Логіст Київ", "BRANCH_LOGISTICIAN", "center_kyiv"),
+            UserSpec("storekeeper.kyiv@Omnilog.local", "Світлана Комірник Київ", "BRANCH_STOREKEEPER", "center_kyiv"),
+            UserSpec("dept.kyiv@Omnilog.local", "Віктор Начвідділу Київ", "DEPT_MANAGER", "center_kyiv_dept"),
 
             # --- Схід (BASIC, наближення до ліміту) ---
-            UserSpec("director.east@millog.local", "Ніна Директор (BASIC)", "REGION_DIRECTOR", "east"),
-            UserSpec("logist.east@millog.local", "Андрій Логіст Схід", "REGION_LOGISTICIAN", "east"),
-            UserSpec("storekeeper.east@millog.local", "Євген Комірник Схід", "REGION_STOREKEEPER", "east"),
-            UserSpec("manager.kh@millog.local", "Катерина Менеджер Харків", "BRANCH_MANAGER", "east_kh"),
+            UserSpec("director.east@Omnilog.local", "Ніна Директор (BASIC)", "REGION_DIRECTOR", "east"),
+            UserSpec("logist.east@Omnilog.local", "Андрій Логіст Схід", "REGION_LOGISTICIAN", "east"),
+            UserSpec("storekeeper.east@Omnilog.local", "Євген Комірник Схід", "REGION_STOREKEEPER", "east"),
+            UserSpec("manager.kh@Omnilog.local", "Катерина Менеджер Харків", "BRANCH_MANAGER", "east_kh"),
 
             # --- Test ENTERPRISE ---
-            UserSpec("director.test@millog.local", "Enterprise Director", "REGION_DIRECTOR", "test"),
-            UserSpec("logist.test@millog.local", "Enterprise Logist", "REGION_LOGISTICIAN", "test"),
+            UserSpec("director.test@Omnilog.local", "Enterprise Director", "REGION_DIRECTOR", "test"),
+            UserSpec("logist.test@Omnilog.local", "Enterprise Logist", "REGION_LOGISTICIAN", "test"),
 
             # --- Контрактори (волонтери), без unit_id ---
-            UserSpec("contractor1@millog.local", "Волонтер Богдан", "CONTRACTOR", None),
-            UserSpec("contractor2@millog.local", "Волонтер Іванна", "CONTRACTOR", None),
-            UserSpec("contractor3@millog.local", "Волонтер Руслан", "CONTRACTOR", None),
+            UserSpec("contractor1@Omnilog.local", "Волонтер Богдан", "CONTRACTOR", None),
+            UserSpec("contractor2@Omnilog.local", "Волонтер Іванна", "CONTRACTOR", None),
+            UserSpec("contractor3@Omnilog.local", "Волонтер Руслан", "CONTRACTOR", None),
 
             # Один BLOCKED для тестів
-            UserSpec("blocked@millog.local", "Заблокований", "EMPLOYEE", "west_lviv_team", status="BLOCKED"),
+            UserSpec("blocked@Omnilog.local", "Заблокований", "EMPLOYEE", "west_lviv_team", status="BLOCKED"),
             # Один PENDING
-            UserSpec("pending@millog.local", "Новий Співробітник", "EMPLOYEE", "center_kyiv_dept", status="PENDING"),
+            UserSpec("pending@Omnilog.local", "Новий Співробітник", "EMPLOYEE", "center_kyiv_dept", status="PENDING"),
         ]
         user_ids: dict[str, str] = {}
         for spec in user_specs:
@@ -476,11 +476,11 @@ def seed(conn: psycopg.Connection, reset: bool) -> None:
         print("→ Створюю авто (vehicles) та історію палива…")
         # Водіями роблю EMPLOYEE/TEAM_LEAD/BRANCH_*
         drivers_by_region = {
-            "west": [user_ids["employee1.lviv@millog.local"], user_ids["employee2.lviv@millog.local"],
-                    user_ids["team.lviv@millog.local"], user_ids["logist.lviv@millog.local"]],
-            "center": [user_ids["logist.kyiv@millog.local"], user_ids["manager.kyiv@millog.local"]],
-            "east": [user_ids["logist.east@millog.local"], user_ids["manager.kh@millog.local"]],
-            "test": [user_ids["logist.test@millog.local"]],
+            "west": [user_ids["employee1.lviv@Omnilog.local"], user_ids["employee2.lviv@Omnilog.local"],
+                    user_ids["team.lviv@Omnilog.local"], user_ids["logist.lviv@Omnilog.local"]],
+            "center": [user_ids["logist.kyiv@Omnilog.local"], user_ids["manager.kyiv@Omnilog.local"]],
+            "east": [user_ids["logist.east@Omnilog.local"], user_ids["manager.kh@Omnilog.local"]],
+            "test": [user_ids["logist.test@Omnilog.local"]],
         }
         vehicle_ids_by_region: dict[str, list[str]] = {}
         veh_types = [("Renault", "Master", "VAN", 1500, 80, 9.0),
@@ -546,11 +546,11 @@ def seed(conn: psycopg.Connection, reset: bool) -> None:
         # Беремо ресурси з Заходу/Центру/Сходу і робимо заявки в різних статусах
         statuses = ["PENDING", "PENDING", "APPROVED", "REJECTED", "COMPLETED"]
         creators = [
-            ("director.west@millog.local", "west"),
-            ("logist.lviv@millog.local", "west"),
-            ("manager.kyiv@millog.local", "center"),
-            ("logist.east@millog.local", "east"),
-            ("dept.lviv@millog.local", "west"),
+            ("director.west@Omnilog.local", "west"),
+            ("logist.lviv@Omnilog.local", "west"),
+            ("manager.kyiv@Omnilog.local", "center"),
+            ("logist.east@Omnilog.local", "east"),
+            ("dept.lviv@Omnilog.local", "west"),
         ]
         for creator_email, reg_key in creators:
             for _ in range(4):
@@ -561,7 +561,7 @@ def seed(conn: psycopg.Connection, reset: bool) -> None:
                 approved_by = None
                 approved_at = None
                 if status in ("APPROVED", "REJECTED", "COMPLETED"):
-                    approved_by = user_ids[f"director.{reg_key}@millog.local"]
+                    approved_by = user_ids[f"director.{reg_key}@Omnilog.local"]
                     approved_at = datetime.now(timezone.utc) - timedelta(days=random.randint(1, 15))
                 cur.execute(
                     """INSERT INTO supply_requests
@@ -576,12 +576,12 @@ def seed(conn: psycopg.Connection, reset: bool) -> None:
                 )
 
         print("→ Створюю волонтерські заявки (contractor_requests)…")
-        vol_creators = [("director.west@millog.local", "west"),
-                        ("manager.kyiv@millog.local", "center"),
-                        ("logist.east@millog.local", "east")]
-        contractor_users = [user_ids["contractor1@millog.local"],
-                            user_ids["contractor2@millog.local"],
-                            user_ids["contractor3@millog.local"]]
+        vol_creators = [("director.west@Omnilog.local", "west"),
+                        ("manager.kyiv@Omnilog.local", "center"),
+                        ("logist.east@Omnilog.local", "east")]
+        contractor_users = [user_ids["contractor1@Omnilog.local"],
+                            user_ids["contractor2@Omnilog.local"],
+                            user_ids["contractor3@Omnilog.local"]]
         for creator_email, reg_key in vol_creators:
             for _ in range(3):
                 status = random.choice(["OPEN", "OPEN", "IN_PROGRESS", "DELIVERED", "COMPLETED"])
@@ -669,18 +669,18 @@ def print_summary(cur, unit_ids: dict[str, int]) -> None:
         row = cur.execute("SELECT name, subscription_tier FROM units WHERE id = %s", (uid,)).fetchone()
         print(f"  {row['name']:30s}  tier={row['subscription_tier']:10s}  id={uid}")
     print("\n-- Акаунти для логіну (пароль: password123) --")
-    print("  ADMIN:              admin@millog.local")
-    print("  PRO director:       director.west@millog.local")
-    print("  PRO logist:         logist.west@millog.local")
-    print("  BASIC director:     director.center@millog.local  (буде отримувати 402 Payment Required)")
-    print("  BASIC (near limit): director.east@millog.local    (9/10 складів на ліміті BASIC)")
-    print("  ENTERPRISE:         director.test@millog.local")
-    print("  CONTRACTOR:         contractor1@millog.local")
+    print("  ADMIN:              admin@Omnilog.local")
+    print("  PRO director:       director.west@Omnilog.local")
+    print("  PRO logist:         logist.west@Omnilog.local")
+    print("  BASIC director:     director.center@Omnilog.local  (буде отримувати 402 Payment Required)")
+    print("  BASIC (near limit): director.east@Omnilog.local    (9/10 складів на ліміті BASIC)")
+    print("  ENTERPRISE:         director.test@Omnilog.local")
+    print("  CONTRACTOR:         contractor1@Omnilog.local")
     print("==============================================\n")
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Seed MilLog database")
+    parser = argparse.ArgumentParser(description="Seed Omnilog database")
     parser.add_argument("--dsn", default=DEFAULT_DSN, help="PostgreSQL DSN")
     parser.add_argument("--reset", action="store_true",
                         help="TRUNCATE усі таблиці перед сідом")

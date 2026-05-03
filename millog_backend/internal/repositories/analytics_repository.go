@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 
-	"millog_backend/internal/models"
+	"Omnilog_backend/internal/models"
 
 	"github.com/google/uuid"
 )

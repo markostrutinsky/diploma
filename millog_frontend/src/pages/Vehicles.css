@@ -22,8 +22,8 @@
 }
 
 .vehicles-page .card {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 24px;
   overflow: visible;
@@ -44,37 +44,37 @@
 .vehicles-page .data-table td {
   padding: 12px;
   text-align: left;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
 
 .vehicles-page .data-table th {
   font-weight: 600;
-  color: #475569;
-  background-color: #f8fafc;
+  color: var(--text);
+  background-color: var(--bg-input);
 }
 
-.vehicles-page .vehicle-brand-cell { font-weight: 600; color: #0f172a; }
-.vehicles-page .vehicle-model-text { color: #64748b; font-weight: normal; margin-left: 4px; }
-.vehicles-page .plate-badge { font-family: monospace; font-size: 14px; background-color: #f1f5f9; padding: 4px 8px; border-radius: 4px; border: 1px solid #cbd5e1; }
-.vehicles-page .norm-text { color: #64748b; font-size: 12px; margin-top: 4px; display: block; }
-.vehicles-page .text-muted { color: #64748b; font-size: 13px; font-weight: 500; }
+.vehicles-page .vehicle-brand-cell { font-weight: 600; color: var(--text-bright); }
+.vehicles-page .vehicle-model-text { color: var(--text-muted); font-weight: normal; margin-left: 4px; }
+.vehicles-page .plate-badge { font-family: monospace; font-size: 14px; background-color: var(--bg-input); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border); }
+.vehicles-page .norm-text { color: var(--text-muted); font-size: 12px; margin-top: 4px; display: block; }
+.vehicles-page .text-muted { color: var(--text-muted); font-size: 13px; font-weight: 500; }
 .vehicles-page .unassigned-text-italic { font-style: italic; color: #94a3b8; }
 .vehicles-page .row-inactive { opacity: 0.6; }
 
 /* Статуси */
 .vehicles-page .badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
-.vehicles-page .badge-success { background: #dcfce7; color: #059669; }
-.vehicles-page .badge-warning { background: #fef3c7; color: #d97706; }
-.vehicles-page .badge-critical { background: #fee2e2; color: #dc2626; }
-.vehicles-page .badge-primary { background: #dbeafe; color: #1d4ed8; }
+.vehicles-page .badge-success { background: rgba(16, 185, 129, 0.15); color: #059669; }
+.vehicles-page .badge-warning { background: rgba(245, 158, 11, 0.15); color: #d97706; }
+.vehicles-page .badge-critical { background: rgba(239, 68, 68, 0.15); color: #dc2626; }
+.vehicles-page .badge-primary { background: rgba(59, 130, 246, 0.15); color: var(--accent); }
 
 /* Шапка таблиці з кнопками */
-.vehicles-page .table-header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;}
-.vehicles-page .table-header-flex h2 { margin: 0; font-size: 18px; color: #0f172a; }
+.vehicles-page .table-header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 2px solid var(--border); padding-bottom: 8px;}
+.vehicles-page .table-header-flex h2 { margin: 0; font-size: 18px; color: var(--text-bright); }
 .vehicles-page .table-header-actions { display: flex; gap: 8px; }
-.vehicles-page .tab-toggle-btn { background: transparent; padding: 8px 16px; border-radius: 6px 6px 0 0; border: none; cursor: pointer; font-weight: 600; color: #64748b; margin-bottom: -10px; border-bottom: 3px solid transparent; transition: 0.2s; }
-.vehicles-page .tab-toggle-btn:hover { background: #f8fafc; color: #0f172a; }
+.vehicles-page .tab-toggle-btn { background: transparent; padding: 8px 16px; border-radius: 6px 6px 0 0; border: none; cursor: pointer; font-weight: 600; color: var(--text-muted); margin-bottom: -10px; border-bottom: 3px solid transparent; transition: 0.2s; }
+.vehicles-page .tab-toggle-btn:hover { background: var(--bg-input); color: var(--text-bright); }
 .vehicles-page .tab-toggle-btn.active { color: #2563eb; border-bottom: 3px solid #2563eb; }
 .vehicles-page .tab-toggle-btn.archive.active { color: #dc2626; border-bottom: 3px solid #dc2626; }
 
@@ -90,25 +90,25 @@
   align-items: center; justify-content: center; border-radius: 6px; transition: 0.2s; 
 }
 .vehicles-page .btn-kebab:hover, 
-.vehicles-page .btn-kebab.active { background: #f1f5f9; color: #0f172a; }
+.vehicles-page .btn-kebab.active { background: var(--bg-input); color: var(--text-bright); }
 
 .vehicles-page .actions-dropdown-menu { 
-  position: absolute; right: 0; top: calc(100% + 4px); background: #ffffff; 
-  border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); 
+  position: absolute; right: 0; top: calc(100% + 4px); background: var(--bg-card); 
+  border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); 
   z-index: 1000; min-width: 220px; padding: 6px; 
 }
 
 .vehicles-page .actions-dropdown-menu button { 
-  display: flex; width: 100%; padding: 10px 12px; font-size: 13px; color: #334155; 
+  display: flex; width: 100%; padding: 10px 12px; font-size: 13px; color: var(--text); 
   background: none; border: none; text-align: left; cursor: pointer; 
   border-radius: 6px; transition: 0.2s; font-family: inherit; font-weight: 500; gap: 8px;
 }
-.vehicles-page .actions-dropdown-menu button:hover { background: #f8fafc; color: #0f172a; }
+.vehicles-page .actions-dropdown-menu button:hover { background: var(--bg-input); color: var(--text-bright); }
 .vehicles-page .actions-dropdown-menu .text-danger { color: #ef4444; }
-.vehicles-page .actions-dropdown-menu .text-danger:hover { background-color: #fef2f2; color: #dc2626; }
+.vehicles-page .actions-dropdown-menu .text-danger:hover { background-color: rgba(239, 68, 68, 0.1); color: #dc2626; }
 .vehicles-page .actions-dropdown-menu .text-success { color: #10b981; }
-.vehicles-page .actions-dropdown-menu .text-success:hover { background-color: #ecfdf5; color: #059669; }
-.vehicles-page .dropdown-divider { height: 1px; background-color: #e2e8f0; margin: 4px 0; }
+.vehicles-page .actions-dropdown-menu .text-success:hover { background-color: rgba(16, 185, 129, 0.1); color: #059669; }
+.vehicles-page .dropdown-divider { height: 1px; background-color: var(--border); margin: 4px 0; }
 
 /* =========================================
    МОДАЛЬНІ ВІКНА (Ізольований клас .vehicles-modal)
@@ -120,22 +120,23 @@
 }
 
 .vehicles-modal .modal { 
-  background: white; border-radius: 12px; padding: 24px; 
+  background: var(--bg-modal); border-radius: 12px; padding: 24px; 
   width: 100%; max-width: 550px; 
   max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); 
   box-sizing: border-box; 
+  border: 1px solid var(--border);
 }
 
-.vehicles-modal .modal h3 { margin-top: 0; margin-bottom: 20px; color: #0f172a; }
-.vehicles-modal .modal-description { margin-bottom: 15px; color: #64748b; font-size: 14px; }
+.vehicles-modal .modal h3 { margin-top: 0; margin-bottom: 20px; color: var(--text-bright); }
+.vehicles-modal .modal-description { margin-bottom: 15px; color: var(--text-muted); font-size: 14px; }
 
 /* Форми та інпути */
 .vehicles-modal .form-group { width: 100%; margin-bottom: 20px; box-sizing: border-box; }
-.vehicles-modal .form-group label { display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+.vehicles-modal .form-group label { display: block; font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
 .vehicles-modal .form-group input, 
 .vehicles-modal .form-group select, 
 .vehicles-modal .form-group textarea, 
-.vehicles-modal .erp-input { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; background-color: #fff; color: #0f172a; font-family: inherit; }
+.vehicles-modal .erp-input { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background-color: var(--bg-card); color: var(--text-bright); font-family: inherit; }
 .vehicles-modal .form-group input:focus, 
 .vehicles-modal .form-group select:focus, 
 .vehicles-modal .form-group textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
@@ -145,12 +146,12 @@
 .vehicles-modal .form-row-bottom-align { align-items: flex-end; }
 
 /* Кнопки в модалці */
-.vehicles-modal .modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0; }
+.vehicles-modal .modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); }
 .vehicles-modal .btn-primary { background-color: #2563eb; color: #ffffff; border: 1px solid transparent; border-radius: 6px; padding: 10px 20px; font-size: 14px; font-weight: 500; cursor: pointer; transition: 0.2s; }
-.vehicles-modal .btn-primary:hover:not(:disabled) { background-color: #1d4ed8; }
+.vehicles-modal .btn-primary:hover:not(:disabled) { background-color: var(--accent); }
 .vehicles-modal .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
-.vehicles-modal .btn-secondary { background-color: #ffffff; color: #334155; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px 20px; font-size: 14px; font-weight: 500; cursor: pointer; transition: 0.2s; }
-.vehicles-modal .btn-secondary:hover { background-color: #f1f5f9; }
+.vehicles-modal .btn-secondary { background-color: var(--bg-card); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 10px 20px; font-size: 14px; font-weight: 500; cursor: pointer; transition: 0.2s; }
+.vehicles-modal .btn-secondary:hover { background-color: var(--bg-input); }
 .vehicles-modal .btn-danger { background-color: #dc2626; color: #ffffff; border: 1px solid transparent; border-radius: 6px; padding: 10px 20px; font-size: 14px; font-weight: 500; cursor: pointer; transition: 0.2s; }
 .vehicles-modal .btn-danger:hover { background-color: #b91c1c; }
 .vehicles-modal .btn-success { background-color: #16a34a; color: #ffffff; border: 1px solid transparent; border-radius: 6px; padding: 10px 20px; font-size: 14px; font-weight: 500; cursor: pointer; transition: 0.2s; }
@@ -161,51 +162,51 @@
 ========================================= */
 .vehicles-modal .anomaly-modal { border-top: 4px solid #dc2626; text-align: center; }
 .vehicles-modal .anomaly-modal h3 { color: #dc2626; }
-.vehicles-modal .warning-box { background: #fef2f2; border: 1px solid #fecaca; padding: 12px; border-radius: 6px; text-align: left; margin: 16px 0; }
+.vehicles-modal .warning-box { background: rgba(239, 68, 68, 0.1); border: 1px solid #fecaca; padding: 12px; border-radius: 6px; text-align: left; margin: 16px 0; }
 .vehicles-modal .center-actions { justify-content: center; }
 
 .vehicles-modal .fuel-type-select.type-refuel { color: #16a34a; font-weight: 600; }
 .vehicles-modal .fuel-type-select.type-expense { color: #dc2626; font-weight: 600; }
 
-.vehicles-modal .file-upload-custom { display: flex; align-items: center; justify-content: center; height: 42px; padding: 0 12px; background-color: #f8fafc; border: 1px dashed #94a3b8; border-radius: 6px; cursor: pointer; transition: all 0.2s ease; margin: 0; }
-.vehicles-modal .file-upload-custom:hover { border-color: #3b82f6; background-color: #eff6ff; }
+.vehicles-modal .file-upload-custom { display: flex; align-items: center; justify-content: center; height: 42px; padding: 0 12px; background-color: var(--bg-input); border: 1px dashed #94a3b8; border-radius: 6px; cursor: pointer; transition: all 0.2s ease; margin: 0; }
+.vehicles-modal .file-upload-custom:hover { border-color: #3b82f6; background-color: rgba(59, 130, 246, 0.1); }
 .vehicles-modal .file-input-hidden { display: none; }
-.vehicles-modal .file-upload-text { color: #475569; font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.vehicles-modal .file-upload-text { color: var(--text); font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 
 /* =========================================
    МОДАЛКА ПАСПОРТА ТА ІСТОРІЇ (Широка)
 ========================================= */
 .vehicles-modal .history-modal { width: 90vw; max-width: 1100px; }
-.vehicles-modal .history-spinner { margin: 40px auto; text-align: center; color: #64748b; }
-.vehicles-modal .history-empty { text-align: center; color: #64748b; padding: 40px 0; font-size: 15px; }
+.vehicles-modal .history-spinner { margin: 40px auto; text-align: center; color: var(--text-muted); }
+.vehicles-modal .history-empty { text-align: center; color: var(--text-muted); padding: 40px 0; font-size: 15px; }
 
 /* Інфо-картки в шапці паспорта */
-.vehicles-modal .vehicle-info-cards { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #e2e8f0; }
-.vehicles-modal .v-card { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; min-width: 140px; flex: 1; }
-.vehicles-modal .v-card-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; font-weight: 600; }
-.vehicles-modal .v-card-value { font-size: 16px; font-weight: 600; color: #0f172a; display: flex; align-items: center; gap: 4px; }
-.vehicles-modal .v-card-value small { color: #64748b; font-size: 13px; font-weight: normal; }
+.vehicles-modal .vehicle-info-cards { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+.vehicles-modal .v-card { background-color: var(--bg-input); border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px; display: flex; flex-direction: column; gap: 6px; min-width: 140px; flex: 1; }
+.vehicles-modal .v-card-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 600; }
+.vehicles-modal .v-card-value { font-size: 16px; font-weight: 600; color: var(--text-bright); display: flex; align-items: center; gap: 4px; }
+.vehicles-modal .v-card-value small { color: var(--text-muted); font-size: 13px; font-weight: normal; }
 
 /* Паливна шкала */
 .vehicles-modal .fuel-gauge-card { flex: 2; min-width: 250px; }
 .vehicles-modal .fuel-gauge-header { display: flex; justify-content: space-between; align-items: flex-end; }
-.vehicles-modal .gauge-bg { height: 8px; background-color: #e2e8f0; border-radius: 4px; margin-top: 10px; overflow: hidden; width: 100%; }
+.vehicles-modal .gauge-bg { height: 8px; background-color: var(--border); border-radius: 4px; margin-top: 10px; overflow: hidden; width: 100%; }
 .vehicles-modal .gauge-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
 .vehicles-modal .gauge-normal { background-color: #16a34a; }
 .vehicles-modal .gauge-low { background-color: #dc2626; }
 
 /* Вкладки в історії */
-.vehicles-modal .history-tabs { display: flex; gap: 12px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; }
-.vehicles-modal .history-tab { background: none; border: none; padding: 10px 16px; font-size: 14px; font-weight: 600; color: #64748b; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s ease; margin-bottom: -2px; }
-.vehicles-modal .history-tab:hover { color: #0f172a; }
+.vehicles-modal .history-tabs { display: flex; gap: 12px; margin-bottom: 20px; border-bottom: 2px solid var(--border); }
+.vehicles-modal .history-tab { background: none; border: none; padding: 10px 16px; font-size: 14px; font-weight: 600; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s ease; margin-bottom: -2px; }
+.vehicles-modal .history-tab:hover { color: var(--text-bright); }
 .vehicles-modal .history-tab.active { color: #2563eb; border-bottom: 2px solid #2563eb; }
 
 /* Таблиці всередині історії */
-.vehicles-modal .history-table-wrapper { max-height: 450px; overflow-y: auto; width: 100%; display: block; border: 1px solid #e2e8f0; border-radius: 8px;}
+.vehicles-modal .history-table-wrapper { max-height: 450px; overflow-y: auto; width: 100%; display: block; border: 1px solid var(--border); border-radius: 8px;}
 .vehicles-modal .history-table-wrapper .data-table { width: 100%; border-collapse: collapse; margin-top: 0; }
 .vehicles-modal .history-table-wrapper .data-table th, 
-.vehicles-modal .history-table-wrapper .data-table td { padding: 12px 16px; white-space: nowrap; font-size: 14px; border-bottom: 1px solid #e2e8f0;}
-.vehicles-modal .history-table-wrapper .data-table thead th { position: sticky; top: 0; background: #f8fafc; z-index: 10; border-bottom: 2px solid #e2e8f0; }
+.vehicles-modal .history-table-wrapper .data-table td { padding: 12px 16px; white-space: nowrap; font-size: 14px; border-bottom: 1px solid var(--border);}
+.vehicles-modal .history-table-wrapper .data-table thead th { position: sticky; top: 0; background: var(--bg-input); z-index: 10; border-bottom: 2px solid var(--border); }
 
 /* Кастомні колонки для історії пального (Рівні частини) */
 .vehicles-modal .fuel-history-table { table-layout: fixed; }
@@ -216,16 +217,16 @@
 
 /* Кастомні колонки для історії ремонтів */
 .vehicles-modal .maint-history-table .desc-cell { white-space: normal; min-width: 250px; width: 40%; line-height: 1.4; }
-.vehicles-modal .document-link-btn { text-decoration: none; background: #f1f5f9; padding: 6px 12px; border-radius: 6px; font-size: 13px; color: #334155; display: inline-flex; align-items: center; font-weight: 500; transition: 0.2s; border: 1px solid #e2e8f0;}
-.vehicles-modal .document-link-btn:hover { background: #e2e8f0; }
+.vehicles-modal .document-link-btn { text-decoration: none; background: var(--bg-input); padding: 6px 12px; border-radius: 6px; font-size: 13px; color: var(--text); display: inline-flex; align-items: center; font-weight: 500; transition: 0.2s; border: 1px solid var(--border);}
+.vehicles-modal .document-link-btn:hover { background: var(--border); }
 
 /* Кастомні колонки для історії водіїв */
-.vehicles-modal .driver-assigned { font-weight: 600; color: #0f172a; }
-.vehicles-modal .driver-unassigned { color: #64748b; font-style: italic; }
+.vehicles-modal .driver-assigned { font-weight: 600; color: var(--text-bright); }
+.vehicles-modal .driver-unassigned { color: var(--text-muted); font-style: italic; }
 
 /* Скролбар для модалки історії */
 .vehicles-modal .history-table-wrapper::-webkit-scrollbar { width: 8px; height: 8px; }
-.vehicles-modal .history-table-wrapper::-webkit-scrollbar-track { background: #f8fafc; border-radius: 4px; }
+.vehicles-modal .history-table-wrapper::-webkit-scrollbar-track { background: var(--bg-input); border-radius: 4px; }
 .vehicles-modal .history-table-wrapper::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
 .vehicles-modal .history-table-wrapper::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
@@ -242,7 +243,7 @@
 
 .pro-badge {
   font-size: 10px;
-  background: #dcfce7;
+  background: rgba(16, 185, 129, 0.15);
   color: #166534;
   padding: 1px 4px;
   border-radius: 4px;

@@ -1,10 +1,10 @@
 package repositories
 
 import (
+	"Omnilog_backend/internal/models"
 	"context"
 	"fmt"
 	"log"
-	"millog_backend/internal/models"
 	"time"
 
 	"github.com/jackc/pgx/v5"

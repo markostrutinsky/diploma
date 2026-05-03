@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"millog_backend/internal/models"
+	"Omnilog_backend/internal/models"
 )
 
 type RefreshTokenRepository struct{}

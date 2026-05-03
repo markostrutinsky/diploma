@@ -22,7 +22,7 @@
 }
 
 .header-stats .stat {
-  background: white;
+  background: var(--bg-card);
   padding: 0.75rem 1.5rem;
   border-radius: 8px;
   font-size: 0.95rem;
@@ -48,7 +48,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: white;
+  background: var(--bg-card);
   padding: 0.75rem 1rem;
   border-radius: 6px;
   cursor: pointer;
@@ -66,7 +66,7 @@
   padding: 0.75rem 1rem;
   border: 1px solid #ddd;
   border-radius: 6px;
-  background: white;
+  background: var(--bg-card);
   font-size: 0.95rem;
   cursor: pointer;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -97,7 +97,7 @@
 }
 
 .vehicle-card {
-  background: white;
+  background: var(--bg-card);
   border-radius: 12px;
   padding: 1.5rem;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -132,7 +132,7 @@
   font-weight: bold;
   color: #2c3e50;
   margin-bottom: 0.75rem;
-  background: #ecf0f1;
+  background: var(--border);
   padding: 0.5rem;
   border-radius: 4px;
 }
@@ -178,8 +178,8 @@
 }
 
 .status-box {
-  background: #f8f9fa;
-  border: 2px solid #e9ecef;
+  background: var(--bg-input);
+  border: 2px solid var(--border);
   border-radius: 8px;
   padding: 1rem;
   display: flex;
@@ -220,12 +220,12 @@
   text-align: center;
   padding: 2rem;
   color: #7f8c8d;
-  background: white;
+  background: var(--bg-card);
   border-radius: 12px;
 }
 
 .gps-legend {
-  background: white;
+  background: var(--bg-card);
   border-radius: 12px;
   padding: 1.5rem;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
@@ -258,7 +258,7 @@
 }
 
 .error-message {
-  background: white;
+  background: var(--bg-card);
   border-radius: 12px;
   padding: 2rem;
   text-align: center;
@@ -283,7 +283,7 @@
 }
 
 .empty-state {
-  background: white;
+  background: var(--bg-card);
   border-radius: 12px;
   padding: 2rem;
   text-align: center;
@@ -348,7 +348,7 @@
 }
 
 .gps-modal {
-  background: #fff;
+  background: var(--bg-card);
   border-radius: 12px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
   max-width: 720px;
@@ -364,7 +364,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border);
   background: linear-gradient(135deg, #1e3a8a, #3b82f6);
   color: #fff;
 }
@@ -394,8 +394,8 @@
 }
 
 .gps-detail-item {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 12px 14px;
   display: flex;
@@ -407,26 +407,26 @@
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #64748b;
+  color: var(--text-muted);
   font-weight: 600;
 }
 
 .gps-detail-value {
   font-size: 15px;
-  color: #0f172a;
+  color: var(--text-bright);
   font-weight: 600;
 }
 
 .gps-traj-title {
   font-size: 1rem;
-  color: #0f172a;
+  color: var(--text-bright);
   margin: 16px 0 12px;
   padding-top: 12px;
-  border-top: 1px dashed #cbd5e1;
+  border-top: 1px dashed var(--border-light);
 }
 
 .gps-traj-empty {
-  color: #64748b;
+  color: var(--text-muted);
   font-style: italic;
   text-align: center;
   padding: 16px 0;
@@ -440,10 +440,10 @@
 
 .gps-modal-footer {
   padding: 16px 24px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--border);
   display: flex;
   justify-content: flex-end;
-  background: #f8fafc;
+  background: var(--bg-input);
 }
 
 @keyframes fadeIn {

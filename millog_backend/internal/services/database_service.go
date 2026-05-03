@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"millog_backend/internal/repositories"
+	"Omnilog_backend/internal/repositories"
 )
 
 func NewPostgresDB(ctx context.Context, connectionString string) (*pgxpool.Pool, error) {

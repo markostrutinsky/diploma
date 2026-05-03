@@ -21,7 +21,7 @@ services:
       context: ./millog_backend
       dockerfile: Dockerfile
     env_file:
-      - /home/melkor/study/diploma/millog_backend/.env
+      - .env
     environment:
       PORT: 8080
       DATABASE_URL: postgres://omnilog_app:omnilog_app@postgres:5432/omnilog?sslmode=disable
@@ -39,21 +39,18 @@ services:
     depends_on:
       - backend
 
-  caddy:
-    image: caddy:2-alpine
+  nginx:
+    image: nginx:alpine
     restart: unless-stopped
     ports:
       - "80:80"     
       - "443:443"   
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
     depends_on:
       - frontend
       - backend
 
 volumes:
   postgres_data:
-  caddy_data:
-  caddy_config:

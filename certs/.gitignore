@@ -1,0 +1,8 @@
+# SSL Certificates (local development)
+*.pem
+*.key
+*.crt
+*.csr
+
+# Don't ignore if you need to commit production certs
+# But be VERY careful and use encrypted storage

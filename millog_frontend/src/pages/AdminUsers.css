@@ -147,7 +147,7 @@
 }
 
 .btn-icon:hover {
-  background: #f0f2f5;
+  background: var(--bg-input);
 }
 
 .text-muted {
@@ -174,7 +174,7 @@
 
 /* Стиль для заблокованого інпута (читання) */
 .input-readonly {
-  background-color: #f8f9fa;
+  background-color: var(--bg-input);
   cursor: not-allowed;
 }
 
@@ -198,16 +198,16 @@
 
 /* Стиль для будь-якої вимкненої кнопки */
 .btn-action-small:disabled {
-  background-color: #e9ecef !important; /* Сірий колір */
+  background-color: var(--border) !important; /* Сірий колір */
   color: #adb5bd !important;            /* Тьмяний текст */
-  border-color: #dee2e6 !important;
+  border-color: var(--border) !important;
   cursor: not-allowed;                  /* Курсор "заборонено" */
   opacity: 0.7;
 }
 
 /* Прибираємо ефекти наведення для вимкненої кнопки */
 .btn-action-small:disabled:hover {
-  background-color: #e9ecef !important;
+  background-color: var(--border) !important;
   box-shadow: none;
 }
 
@@ -251,7 +251,7 @@
 
 /* Контейнер модалки підтвердження (робимо вужчим за звичайну форму) */
 .modal-confirm {
-  background: #fff;
+  background: var(--bg-modal);
   border-radius: 8px;
   padding: 24px;
   width: 100%;
@@ -259,6 +259,7 @@
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
   text-align: center; /* Текст по центру для вікон підтвердження */
   animation: slideUpIn 0.3s ease-out;
+  border: 1px solid var(--border);
 }
 
 /* Іконка або бейджик зверху (опціонально, для краси) */
@@ -274,12 +275,12 @@
 }
 
 .modal-confirm-icon.warning {
-  background-color: #fef2f2;
+  background-color: rgba(239, 68, 68, 0.1);
   color: #dc3545;
 }
 
 .modal-confirm-icon.info {
-  background-color: #f0fdf4;
+  background-color: rgba(16, 185, 129, 0.1);
   color: #198754;
 }
 
@@ -315,8 +316,8 @@
 
 /* Кнопка скасування */
 .btn-cancel {
-  background-color: #e9ecef;
-  color: #495057;
+  background-color: var(--border);
+  color: var(--text);
 }
 
 .btn-cancel:hover {

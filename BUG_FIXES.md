@@ -1,4 +1,4 @@
-# MilLog Project - Bug Fixes Summary
+# Omnilog Project - Bug Fixes Summary
 
 **Date**: April 21, 2026  
 **Status**: ✅ All Critical & High-Priority Bugs Fixed  
@@ -8,7 +8,7 @@
 
 ## 📋 Executive Summary
 
-Deep audit of the entire MilLog codebase identified **11 critical and high-severity bugs**. All have been systematically fixed, with proper validation and testing.
+Deep audit of the entire Omnilog codebase identified **11 critical and high-severity bugs**. All have been systematically fixed, with proper validation and testing.
 
 **Final Results:**
 - ✅ TypeScript compilation: No errors
@@ -23,7 +23,7 @@ Deep audit of the entire MilLog codebase identified **11 critical and high-sever
 ## 🐛 Bugs Fixed
 
 ### **BUG #1: Strconv Error Handling Missing** [CRITICAL]
-**File**: `/millog_backend/internal/handlers/vehicle_handler.go`  
+**File**: `/Omnilog_backend/internal/handlers/vehicle_handler.go`  
 **Lines**: 107-172
 
 **Issue**: `strconv.Atoi()` errors were silently ignored, allowing invalid integer inputs to crash the application.
@@ -45,7 +45,7 @@ costAmount, _ := strconv.ParseFloat(costAmountStr, 64)  // ❌ Error ignored!
 ---
 
 ### **BUG #2: Race Condition on Fuel Record Balance** [CRITICAL]
-**File**: `/millog_backend/internal/repositories/fuel_repository.go`  
+**File**: `/Omnilog_backend/internal/repositories/fuel_repository.go`  
 **Lines**: 1-42
 
 **Issue**: Database query had no context timeout, could hang indefinitely if DB becomes unresponsive.
@@ -72,7 +72,7 @@ err = tx.QueryRow(queryCtx, "SELECT fuel_norm...").Scan(&fuelNorm, &tankCapacity
 ---
 
 ### **BUG #3: Path Traversal Vulnerability in File Upload** [CRITICAL]
-**File**: `/millog_backend/internal/handlers/vehicle_handler.go`  
+**File**: `/Omnilog_backend/internal/handlers/vehicle_handler.go`  
 **Lines**: 150-160
 
 **Issue**: User-supplied filenames were not validated, allowing directory traversal attacks.
@@ -102,7 +102,7 @@ secureFilename := fmt.Sprintf("%s%s", uuid.New().String(), ext)
 ---
 
 ### **BUG #4: Error Messages Expose Internal Details** [HIGH]
-**File**: `/millog_backend/internal/handlers/analytics_handler.go`  
+**File**: `/Omnilog_backend/internal/handlers/analytics_handler.go`  
 **Lines**: 40-50
 
 **Issue**: Error details leaked to client, exposing sensitive information.
@@ -132,11 +132,11 @@ c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка заван
 **Issue**: 20+ instances of `as any` type casting, defeating TypeScript type safety.
 
 **Fixed Files**:
-- ✅ `/millog_frontend/src/pages/Requests.tsx` (5 casts removed)
-- ✅ `/millog_frontend/src/pages/Vehicles.tsx` (4 casts removed)
-- ✅ `/millog_frontend/src/pages/Warehouses.tsx` (3 casts removed)
-- ✅ `/millog_frontend/src/pages/VolunteerRequests.tsx` (2 casts removed)
-- ✅ `/millog_frontend/src/pages/Inventory.tsx` (1 cast improved)
+- ✅ `/Omnilog_frontend/src/pages/Requests.tsx` (5 casts removed)
+- ✅ `/Omnilog_frontend/src/pages/Vehicles.tsx` (4 casts removed)
+- ✅ `/Omnilog_frontend/src/pages/Warehouses.tsx` (3 casts removed)
+- ✅ `/Omnilog_frontend/src/pages/VolunteerRequests.tsx` (2 casts removed)
+- ✅ `/Omnilog_frontend/src/pages/Inventory.tsx` (1 cast improved)
 
 **Key Fixes**:
 ```tsx
@@ -156,7 +156,7 @@ await api.vehicles.create(payload)  // No cast needed
 ---
 
 ### **BUG #6: Context Timeout Missing in Auth Middleware** [CRITICAL]
-**File**: `/millog_backend/internal/middleware/auth.go`  
+**File**: `/Omnilog_backend/internal/middleware/auth.go`  
 **Lines**: 57-68
 
 **Issue**: Database query in auth middleware had no timeout, blocking requests indefinitely.
@@ -177,7 +177,7 @@ err = db.QueryRow(ctx, "SELECT status FROM users WHERE id = $1", claims.UserID).
 ---
 
 ### **BUG #7: Unused Token Variable** [LOW]
-**File**: `/millog_frontend/src/pages/Requests.tsx`  
+**File**: `/Omnilog_frontend/src/pages/Requests.tsx`  
 **Line**: 105
 
 **Issue**: Variable declared but never used, TypeScript warning.
@@ -190,7 +190,7 @@ err = db.QueryRow(ctx, "SELECT status FROM users WHERE id = $1", claims.UserID).
 ---
 
 ### **BUG #8: @ts-ignore Comments** [MEDIUM]
-**File**: `/millog_frontend/src/pages/VolunteerRequests.tsx`  
+**File**: `/Omnilog_frontend/src/pages/VolunteerRequests.tsx`  
 **Lines**: 455, 466
 
 **Issue**: Used `@ts-ignore` to bypass type checking instead of properly typing.
@@ -204,7 +204,7 @@ err = db.QueryRow(ctx, "SELECT status FROM users WHERE id = $1", claims.UserID).
 ---
 
 ### **BUG #9: Missing Optional Chaining** [MEDIUM]
-**File**: `/millog_frontend/src/pages/Vehicles.tsx`  
+**File**: `/Omnilog_frontend/src/pages/Vehicles.tsx`  
 **Lines**: 560-561
 
 **Issue**: Direct property access on potentially null object.
@@ -226,7 +226,7 @@ min={fuelModalVehicle?.current_odometer || 0}
 ---
 
 ### **BUG #10: API Type Definition Incomplete** [HIGH]
-**File**: `/millog_frontend/src/api/client.ts`  
+**File**: `/Omnilog_frontend/src/api/client.ts`  
 **Line**: 326
 
 **Issue**: `contractorRequests.create()` did not accept `unit_id` parameter that backend expects.
@@ -249,7 +249,7 @@ create: (body: { title: string; description: string; unit_id?: number }) =>
 ### **BUG #11: Database Schema Inconsistency** [CRITICAL]
 **Files**: 
 - `/docker/postgres/init.sql`
-- `/millog_backend/internal/repositories/volunteer_request_repository.go`
+- `/Omnilog_backend/internal/repositories/volunteer_request_repository.go`
 
 **Issue**: Table name case mismatch (`CONTRACTOR_requests` vs `Contractor_requests`). PostgreSQL normalizes these to lowercase, but it's unclear and error-prone.
 

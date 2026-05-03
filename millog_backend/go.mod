@@ -1,4 +1,4 @@
-module millog_backend
+module Omnilog_backend
 
 go 1.24.0
 

@@ -336,7 +336,16 @@ export const api = {
       }),
   },
   units: {
-    list: () => request<Unit[]>('/units'),
+    list: () => {
+      console.log('🔧 Calling api.units.list()...')
+      return request<Unit[]>('/units').then(res => {
+        console.log('✅ api.units.list() response:', res)
+        return res
+      }).catch(err => {
+        console.error('❌ api.units.list() failed:', err)
+        throw err
+      })
+    },
     getAvailableForRole: (role: string) => 
       request<Unit[]>(`/units/available?role=${encodeURIComponent(role)}`),
 
@@ -660,6 +669,7 @@ export type UserStatus = 'PENDING' | 'ACTIVE' | 'BLOCKED';
 
 export interface User {
   id: string;
+  tenant_id?: string | null;     
   username?: string | null;      
   email: string;
   full_name: string;
@@ -904,7 +914,7 @@ export interface SubmitAuditRequest {
 export const ROLE_NAMES: Record<UserRole, string> = {
   'SYSTEM_ADMIN': 'Власник платформи',
   'TENANT_ADMIN': 'Адміністратор організації',
-  'ADMIN': 'Системний адміністратор',
+  'ADMIN': 'Адміністратор організації (застаріле)',
   'REGION_DIRECTOR': 'Директор регіону',
   'BRANCH_MANAGER': 'Керівник філії',
   'DEPT_MANAGER': 'Начальник відділу',

@@ -4,6 +4,7 @@ import { usePermissions } from '../hooks/usePermissions';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
 import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 import 'leaflet/dist/leaflet.css';
 import './Warehouses.css';
 import InventoryAuditModal from '../components/InventoryAuditModal';
@@ -66,8 +67,8 @@ const DraggableMarker = ({ warehouse, icon, unitName, onDragEnd, onViewInventory
     <Marker draggable={true} eventHandlers={eventHandlers} position={[warehouse.latitude, warehouse.longitude]} ref={markerRef} icon={icon}>
       <Popup minWidth={270}>
         <div style={{ fontFamily: 'Inter, system-ui, sans-serif', padding: '4px 2px' }}>
-          <h4 style={{ margin: '0 0 6px 0', fontSize: '16px', color: '#0f172a', fontWeight: 700 }}>{warehouse.name}</h4>
-          <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '14px' }}>🛡️ {unitName}</div>
+          <h4 style={{ margin: '0 0 6px 0', fontSize: '16px', color: 'var(--text-bright)', fontWeight: 700 }}>{warehouse.name}</h4>
+          <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '14px' }}>🛡️ {unitName}</div>
           
           <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
             <span className="badge badge-neutral">
@@ -78,7 +79,7 @@ const DraggableMarker = ({ warehouse, icon, unitName, onDragEnd, onViewInventory
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <button className="btn btn-primary" style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600, display: 'flex', justifyContent: 'center', borderRadius: '6px', border: 'none', cursor: 'pointer' }} onClick={() => onViewInventory(warehouse)}>📦 Переглянути залишки</button>
-            <button className="btn btn-secondary" style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600, display: 'flex', justifyContent: 'center', borderRadius: '6px', border: '1px solid #cbd5e1', cursor: 'pointer' }} onClick={() => onDispatchTrip(warehouse)}>🚚 Сформувати рейс сюди</button>
+            <button className="btn btn-secondary" style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600, display: 'flex', justifyContent: 'center', borderRadius: '6px', border: '1px solid var(--border)', cursor: 'pointer' }} onClick={() => onDispatchTrip(warehouse)}>🚚 Сформувати рейс сюди</button>
           </div>
           
           <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '16px', paddingTop: '12px', textAlign: 'center', borderTop: '1px dashed #cbd5e1' }}>
@@ -91,6 +92,7 @@ const DraggableMarker = ({ warehouse, icon, unitName, onDragEnd, onViewInventory
 };
 
 export default function Warehouses() {
+  const navigate = useNavigate();
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -321,7 +323,39 @@ export default function Warehouses() {
       await api.warehouses.create({ unit_id: Number(newWarehouse.unit_id), name: newWarehouse.name, location_type: newWarehouse.location_type, latitude: newWarehouse.latitude ? parseFloat(newWarehouse.latitude) : undefined, longitude: newWarehouse.longitude ? parseFloat(newWarehouse.longitude) : undefined, }); 
       setShowForm(false); setNewWarehouse({ unit_id: '', name: '', location_type: 'STATIONARY', latitude: '', longitude: '' }); 
       loadData(); toast.success('Склад успішно створено'); 
-    } catch (err) { toast.error('Помилка при створенні складу'); } 
+    } catch (err: any) { 
+      // Перевіряємо, чи це помилка ліміту (402 Payment Required)
+      if (err?.response?.status === 402 || err?.message?.includes('ліміт') || err?.message?.includes('Ліміт')) {
+        const errorMsg = err?.response?.data?.error || err?.message || 'Досягнуто ліміт складів для вашого тарифу';
+        toast.error(
+          (t) => (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <strong>🚫 {errorMsg}</strong>
+              <button
+                onClick={() => {
+                  toast.dismiss(t.id);
+                  navigate('/billing');
+                }}
+                style={{
+                  padding: '8px 16px',
+                  background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: '600'
+                }}
+              >
+                💎 Оновити тариф
+              </button>
+            </div>
+          ),
+          { duration: 8000 }
+        );
+      } else {
+        toast.error(err?.response?.data?.error || err?.message || 'Помилка при створенні складу');
+      }
+    } 
   };
   
   const handleMarkerDragEnd = (warehouse: Warehouse, lat: number, lng: number) => { setConfirmMove({ warehouse, lat: lat.toFixed(6), lng: lng.toFixed(6) }); };
@@ -424,10 +458,10 @@ export default function Warehouses() {
         <div className="modal-overlay" onClick={() => setViewInventoryWarehouse(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ margin: 0, color: '#1e293b' }}>📦 Залишки: {viewInventoryWarehouse.name}</h3>
-              <button onClick={() => setViewInventoryWarehouse(null)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#64748b' }}>&times;</button>
+              <h3 style={{ margin: 0, color: 'var(--text-bright)' }}>📦 Залишки: {viewInventoryWarehouse.name}</h3>
+              <button onClick={() => setViewInventoryWarehouse(null)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: 'var(--text-muted)' }}>&times;</button>
             </div>
-            <div style={{ padding: '20px 0', color: '#64748b' }}>
+            <div style={{ padding: '20px 0', color: 'var(--text-muted)' }}>
               <p>Функціонал перегляду в розробці...</p>
             </div>
             <div className="modal-actions">
@@ -496,7 +530,7 @@ export default function Warehouses() {
           <div className="modal confirm-modal" onClick={(e) => e.stopPropagation()}>
             <h3 style={{ color: '#ef4444' }}>⚠️ Видалення складу</h3>
             <p>Ви впевнені, що хочете ліквідувати склад <strong>{warehouseToDelete.name}</strong>?</p>
-            <p style={{ fontSize: '12px', color: '#64748b' }}>Система дозволить це зробити лише якщо на балансі складу нуль одиниць майна.</p>
+            <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Система дозволить це зробити лише якщо на балансі складу нуль одиниць майна.</p>
             <div className="modal-actions">
               <button className="btn btn-secondary" onClick={() => setWarehouseToDelete(null)} disabled={isProcessing}>Скасувати</button>
               <button className="btn btn-danger" onClick={handleDelete} disabled={isProcessing}>{isProcessing ? 'Видалення...' : 'Ліквідувати'}</button>
@@ -544,7 +578,7 @@ export default function Warehouses() {
                           {canAuditWarehouse && (
                             <button 
                               className="wh-btn" 
-                              style={{ backgroundColor: '#f8fafc', border: '1px solid #cbd5e1', color: '#334155' }}
+                              style={{ backgroundColor: 'var(--bg-input)', border: '1px solid var(--border)', color: 'var(--text)' }}
                               onClick={() => setAuditWarehouse(w)}
                             >
                               📋 Переоблік
@@ -644,10 +678,10 @@ export default function Warehouses() {
                     <AnimatedPolyline key={`${line.id}-${lineColor}`} positions={line.positions} pathOptions={{ color: lineColor, weight: 4, opacity: lineOpacity }}>
                       <Tooltip sticky>
                         <div style={{ padding: '4px', fontFamily: 'Inter, sans-serif' }}>
-                          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', marginBottom: '6px' }}>🔗 Підпорядкованість</div>
-                          <div style={{ fontSize: '13px', color: '#0f172a', marginBottom: '2px' }}><strong>Головний:</strong> {line.parentName}</div>
-                          <div style={{ fontSize: '13px', color: '#0f172a', marginBottom: '8px' }}><strong>Підпорядкований:</strong> {line.childName}</div>
-                          <div style={{ fontSize: '12px', color: '#2563eb', fontWeight: 600, background: '#eff6ff', padding: '4px 6px', borderRadius: '4px', display: 'inline-block' }}>📏 Пряма відстань: ~{line.distance.toFixed(1)} км</div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '6px' }}>🔗 Підпорядкованість</div>
+                          <div style={{ fontSize: '13px', color: 'var(--text-bright)', marginBottom: '2px' }}><strong>Головний:</strong> {line.parentName}</div>
+                          <div style={{ fontSize: '13px', color: 'var(--text-bright)', marginBottom: '8px' }}><strong>Підпорядкований:</strong> {line.childName}</div>
+                          <div style={{ fontSize: '12px', color: '#2563eb', fontWeight: 600, background: 'rgba(59, 130, 246, 0.12)', padding: '4px 6px', borderRadius: '4px', display: 'inline-block' }}>📏 Пряма відстань: ~{line.distance.toFixed(1)} км</div>
                         </div>
                       </Tooltip>
                     </AnimatedPolyline>
@@ -667,10 +701,10 @@ export default function Warehouses() {
                   </div>
 
                   <div className="dispatch-content">
-                    <p style={{marginBottom: '20px', fontSize: '13px', color: '#64748b'}}>Одержувач: <strong style={{color:'#0f172a'}}>{dispatchTargetWarehouse.name}</strong></p>
+                    <p style={{marginBottom: '20px', fontSize: '13px', color: 'var(--text-muted)'}}>Одержувач: <strong style={{color:'#0f172a'}}>{dispatchTargetWarehouse.name}</strong></p>
 
                     <div className="form-group">
-                      <label style={{ fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px', display: 'block' }}>Звідки (Склад відправник)</label>
+                      <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)', marginBottom: '6px', display: 'block' }}>Звідки (Склад відправник)</label>
                       <select className="erp-input" value={dispatchParentWarehouse?.id || ''} onChange={e => handleSourceChange(e.target.value)}>
                         <option value="" disabled>Оберіть склад вище по ієрархії...</option>
                         {allowedSourceWarehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
@@ -684,7 +718,7 @@ export default function Warehouses() {
                     )}
 
                     <div className="form-group">
-                      <label style={{ fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px', display: 'block' }}>Пріоритет</label>
+                      <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)', marginBottom: '6px', display: 'block' }}>Пріоритет</label>
                       <select className="erp-input" value={dispatchPriority} onChange={e => setDispatchPriority(e.target.value)}>
                         <option value="NORMAL">🟢 Звичайний (Плановий)</option>
                         <option value="URGENT">🔴 Терміновий</option>
@@ -692,7 +726,7 @@ export default function Warehouses() {
                     </div>
 
                     <div className="form-group">
-                      <label style={{ fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px', display: 'block' }}>Транспорт та Водій</label>
+                      <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)', marginBottom: '6px', display: 'block' }}>Транспорт та Водій</label>
                       <select className="erp-input" value={selectedVehicleId} onChange={e => setSelectedVehicleId(e.target.value)}>
                         <option value="" disabled>Оберіть вільний ТЗ...</option>
                         {availableVehicles.map(v => <option key={v.id} value={v.id}>{v.brand} ({v.plate_number}) • {v.capacity_kg} кг</option>)}
@@ -706,14 +740,14 @@ export default function Warehouses() {
                       </div>
                     )}
 
-                    <h4 style={{marginTop: '24px', fontSize: '14px', color: '#1e293b'}}>📦 Вантажний маніфест</h4>
+                    <h4 style={{marginTop: '24px', fontSize: '14px', color: 'var(--text-bright)'}}>📦 Вантажний маніфест</h4>
                     <div className="manifest-container">
-                      <select className="erp-input" style={{ marginBottom: '8px', backgroundColor: '#fff' }} value={itemToAdd} onChange={e => setItemToAdd(e.target.value)}>
+                      <select className="erp-input" style={{ marginBottom: '8px' }} value={itemToAdd} onChange={e => setItemToAdd(e.target.value)}>
                         <option value="" disabled>Оберіть майно...</option>
                         {warehouseInventory.map(item => <option key={item.id} value={item.id} disabled={getRemainingAvailable(item.id) <= 0}>{item.name}</option>)}
                       </select>
                       <div style={{ display: 'flex', gap: '8px' }}>
-                        <input type="number" className="erp-input" placeholder="К-сть" value={qtyToAdd} onChange={e => setQtyToAdd(e.target.value)} style={{flex: 1, backgroundColor: '#fff'}}/>
+                        <input type="number" className="erp-input" placeholder="К-сть" value={qtyToAdd} onChange={e => setQtyToAdd(e.target.value)} style={{flex: 1}}/>
                         <button className="btn btn-secondary" onClick={handleAddToManifest}>+ Додати</button>
                       </div>
                     </div>

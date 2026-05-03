@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"millog_backend/internal/models"
-	"millog_backend/internal/repositories"
+	"Omnilog_backend/internal/models"
+	"Omnilog_backend/internal/repositories"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -89,7 +89,9 @@ func (s *UnitService) GetAvailableForRole(ctx context.Context, roleStr string) (
 }
 
 func (s *UnitService) GetVisibleUnits(ctx context.Context, userID string, role models.UserRole) ([]models.Unit, error) {
-	if role == models.RoleAdmin {
+	// Власник організації (TENANT_ADMIN, legacy ADMIN) та платформний адмін (SYSTEM_ADMIN)
+	// бачать всі підрозділи в межах свого tenant (або всі, якщо SYSTEM_ADMIN).
+	if role == models.RoleTenantAdmin || role == models.RoleAdmin || role == models.RoleSystemAdmin {
 		return s.repo.List(ctx, s.dbPool)
 	}
 
@@ -106,7 +108,8 @@ func (s *UnitService) GetVisibleUnits(ctx context.Context, userID string, role m
 }
 
 func (s *UnitService) ChangeCommander(ctx context.Context, targetUnitID int64, newCommanderID string, requesterRole string, requesterUnitID int64) error {
-	if requesterRole != "ADMIN" {
+	// Власник організації (TENANT_ADMIN, legacy ADMIN) має доступ до всіх підрозділів.
+	if requesterRole != string(models.RoleTenantAdmin) && requesterRole != string(models.RoleAdmin) && requesterRole != string(models.RoleSystemAdmin) {
 		hasAccess, err := s.repo.CheckHierarchy(ctx, s.dbPool, requesterUnitID, targetUnitID)
 		if err != nil {
 			return fmt.Errorf("помилка перевірки прав доступу: %v", err)

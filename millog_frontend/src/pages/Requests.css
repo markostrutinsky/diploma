@@ -81,7 +81,7 @@
 
 .header-subtitle {
   margin: 4px 0 0 0;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 14px;
 }
 
@@ -124,14 +124,14 @@
 }
 
 .btn-secondary {
-  background-color: #ffffff;
-  color: #1e293b;
-  border: 1px solid #cbd5e1;
+  background-color: var(--bg-input);
+  color: var(--text);
+  border: 1px solid var(--border);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background-color: #f1f5f9;
-  border-color: #94a3b8;
+  background-color: var(--bg-hover);
+  border-color: var(--border-light);
 }
 
 /* Фіолетова кнопка для збірного рейсу */
@@ -158,7 +158,7 @@
 }
 
 .btn-danger-outline:hover:not(:disabled) {
-  background-color: #fef2f2;
+  background-color: rgba(239, 68, 68, 0.1);
 }
 
 .action-buttons-flex {
@@ -170,8 +170,8 @@
    ТАБЛИЦІ ТА КАРТКИ
 ========================================= */
 .card {
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 8px;
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
   overflow: hidden;
@@ -191,14 +191,14 @@
 .data-table td {
   padding: 14px 16px;
   text-align: left;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
 
 .data-table th {
   font-weight: 600;
-  color: #475569;
-  background-color: #f8fafc;
+  color: var(--text);
+  background-color: var(--bg-input);
   text-transform: uppercase;
   font-size: 0.75rem;
   letter-spacing: 0.05em;
@@ -209,18 +209,18 @@
 }
 
 .data-table tbody tr:hover {
-  background-color: #f8fafc;
+  background-color: var(--bg-input);
 }
 
 /* Рядок, виділений чекбоксом */
 .row-selected {
-  background-color: #f5f3ff !important;
+  background-color: rgba(139, 92, 246, 0.1) !important;
 }
 
 .empty-state {
   padding: 40px;
   text-align: center;
-  color: #64748b;
+  color: var(--text-muted);
   font-weight: 500;
   margin: 0;
 }
@@ -241,7 +241,7 @@
 }
 
 .font-medium { font-weight: 500; }
-.text-muted { color: #64748b; }
+.text-muted { color: var(--text-muted); }
 
 .status-text-waiting {
   font-size: 13px;
@@ -267,10 +267,10 @@
   text-align: center;
   white-space: nowrap;
 }
-.badge-warning { background-color: #fef3c7; color: #d97706; }
-.badge-success { background-color: #dcfce7; color: #059669; }
-.badge-danger, .badge-critical { background-color: #fee2e2; color: #dc2626; }
-.badge-neutral { background-color: #f1f5f9; color: #475569; }
+.badge-warning { background-color: rgba(245, 158, 11, 0.15); color: #d97706; }
+.badge-success { background-color: rgba(16, 185, 129, 0.15); color: #059669; }
+.badge-danger, .badge-critical { background-color: rgba(239, 68, 68, 0.15); color: #dc2626; }
+.badge-neutral { background-color: var(--bg-input); color: var(--text); }
 
 /* =========================================
    ФОРМИ
@@ -284,7 +284,7 @@
   display: block;
   font-size: 0.8125rem;
   font-weight: 600;
-  color: #475569;
+  color: var(--text);
   margin-bottom: 8px;
 }
 
@@ -301,18 +301,18 @@
 .erp-input {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border);
   border-radius: 6px;
   font-size: 0.875rem;
-  color: #1e293b;
-  background-color: #ffffff;
+  color: var(--text);
+  background-color: var(--bg-input);
   transition: border-color 0.2s, box-shadow 0.2s;
   box-sizing: border-box;
 }
 
 .erp-input:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
@@ -339,7 +339,7 @@
 }
 
 .modal {
-  background: #ffffff;
+  background: var(--bg-modal);
   border-radius: 12px;
   padding: 24px;
   width: 100%;
@@ -347,6 +347,7 @@
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  border: 1px solid var(--border);
 }
 
 .modal-wide {
@@ -354,7 +355,7 @@
 }
 
 .modal-title {
-  color: #1e293b;
+  color: var(--text-bright);
   margin: 0 0 16px 0;
 }
 
@@ -364,17 +365,17 @@
   gap: 12px;
   margin-top: 24px;
   padding-top: 16px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--border);
 }
 
 /* =========================================
    БЛОК: ІНФО ПРО ВАНТАЖ ТА ІНДИКАТОР ВАГИ
 ========================================= */
 .dispatch-summary {
-  background-color: #f8fafc;
+  background-color: var(--bg-input);
   padding: 12px;
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   margin-bottom: 20px;
   max-height: 180px;
   overflow-y: auto;
@@ -382,7 +383,7 @@
 
 .summary-title {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-muted);
   margin-bottom: 8px;
   text-transform: uppercase;
   font-weight: 600;
@@ -399,16 +400,16 @@
   justify-content: space-between;
   font-size: 13px;
   padding: 6px 0;
-  border-bottom: 1px dashed #cbd5e1;
+  border-bottom: 1px dashed var(--border-light);
 }
 
 .item-name {
   font-weight: 500;
-  color: #0f172a;
+  color: var(--text-bright);
 }
 
 .item-weight {
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .summary-total {
@@ -416,12 +417,12 @@
   text-align: right;
   font-size: 14px;
   font-weight: bold;
-  color: #1e293b;
+  color: var(--text-bright);
 }
 
 .capacity-indicator {
   margin-bottom: 24px;
-  background-color: #f1f5f9;
+  background-color: var(--bg-input);
   padding: 12px;
   border-radius: 8px;
 }
@@ -434,13 +435,13 @@
   font-weight: 600;
 }
 
-.capacity-label { color: #475569; }
-.text-normal { color: #0f172a; }
+.capacity-label { color: var(--text); }
+.text-normal { color: var(--text-bright); }
 .text-critical { color: #ef4444; }
 
 .progress-bg {
   height: 8px;
-  background-color: #e2e8f0;
+  background-color: var(--border);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -475,7 +476,7 @@
   align-items: center;
   justify-content: center;
   height: 50vh;
-  color: #64748b;
+  color: var(--text-muted);
   font-weight: 500;
 }
 
@@ -509,13 +510,13 @@
   margin-top: 6px;
   padding: 4px 8px;
   border-radius: 4px;
-  background-color: #f8fafc;
-  border-left: 2px solid #cbd5e1;
+  background-color: var(--bg-input);
+  border-left: 2px solid var(--border-light);
   font-style: italic;
 }
 
 .comment-box.rejected {
-  background-color: #fef2f2;
+  background-color: rgba(239, 68, 68, 0.1);
   border-left-color: #ef4444;
   color: #b91c1c;
 }
@@ -544,15 +545,15 @@
 
 /* --- Модалка Smart Розподілу --- */
 .smart-route-card {
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 16px;
-  background: #fff;
+  background: var(--bg-card);
   transition: border-color 0.2s;
 }
 
 .smart-route-card:hover {
-  border-color: #cbd5e1;
+  border-color: var(--border-light);
 }
 
 .smart-route-header {
@@ -564,7 +565,7 @@
 
 .smart-route-progress-bg {
   height: 6px;
-  background: #f1f5f9;
+  background: var(--bg-input);
   border-radius: 3px;
   margin-bottom: 4px;
   overflow: hidden;
@@ -583,7 +584,7 @@
   margin: 0;
   padding-left: 0;
   list-style: none;
-  color: #475569;
+  color: var(--text);
   font-size: 13px;
   display: flex;
   flex-direction: column;
@@ -591,7 +592,7 @@
 }
 
 .smart-route-items li {
-  background: #f8fafc;
+  background: var(--bg-input);
   padding: 6px 10px;
   border-radius: 4px;
   border-left: 3px solid #94a3b8;
@@ -599,12 +600,12 @@
 
 .smart-item-weight {
   font-weight: 600;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .smart-unassigned-card {
   border: 1px dashed #ef4444;
-  background: #fef2f2;
+  background: rgba(239, 68, 68, 0.1);
   border-radius: 8px;
   padding: 16px;
   margin-top: 10px;

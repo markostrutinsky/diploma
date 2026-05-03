@@ -3,7 +3,7 @@ package repositories
 import (
 	"context"
 
-	"millog_backend/internal/models"
+	"Omnilog_backend/internal/models"
 )
 
 type CategoryRepository struct{}

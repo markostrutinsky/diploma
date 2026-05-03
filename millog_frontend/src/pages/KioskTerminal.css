@@ -1,6 +1,6 @@
 /* Основний контейнер органічно вписується у світлий фон сторінки */
 .kiosk-mode {
-  color: #0f172a;
+  color: var(--text-bright);
   min-height: calc(100vh - 80px);
   font-family: 'Inter', system-ui, sans-serif;
   animation: fadeIn 0.3s ease-in-out;
@@ -20,7 +20,7 @@
 .kiosk-header h1 {
   font-size: 2rem;
   margin: 0 0 8px 0;
-  color: #0f172a;
+  color: var(--text-bright);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -28,7 +28,7 @@
 }
 
 .kiosk-header p {
-  color: #64748b;
+  color: var(--text-muted);
   margin: 0;
   font-size: 1rem;
 }
@@ -42,11 +42,11 @@
 
 /* --- СЕКЦІЯ СКАНЕРА ТА КОШИКА (КАРТКИ) --- */
 .scanner-section, .cart-section {
-  background: #ffffff;
+  background: var(--bg-card);
   padding: 32px;
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2), 0 2px 4px -1px rgba(0, 0, 0, 0.1);
   text-align: center;
   height: 100%;
   display: flex;
@@ -57,7 +57,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: #ecfdf5;
+  background: rgba(16, 185, 129, 0.1);
   color: #059669;
   padding: 6px 14px;
   border-radius: 20px;
@@ -92,9 +92,9 @@
   width: 100%;
   padding: 18px;
   font-size: 1.25rem;
-  background: #f8fafc;
-  border: 2px solid #cbd5e1;
-  color: #0f172a;
+  background: var(--bg-input);
+  border: 2px solid var(--border);
+  color: var(--text);
   border-radius: 8px;
   text-align: center;
   outline: none;
@@ -104,7 +104,7 @@
 
 .scan-form input:focus {
   border-color: #3b82f6;
-  background: #ffffff;
+  background: var(--bg-card);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
@@ -125,15 +125,15 @@
 }
 
 .scan-form button:disabled {
-  background: #e2e8f0;
-  color: #94a3b8;
+  background: var(--bg-input);
+  color: var(--text-muted);
   cursor: not-allowed;
 }
 
 .cart-section h2 {
   margin: 0 0 20px 0;
   font-size: 1.25rem;
-  color: #0f172a;
+  color: var(--text-bright);
   border-bottom: 2px solid #f1f5f9;
   padding-bottom: 12px;
   text-align: left;
@@ -161,8 +161,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
   padding: 12px 16px;
   border-radius: 8px;
 }
@@ -174,7 +174,7 @@
 
 .item-info strong {
   font-size: 1rem;
-  color: #0f172a;
+  color: var(--text-bright);
 }
 
 .item-actions {
@@ -184,7 +184,7 @@
 }
 
 .qty-badge {
-  background: #e0f2fe;
+  background: rgba(59, 130, 246, 0.15);
   color: #0369a1;
   font-weight: 700;
   font-size: 1rem;
@@ -193,7 +193,7 @@
 }
 
 .remove-btn {
-  background: #fee2e2;
+  background: rgba(239, 68, 68, 0.15);
   color: #ef4444;
   border: none;
   width: 30px;
@@ -208,7 +208,7 @@
 }
 
 .remove-btn:hover {
-  background: #fca5a5;
+  background: rgba(239, 68, 68, 0.3);
   color: #b91c1c;
 }
 
@@ -230,7 +230,7 @@
 }
 
 .issue-btn:disabled {
-  background: #e2e8f0;
-  color: #94a3b8;
+  background: var(--bg-input);
+  color: var(--text-muted);
   cursor: not-allowed;
 }

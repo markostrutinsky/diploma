@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"millog_backend/internal/models"
+	"Omnilog_backend/internal/models"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -52,6 +52,11 @@ func (r *UnitRepository) Create(ctx context.Context, db DBExecutor, u *models.Un
 func (r *UnitRepository) List(ctx context.Context, db DBExecutor) ([]models.Unit, error) {
 	args := []any{}
 	where := tenantFilter(ctx, "", "WHERE", &args)
+
+	// 🔍 Тимчасовий дебаг
+	tid := TenantFromCtx(ctx)
+	fmt.Printf("🔍 UnitRepository.List: tenant_id from context = '%s', where clause = '%s'\n", tid, where)
+
 	q := `SELECT id, parent_id, name, unit_type FROM units` + where + ` ORDER BY id`
 	rows, err := db.Query(ctx, q, args...)
 	if err != nil {
@@ -398,7 +403,7 @@ func (r *UnitRepository) GetEffectiveTier(ctx context.Context, db DBExecutor, un
 		var tier string
 		err := db.QueryRow(ctx, `SELECT subscription_tier FROM tenants WHERE id = $1`, tid).Scan(&tier)
 		if err != nil {
-			return "FREE", nil
+			return "BASIC", nil
 		}
 		return tier, nil
 	}
@@ -420,7 +425,7 @@ func (r *UnitRepository) GetEffectiveTier(ctx context.Context, db DBExecutor, un
 	var tier string
 	err := db.QueryRow(ctx, query, unitID).Scan(&tier)
 	if err != nil {
-		return "FREE", nil
+		return "BASIC", nil
 	}
 	return tier, nil
 }

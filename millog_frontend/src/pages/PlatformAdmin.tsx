@@ -7,7 +7,7 @@ type Tenant = {
   id: string
   name: string
   slug: string
-  subscription_tier: 'FREE' | 'BASIC' | 'PRO' | 'ENTERPRISE'
+  subscription_tier: 'BASIC' | 'PRO' | 'ENTERPRISE'
   subscription_expires_at?: string | null
   owner_email?: string | null
   is_active: boolean
@@ -16,7 +16,7 @@ type Tenant = {
   user_count: number
 }
 
-const TIERS = ['FREE', 'BASIC', 'PRO', 'ENTERPRISE'] as const
+const TIERS = ['BASIC', 'PRO', 'ENTERPRISE'] as const
 
 export default function PlatformAdmin() {
   const [stats, setStats] = useState<any>(null)

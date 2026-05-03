@@ -444,10 +444,10 @@ export default function Requests() {
       
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', paddingTop: '16px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h1 style={{ margin: '0 0 6px 0', fontSize: '1.75rem', fontWeight: 'bold', color: '#0f172a' }}>
+          <h1 style={{ margin: '0 0 6px 0', fontSize: '1.75rem', fontWeight: 'bold', color: 'var(--text-bright)' }}>
             Заявки на постачання
           </h1>
-          <p style={{ margin: 0, color: '#64748b', fontSize: '14px' }}>
+          <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '14px' }}>
             Управління потребами складів
           </p>
         </div>
@@ -488,10 +488,10 @@ export default function Requests() {
         </div>
       </div>
 
-      <div className="filters-bar" style={{ display: 'flex', gap: '16px', marginBottom: '24px', backgroundColor: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0', flexWrap: 'wrap' }}>
+      <div className="filters-bar" style={{ display: 'flex', gap: '16px', marginBottom: '24px', backgroundColor: 'var(--bg-input)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border)', flexWrap: 'wrap' }}>
         
         <div style={{ flex: '1 1 250px' }}>
-          <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#64748b', marginBottom: '4px' }}>Пошук</label>
+          <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>Пошук</label>
           <div style={{ position: 'relative' }}>
             <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '14px' }}>
               🔍
@@ -516,7 +516,7 @@ export default function Requests() {
         </div>
 
         <div style={{ flex: '1 1 200px' }}>
-          <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#64748b', marginBottom: '4px' }}>Статус заявки</label>
+          <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>Статус заявки</label>
           <select className="erp-input" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
             <option value="ALL">Всі статуси</option>
             <option value="PENDING">⏳ Очікують погодження</option>
@@ -529,7 +529,7 @@ export default function Requests() {
         </div>
         
         <div style={{ flex: '1 1 200px' }}>
-          <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#64748b', marginBottom: '4px' }}>Цільовий Склад</label>
+          <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '4px' }}>Цільовий Склад</label>
           <select className="erp-input" value={filterWarehouseId} onChange={e => setFilterWarehouseId(e.target.value)}>
             <option value="ALL">Всі склади</option>
             {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
@@ -542,10 +542,10 @@ export default function Requests() {
         <div className="modal-overlay" onClick={() => setShowSmartPreview(false)}>
           <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '24px' }}>
-              <div style={{ fontSize: '2.5rem', background: '#f5f3ff', padding: '10px', borderRadius: '12px' }}>🧠</div>
+              <div style={{ fontSize: '2.5rem', background: 'rgba(139, 92, 246, 0.12)', padding: '10px', borderRadius: '12px' }}>🧠</div>
               <div>
                 <h3 className="modal-title" style={{ margin: 0, fontSize: '1.4rem' }}>Інтелектуальна маршрутизація</h3>
-                <p style={{ margin: '4px 0 0', color: '#64748b', fontSize: '13px' }}>
+                <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: '13px' }}>
                   Алгоритм оптимального пакування (First-Fit Decreasing) розподілив вантаж
                 </p>
               </div>
@@ -559,7 +559,7 @@ export default function Requests() {
                 return (
                   <div key={idx} className="smart-route-card">
                     <div className="smart-route-header">
-                      <strong style={{ color: '#0f172a', fontSize: '1.1rem' }}>🚛 {route.name}</strong>
+                      <strong style={{ color: 'var(--text-bright)', fontSize: '1.1rem' }}>🚛 {route.name}</strong>
                       <span className={`badge ${isOverweight ? 'badge-critical' : 'badge-success'}`}>
                         Завантажено: {Math.round(fillPercentage)}%
                       </span>
@@ -572,7 +572,7 @@ export default function Requests() {
                         style={{ width: `${fillPercentage}%` }}
                       ></div>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b', marginBottom: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
                       <span>0 кг</span>
                       <span>{route.used_weight.toFixed(1)} / {route.max_weight} кг</span>
                     </div>
@@ -671,7 +671,7 @@ export default function Requests() {
       {cancelModalData && (
         <div className="modal-overlay" onClick={() => !isProcessing && setCancelModalData(null)}>
           <div className="modal confirm-modal" onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ color: '#64748b' }}>Скасування заявки</h3>
+            <h3 style={{ color: 'var(--text-muted)' }}>Скасування заявки</h3>
             <p>Ви впевнені, що хочете відкликати свою заявку на <strong>{resources.find(r => r.id === cancelModalData.resource_id)?.name}</strong>?</p>
             <div className="modal-actions">
               <button className="btn btn-secondary" onClick={() => setCancelModalData(null)} disabled={isProcessing}>Ні, залишити</button>
@@ -716,7 +716,7 @@ export default function Requests() {
                 </div>
                 <div className="form-group flex-1 mb-0">
                   <label>Куди (Заблоковано системою)</label>
-                  <select className="erp-input" value={dispatchForm.to_warehouse_id} disabled style={{ backgroundColor: '#e2e8f0', color: '#475569', cursor: 'not-allowed' }}>
+                  <select className="erp-input" value={dispatchForm.to_warehouse_id} disabled style={{ backgroundColor: 'var(--bg-hover)', color: 'var(--text)', cursor: 'not-allowed' }}>
                     {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                   </select>
                 </div>
@@ -802,7 +802,7 @@ export default function Requests() {
                   </td>
                   <td style={{ fontWeight: 600 }}>{r.quantity} шт</td>
                   <td className="text-muted" style={{ fontSize: '13px' }}>
-                    <div style={{ fontWeight: 600, color: '#334155' }}>📍 {targetWarehouse?.name || 'Не вказано'}</div>
+                    <div style={{ fontWeight: 600, color: 'var(--text)' }}>📍 {targetWarehouse?.name || 'Не вказано'}</div>
                     <div style={{ fontSize: '11px', color: '#94a3b8' }}>Замовив: {authorUser?.full_name}</div>
                     
                     {r.comment && (
@@ -835,7 +835,7 @@ export default function Requests() {
                           {r.created_by === user?.id && (
                              <button 
                                className="btn btn-sm" 
-                               style={{ backgroundColor: '#f1f5f9', color: '#64748b', border: '1px dashed #cbd5e1', fontSize: '12px' }} 
+                               style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-muted)', border: '1px dashed var(--border-light)', fontSize: '12px' }} 
                                onClick={() => setCancelModalData(r)}
                              >
                                Скасувати власну
@@ -896,7 +896,7 @@ export default function Requests() {
               </div>
 
               {localAlternatives.length > 0 && (
-                <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', fontSize: '13px', color: '#b45309' }}>
+                <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '8px', fontSize: '13px', color: '#b45309' }}>
                   <strong style={{ display: 'block', marginBottom: '6px' }}>💡 Знайдено внутрішні резерви!</strong>
                   У вашій орг. структурі вже є цей ресурс на сусідніх складах:
                   <ul style={{ margin: '6px 0 0 20px', padding: 0 }}>

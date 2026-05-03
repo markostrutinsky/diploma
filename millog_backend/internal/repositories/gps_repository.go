@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"millog_backend/internal/models"
+	"Omnilog_backend/internal/models"
 )
 
 type GPSRepository struct{}
@@ -132,7 +132,7 @@ func (r *GPSRepository) GetFleetLocations(ctx context.Context, db DBExecutor, un
 			FROM latest_locations ll
 			WHERE EXISTS (
 				SELECT 1 FROM shipments s
-				WHERE s.vehicle_id::text = ll.vehicle_id
+				WHERE s.vehicle_id = ll.vehicle_id
 				  AND s.status = 'DISPATCHED'
 			)
 		`, unitArgN, tFilter)
@@ -152,7 +152,7 @@ func (r *GPSRepository) GetFleetLocations(ctx context.Context, db DBExecutor, un
 			FROM latest_locations ll
 			WHERE EXISTS (
 				SELECT 1 FROM shipments s
-				WHERE s.vehicle_id::text = ll.vehicle_id
+				WHERE s.vehicle_id = ll.vehicle_id
 				  AND s.status = 'DISPATCHED'
 			)
 		`, whereBase)

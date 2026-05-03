@@ -11,7 +11,7 @@
 }
 
 .audit-subtitle {
-  color: #64748b;
+  color: var(--text-muted);
   margin-top: 4px;
   font-size: 14px;
 }
@@ -20,8 +20,8 @@
 .audit-filters-card {
   margin-bottom: 24px;
   padding: 16px !important;
-  background: #f8fafc !important;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-input) !important;
+  border: 1px solid var(--border);
 }
 
 .audit-filters-grid {
@@ -32,16 +32,16 @@
 
 /* Стилізація таблиці аудиту */
 .table-audit th {
-  background-color: #f8fafc;
+  background-color: var(--bg-input);
   text-transform: uppercase;
   font-size: 11px;
   letter-spacing: 0.05em;
-  color: #475569;
+  color: var(--text);
 }
 
 .timestamp-cell {
   white-space: nowrap;
-  color: #1e293b;
+  color: var(--text-bright);
   font-weight: 500;
 }
 
@@ -52,13 +52,13 @@
 
 .user-email-main {
   font-weight: 600;
-  color: #0f172a;
+  color: var(--text-bright);
   font-size: 14px;
 }
 
 .user-role-sub {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-muted);
   margin-top: 2px;
 }
 
@@ -68,11 +68,11 @@
   align-items: center;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 11px;
-  background: #f1f5f9;
+  background: var(--bg-input);
   padding: 4px 8px;
   border-radius: 4px;
-  color: #475569;
-  border: 1px solid #e2e8f0;
+  color: var(--text);
+  border: 1px solid var(--border);
 }
 
 .entity-id-short {
@@ -90,16 +90,16 @@
   text-transform: uppercase;
 }
 
-.badge-update { background: #eff6ff; color: #2563eb; border: 1px solid #dbeafe; }
-.badge-delete { background: #fef2f2; color: #dc2626; border: 1px solid #fee2e2; }
-.badge-create { background: #f0fdf4; color: #16a34a; border: 1px solid #dcfce7; }
-.badge-warning { background: #fffbeb; color: #d97706; border: 1px solid #fef3c7; }
-.badge-primary { background: #e0e7ff; color: #4338ca; border: 1px solid #c7d2fe; }
-.badge-neutral { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+.badge-update { background: rgba(59, 130, 246, 0.1); color: #2563eb; border: 1px solid rgba(59, 130, 246, 0.3); }
+.badge-delete { background: rgba(239, 68, 68, 0.1); color: #dc2626; border: 1px solid rgba(239, 68, 68, 0.3); }
+.badge-create { background: rgba(16, 185, 129, 0.1); color: #16a34a; border: 1px solid rgba(16, 185, 129, 0.3); }
+.badge-warning { background: rgba(245, 158, 11, 0.1); color: #d97706; border: 1px solid rgba(245, 158, 11, 0.3); }
+.badge-primary { background: rgba(99, 102, 241, 0.15); color: #4338ca; border: 1px solid rgba(99, 102, 241, 0.3); }
+.badge-neutral { background: var(--bg-input); color: var(--text); border: 1px solid var(--border); }
 
 /* Текст деталей */
 .details-text {
-  color: #334155;
+  color: var(--text);
   font-size: 13px;
   line-height: 1.5;
   max-width: 400px;
@@ -116,7 +116,7 @@
 }
 
 .data-table tbody tr:hover {
-  background-color: #f1f5f9;
+  background-color: var(--bg-input);
 }
 /* =========================================
    Покращена статистика + бейджі
@@ -129,8 +129,8 @@
 }
 
 .audit-stat-card {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 16px 18px;
   display: flex;
@@ -155,13 +155,13 @@
 .audit-stat-val {
   font-size: 22px;
   font-weight: 700;
-  color: #0f172a;
+  color: var(--text-bright);
   line-height: 1.1;
 }
 
 .audit-stat-lbl {
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-muted);
   margin-top: 2px;
 }
 
@@ -183,8 +183,8 @@
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   font-size: 12px;
   padding: 5px 10px;
-  background: #f1f5f9;
-  color: #334155;
+  background: var(--bg-input);
+  color: var(--text);
   font-weight: 500;
   max-width: 100%;
 }
@@ -200,9 +200,9 @@
   font-size: 12px;
   color: #94a3b8;
   padding: 14px;
-  background: #f8fafc;
+  background: var(--bg-input);
   border-radius: 8px;
-  border: 1px dashed #e2e8f0;
+  border: 1px dashed var(--border);
 }
 
 /* Адаптивність */

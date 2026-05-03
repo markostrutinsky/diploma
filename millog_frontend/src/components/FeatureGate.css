@@ -6,14 +6,26 @@
   gap: 16px;
   padding: 20px 24px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
-  border: 1px solid #c4b5fd;
-  color: #1e1b4b;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.08);
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+
+.paywall-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, #6366f1 0%, #8b5cf6 100%);
 }
 
 .paywall-card__icon {
-  font-size: 32px;
+  font-size: 28px;
   flex-shrink: 0;
 }
 
@@ -26,12 +38,12 @@
   font-weight: 600;
   font-size: 15px;
   margin-bottom: 4px;
+  color: var(--text-bright, var(--text)) !important;
 }
 
 .paywall-card__hint {
   font-size: 13px;
-  color: #4c1d95;
-  opacity: 0.85;
+  color: var(--text-muted) !important;
 }
 
 .paywall-card__cta {
@@ -80,6 +92,106 @@
   width: 100%;
 }
 
+/* Full-screen paywall (для заблокованих сторінок) — під темну тему додатка */
+.paywall-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  min-height: 60vh;
+}
+
+.paywall-screen__card {
+  max-width: 520px;
+  width: 100%;
+  padding: 40px 36px;
+  border-radius: 16px;
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow-lg, 0 10px 40px rgba(0, 0, 0, 0.35));
+  text-align: center;
+  color: var(--text) !important;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Акцентна смужка зверху */
+.paywall-screen__card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%);
+}
+
+.paywall-screen__icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.2) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.35);
+}
+
+.paywall-screen__title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: var(--text-bright, var(--text)) !important;
+  letter-spacing: -0.01em;
+}
+
+.paywall-screen__tier {
+  font-size: 14px;
+  color: var(--text-muted) !important;
+  margin-bottom: 20px;
+}
+
+.paywall-screen__tier strong {
+  display: inline-block;
+  padding: 2px 10px;
+  margin-left: 4px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: #fff !important;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.paywall-screen__description {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-muted) !important;
+  margin: 0 0 28px;
+}
+
+.paywall-screen__cta {
+  display: inline-block;
+  padding: 12px 28px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: #ffffff !important;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.paywall-screen__cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.45);
+}
+
 /* Badge */
 .paywall-badge {
   display: inline-flex;
@@ -105,8 +217,8 @@
 }
 
 .paywall-badge--basic {
-  background: #e2e8f0;
-  color: #334155;
+  background: var(--border);
+  color: var(--text);
 }
 
 .paywall-badge--compact {

@@ -1,11 +1,11 @@
 package handlers
 
 import (
+	"Omnilog_backend/internal/middleware"
+	"Omnilog_backend/internal/models"
+	"Omnilog_backend/internal/services"
 	"context"
 	"fmt"
-	"millog_backend/internal/middleware"
-	"millog_backend/internal/models"
-	"millog_backend/internal/services"
 	"net/http"
 
 	"github.com/gin-gonic/gin"

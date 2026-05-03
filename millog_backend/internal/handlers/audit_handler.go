@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"millog_backend/internal/models"
-	"millog_backend/internal/services"
+	"Omnilog_backend/internal/models"
+	"Omnilog_backend/internal/services"
 
 	"github.com/gin-gonic/gin"
 )
@@ -36,8 +36,8 @@ func (h *AuditHandler) GetLogs(c *gin.Context) {
 	// 3. Друкуємо в термінал Докера для дебагу
 	log.Printf("🔥 [АУДИТ] Перевірка ролі: '%s' (Оригінал: %v)", role, roleAny)
 
-	// 4. Перевіряємо
-	if role != "ADMIN" {
+	// 4. Перевіряємо: доступ мають платформний адмін, адмін тенанта та legacy ADMIN
+	if role != "ADMIN" && role != "TENANT_ADMIN" && role != "SYSTEM_ADMIN" {
 		// Тепер, якщо буде помилка, ти прямо на екрані побачиш, ЯКУ САМЕ роль бачить сервер
 		c.JSON(http.StatusForbidden, gin.H{
 			"error": fmt.Sprintf("Доступ заборонено. Сервер бачить вашу роль як: '%s'", role),

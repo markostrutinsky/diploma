@@ -1,11 +1,11 @@
 package services
 
 import (
+	"Omnilog_backend/internal/models"
+	"Omnilog_backend/internal/repositories"
 	"context"
 	"errors"
 	"fmt"
-	"millog_backend/internal/models"
-	"millog_backend/internal/repositories"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )

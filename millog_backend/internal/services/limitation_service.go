@@ -18,13 +18,6 @@ type SubscriptionLimits struct {
 }
 
 var LimitsByTier = map[string]SubscriptionLimits{
-	"FREE": {
-		MaxWarehouses: 1,
-		MaxResources:  20,
-		MaxUsers:      5,
-		MaxVehicles:   1,
-		Unlimited:     false,
-	},
 	"BASIC": {
 		MaxWarehouses: 10,
 		MaxResources:  100,
@@ -70,8 +63,25 @@ func (s *LimitationService) CheckWarehouseLimit(ctx context.Context, unitID int6
 
 	limit := LimitsByTier[tier].MaxWarehouses
 
-	// Лічимо кількість складів для цієї одиниці
-	query := `SELECT COUNT(*) FROM warehouses WHERE unit_id = $1`
+	// Лічимо кількість складів для всього тенанта (всі підрозділи, що належать до того самого тенанта)
+	query := `
+		WITH tenant_info AS (
+			-- Знаходимо tenant_id для поточного підрозділу
+			SELECT tenant_id
+			FROM units
+			WHERE id = $1
+			LIMIT 1
+		),
+		all_tenant_units AS (
+			-- Знаходимо всі підрозділи цього тенанта
+			SELECT u.id
+			FROM units u, tenant_info ti
+			WHERE u.tenant_id = ti.tenant_id
+		)
+		SELECT COUNT(*)
+		FROM warehouses w
+		WHERE w.unit_id IN (SELECT id FROM all_tenant_units)
+	`
 	var count int
 	err = s.dbPool.QueryRow(ctx, query, unitID).Scan(&count)
 	if err != nil {
@@ -101,12 +111,25 @@ func (s *LimitationService) CheckResourceLimit(ctx context.Context, unitID int64
 
 	limit := LimitsByTier[tier].MaxResources
 
-	// Лічимо ресурси всіх складів цієї одиниці
+	// Лічимо ресурси всіх складів всього тенанта
 	query := `
+		WITH tenant_info AS (
+			-- Знаходимо tenant_id для поточного підрозділу
+			SELECT tenant_id
+			FROM units
+			WHERE id = $1
+			LIMIT 1
+		),
+		all_tenant_units AS (
+			-- Знаходимо всі підрозділи цього тенанта
+			SELECT u.id
+			FROM units u, tenant_info ti
+			WHERE u.tenant_id = ti.tenant_id
+		)
 		SELECT COUNT(DISTINCT r.id) 
 		FROM resources r
 		JOIN warehouses w ON r.warehouse_id = w.id
-		WHERE w.unit_id = $1
+		WHERE w.unit_id IN (SELECT id FROM all_tenant_units)
 	`
 	var count int
 	err = s.dbPool.QueryRow(ctx, query, unitID).Scan(&count)
@@ -138,16 +161,24 @@ func (s *LimitationService) CheckUserLimit(ctx context.Context, creatorRole stri
 
 	limit := LimitsByTier[tier].MaxUsers
 
-	// Лічимо активних користувачів для цієї одиниці та її нижчих рівнів
+	// Лічимо активних користувачів для всього тенанта
 	query := `
-		WITH RECURSIVE unit_tree AS (
-			SELECT id FROM units WHERE id = $1
-			UNION ALL
-			SELECT u.id FROM units u
-			JOIN unit_tree ut ON u.parent_id = ut.id
+		WITH tenant_info AS (
+			-- Знаходимо tenant_id для поточного підрозділу
+			SELECT tenant_id
+			FROM units
+			WHERE id = $1
+			LIMIT 1
+		),
+		all_tenant_units AS (
+			-- Знаходимо всі підрозділи цього тенанта
+			SELECT u.id
+			FROM units u, tenant_info ti
+			WHERE u.tenant_id = ti.tenant_id
 		)
-		SELECT COUNT(*) FROM users u
-		WHERE u.unit_id IN (SELECT id FROM unit_tree)
+		SELECT COUNT(*) 
+		FROM users u
+		WHERE u.unit_id IN (SELECT id FROM all_tenant_units)
 		AND u.status != 'BLOCKED'
 	`
 	var count int
@@ -179,7 +210,25 @@ func (s *LimitationService) CheckVehicleLimit(ctx context.Context, unitID int64)
 
 	limit := LimitsByTier[tier].MaxVehicles
 
-	query := `SELECT COUNT(*) FROM vehicles WHERE unit_id = $1`
+	// Лічимо транспорт для всього тенанта
+	query := `
+		WITH tenant_info AS (
+			-- Знаходимо tenant_id для поточного підрозділу
+			SELECT tenant_id
+			FROM units
+			WHERE id = $1
+			LIMIT 1
+		),
+		all_tenant_units AS (
+			-- Знаходимо всі підрозділи цього тенанта
+			SELECT u.id
+			FROM units u, tenant_info ti
+			WHERE u.tenant_id = ti.tenant_id
+		)
+		SELECT COUNT(*) 
+		FROM vehicles 
+		WHERE unit_id IN (SELECT id FROM all_tenant_units)
+	`
 	var count int
 	err = s.dbPool.QueryRow(ctx, query, unitID).Scan(&count)
 	if err != nil {

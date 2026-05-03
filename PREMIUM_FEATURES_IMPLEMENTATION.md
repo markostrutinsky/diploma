@@ -1,4 +1,4 @@
-# MilLog Premium Features & Subscription System Implementation
+# Omnilog Premium Features & Subscription System Implementation
 
 **Last Updated**: April 22, 2026  
 **Status**: Production Ready for Defense
@@ -864,10 +864,10 @@ curl -X GET http://localhost:8080/api/users/limits \
 All code compiles successfully without errors:
 
 ```bash
-$ cd millog_backend && go build -o millog_backend
+$ cd Omnilog_backend && go build -o Omnilog_backend
 # (no output = success)
 
-$ ./millog_backend
+$ ./Omnilog_backend
 # Starts on port 8080, connects to PostgreSQL
 ```
 

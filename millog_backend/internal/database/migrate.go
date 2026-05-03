@@ -452,17 +452,21 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 
 		// T1. Таблиця tenants
 		`CREATE TABLE IF NOT EXISTS tenants (
-			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-			name VARCHAR(255) NOT NULL UNIQUE,
-			slug VARCHAR(100) NOT NULL UNIQUE,
-			subscription_tier VARCHAR(30) NOT NULL DEFAULT 'FREE',
-			subscription_expires_at TIMESTAMP WITH TIME ZONE,
-			owner_email VARCHAR(255),
-			is_active BOOLEAN NOT NULL DEFAULT TRUE,
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		name VARCHAR(255) NOT NULL UNIQUE,
+		slug VARCHAR(100) NOT NULL UNIQUE,
+		subscription_tier VARCHAR(30) NOT NULL DEFAULT 'BASIC',
+		subscription_expires_at TIMESTAMP WITH TIME ZONE,
+		owner_email VARCHAR(255),
+		is_active BOOLEAN NOT NULL DEFAULT TRUE,
 			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-		);`,
+	);`,
 		`CREATE INDEX IF NOT EXISTS idx_tenants_slug ON tenants(slug);`,
+
+		// Міграція FREE → BASIC для існуючих тенантів
+		`UPDATE tenants SET subscription_tier = 'BASIC' WHERE subscription_tier = 'FREE';`,
+		`UPDATE units SET subscription_tier = 'BASIC' WHERE subscription_tier = 'FREE';`,
 
 		// T2. Створити дефолтний tenant для існуючих даних (якщо даних немає — створиться пустий)
 		`INSERT INTO tenants (name, slug, subscription_tier, is_active)
@@ -627,6 +631,38 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 					$f$, t);
 				END IF;
 			END LOOP;
+		END $$;`,
+
+		// ============================================================
+		// T18. Створення SYSTEM_ADMIN (platform owner).
+		// Credentials беруться з ENV або fallback на дефолтні для демо.
+		// SYSTEM_ADMIN не прив'язаний до tenant (tenant_id = NULL) — крос-тенантний доступ.
+		// ============================================================
+		`DO $$
+		DECLARE
+			admin_email TEXT := COALESCE(current_setting('myapp.system_admin_email', true), 'platform@omnilog.system');
+			admin_password TEXT := COALESCE(current_setting('myapp.system_admin_password', true), '$2b$12$2N2cQVoJVoY8Zp23weSPGup24cChzzXDk90dcOiZOcgUo1hQgNCFS'); -- AdminSystem2024!
+		BEGIN
+			-- Перевіряємо чи вже існує SYSTEM_ADMIN
+			IF NOT EXISTS (SELECT 1 FROM users WHERE role = 'SYSTEM_ADMIN' LIMIT 1) THEN
+				INSERT INTO users (
+					id, tenant_id, username, email, full_name, 
+					password_hash, role, status, unit_id
+				) VALUES (
+					gen_random_uuid(),
+					NULL, -- крос-тенантний
+					'system_admin',
+					admin_email,
+					'Platform Administrator',
+					admin_password,
+					'SYSTEM_ADMIN',
+					'ACTIVE',
+					NULL
+				);
+				RAISE NOTICE 'SYSTEM_ADMIN created: %', admin_email;
+			ELSE
+				RAISE NOTICE 'SYSTEM_ADMIN already exists, skipping';
+			END IF;
 		END $$;`,
 	}
 

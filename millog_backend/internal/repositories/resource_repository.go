@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"millog_backend/internal/models"
+	"Omnilog_backend/internal/models"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"

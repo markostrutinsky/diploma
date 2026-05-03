@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react'
-import { api, type CreateUserRequest, type Unit, type User, ROLE_NAMES, type UserRole } from '../api/client'
+import { api, type CreateUserRequest, type Unit, type User, ROLE_NAMES, UNIT_TYPE_NAMES, type UserRole } from '../api/client'
 import { usePermissions } from '../hooks/usePermissions'
+import { useNavigate } from 'react-router-dom'
 import './AdminUsers.css'
 
+// Ролі власника організації — мають однакові права в UI (повний доступ в межах tenant).
+// TENANT_ADMIN — нова назва, ADMIN — застаріле ім'я, SYSTEM_ADMIN — платформний адмін.
+const OWNER_ROLES: readonly string[] = ['ADMIN', 'TENANT_ADMIN', 'SYSTEM_ADMIN']
+const isOwnerRole = (role: string | null | undefined): boolean =>
+  !!role && OWNER_ROLES.includes(role)
+
 const ROLES: { value: UserRole, label: string }[] = [
-  { value: 'ADMIN', label: ROLE_NAMES['ADMIN'] },
+  { value: 'TENANT_ADMIN', label: ROLE_NAMES['TENANT_ADMIN'] },
   { value: 'REGION_DIRECTOR', label: ROLE_NAMES['REGION_DIRECTOR'] },
   { value: 'BRANCH_MANAGER', label: ROLE_NAMES['BRANCH_MANAGER'] },
   { value: 'DEPT_MANAGER', label: ROLE_NAMES['DEPT_MANAGER'] },
@@ -26,16 +33,23 @@ const ROLE_UNIT_TYPE_MAP: Record<string, string[]> = {
   'BRANCH_STOREKEEPER': ['BRANCH'],
   'DEPT_MANAGER': ['DEPARTMENT'],
   'DEPT_SUPERVISOR': ['DEPARTMENT'],
-  'EMPLOYEE': ['DEPARTMENT'],
-  'TEAM_LEAD': ['DEPARTMENT'], // Або 'TEAM', якщо у вас є такий тип
-  'ADMIN': [] // Адмін не прив'язаний до конкретного підрозділу
+  'EMPLOYEE': ['REGION', 'BRANCH', 'DEPARTMENT', 'TEAM'], // Співробітник може бути в будь-якому підрозділі
+  'TEAM_LEAD': ['TEAM'], // Керівник групи керує командою
+  'ADMIN': [], // Адмін не прив'язаний до конкретного підрозділу
+  'TENANT_ADMIN': [],
+  'SYSTEM_ADMIN': [],
 }
 
+const OWNER_CREATABLE_ROLES = [
+  'TENANT_ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'TEAM_LEAD',
+  'REGION_LOGISTICIAN', 'REGION_STOREKEEPER', 'BRANCH_LOGISTICIAN', 'BRANCH_STOREKEEPER', 'DEPT_SUPERVISOR', 'EMPLOYEE'
+]
+
+// SYSTEM_ADMIN свідомо відсутній як ключ: платформний адмін не створює користувачів
+// через адмінку організації (для цього є TENANT_ADMIN у межах конкретного tenant).
 const ROLE_CREATION_MAP: Record<string, string[]> = {
-  'ADMIN': [
-    'ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'TEAM_LEAD',
-    'REGION_LOGISTICIAN', 'REGION_STOREKEEPER', 'BRANCH_LOGISTICIAN', 'BRANCH_STOREKEEPER', 'DEPT_SUPERVISOR', 'EMPLOYEE'
-  ],
+  'TENANT_ADMIN': OWNER_CREATABLE_ROLES,
+  'ADMIN': OWNER_CREATABLE_ROLES,
   'REGION_DIRECTOR': [
     'BRANCH_MANAGER', 'DEPT_MANAGER', 'TEAM_LEAD',
     'REGION_LOGISTICIAN', 'REGION_STOREKEEPER', 'BRANCH_LOGISTICIAN', 'BRANCH_STOREKEEPER', 'DEPT_SUPERVISOR', 'EMPLOYEE'
@@ -56,6 +70,7 @@ const ROLE_CREATION_MAP: Record<string, string[]> = {
 }
 
 export default function AdminUsers() {
+  const navigate = useNavigate()
   const [formUnits, setFormUnits] = useState<Unit[]>([])
   const [allUnits, setAllUnits] = useState<Unit[]>([])
   const [usersList, setUsersList] = useState<User[]>([])
@@ -123,7 +138,7 @@ export default function AdminUsers() {
   useEffect(() => {
     if (!form.role || !currentUserRole) return
 
-    if (currentUserRole === 'ADMIN') {
+    if (isOwnerRole(currentUserRole)) {
       const allowedTypes = ROLE_UNIT_TYPE_MAP[form.role] || [];
       
       // Фільтруємо за типом підрозділу, якщо для ролі є обмеження
@@ -133,7 +148,7 @@ export default function AdminUsers() {
         setFormUnits(filteredUnits);
       } else {
         // Для ролей без конкретних обмежень (наприклад, ADMIN) або очищаємо, або віддаємо все
-        setFormUnits(form.role === 'ADMIN' ? [] : allUnits);
+        setFormUnits(isOwnerRole(form.role) ? [] : allUnits);
       }
     } else {
       api.units.getMyHierarchyForRole(form.role)
@@ -164,8 +179,21 @@ export default function AdminUsers() {
       
       loadUsersAndUnits()
       setTimeout(() => { setShowForm(false); setSuccess(null) }, 1500)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Помилка')
+    } catch (err: any) {
+      // Перевіряємо, чи це помилка ліміту (402 Payment Required)
+      if (err?.response?.status === 402 || err?.message?.includes('ліміт') || err?.message?.includes('Ліміт')) {
+        const errorMsg = err?.response?.data?.error || err?.message || 'Досягнуто ліміт користувачів для вашого тарифу';
+        setError(errorMsg);
+        // Показуємо toast з кнопкою переходу на білінг
+        setTimeout(() => {
+          const shouldNavigate = window.confirm(`${errorMsg}\n\nПерейти до сторінки тарифних планів?`);
+          if (shouldNavigate) {
+            navigate('/billing');
+          }
+        }, 100);
+      } else {
+        setError(err?.message || 'Помилка');
+      }
     } finally {
       setLoading(false)
     }
@@ -239,11 +267,11 @@ export default function AdminUsers() {
   // ---------------------------------------------------------
   const filteredUsers = usersList.filter(user => {
     // Базові правила вкладок і ролей
-    if (currentUserRole !== 'ADMIN' && user.role === 'ADMIN') {
+    if (!isOwnerRole(currentUserRole) && isOwnerRole(user.role)) {
       return false;
     }
     if (activeTab === 'reserve') {
-      if (user.unit_id || user.role === 'ADMIN' || user.role === 'CONTRACTOR') return false;
+      if (user.unit_id || isOwnerRole(user.role) || user.role === 'CONTRACTOR') return false;
     }
     if (activeTab === 'in_unit' && !user.unit_id) {
       return false;
@@ -363,7 +391,9 @@ export default function AdminUsers() {
                     {formUnits.length === 0 ? 'Немає доступних орг. одиниць (буде в резерві)' : '-- В Кадровий резерв --'}
                   </option>
                   {formUnits.map((u) => (
-                    <option key={u.id} value={u.id}>{u.name}</option>
+                    <option key={u.id} value={u.id}>
+                      {u.name} ({UNIT_TYPE_NAMES[u.unit_type] || u.unit_type})
+                    </option>
                   ))}
                 </select>
               </div>
@@ -502,10 +532,10 @@ export default function AdminUsers() {
                 const isPending = u.status === 'PENDING';
                 const isBlocked = u.status === 'BLOCKED';
 
-                const canManageThisUser = currentUserRole === 'ADMIN' || (ROLE_CREATION_MAP[currentUserRole || '']?.includes(u.role));
+                const canManageThisUser = isOwnerRole(currentUserRole) || (ROLE_CREATION_MAP[currentUserRole || '']?.includes(u.role));
                 
                 const isGeneralReserve = u.unit_id == null;
-                const isAdmin = currentUserRole === 'ADMIN';
+                const isAdmin = isOwnerRole(currentUserRole);
                 const canChangeStatus = isAdmin || !isGeneralReserve;
 
                 return (
@@ -518,7 +548,7 @@ export default function AdminUsers() {
                     <td>
                       {unitName ? (
                         <span className="unit-name-cell">{unitName}</span>
-                      ) : u.role === 'ADMIN' ? (
+                      ) : isOwnerRole(u.role) ? (
                         <span style={{ color: '#6c757d', fontSize: '13px' }}>Системний персонал</span>
                       ) : u.role === 'CONTRACTOR' ? (
                         <span style={{ color: '#6c757d', fontSize: '13px' }}>Зовнішній</span>

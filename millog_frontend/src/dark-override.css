@@ -1,0 +1,1330 @@
+/* 
+ * ГЛОБАЛЬНЕ ПЕРЕВИЗНАЧЕННЯ - ТЕМНА ТЕМА
+ * Цей файл перебиває ВСІ світлі кольори на темні
+ * Імпортується останнім в index.css
+ */
+
+/* ============================================
+   БАЗОВІ КОНТЕЙНЕРИ
+   ============================================ */
+body,
+#root,
+.page-container,
+.content-wrapper,
+.content-area,
+.main-wrapper,
+.main-content,
+.content,
+main,
+[class*="page"],
+[class*="container"]:not(.modal-overlay):not(.dropdown-container):not(.scroll-container):not(.chart-container):not(.profile-content) {
+  background: var(--bg-body) !important;
+  color: var(--text) !important;
+}
+
+/* ============================================
+   КАРТКИ, ПАНЕЛІ, ВІДЖЕТИ
+   ============================================ */
+.card,
+.card-table,
+.erp-widget,
+.widget,
+.kpi-card,
+.stat-card,
+.metric-card,
+.dashboard-card,
+.info-card,
+.chart-widget,
+.panel,
+.section,
+.anomaly-card,
+.fuel-card,
+.schedule-card,
+.maintenance-card,
+.fraud-card,
+.resource-card,
+.sidebar-card,
+.gps-card,
+.tracking-card,
+div[class*="card"]:not([class*="paywall"]):not(.forgot-password-container),
+div[class*="panel"]:not(.forgot-password-container),
+div[class*="widget"]:not(.forgot-password-container):not(.widgets-grid):not(.widgets-main-column):not(.widgets-side-column),
+div[class*="-card"]:not([class*="paywall"]):not(.forgot-password-container),
+section[class*="section"]:not(.quick-actions-section):not(.forgot-password-container),
+article,
+aside {
+  background: var(--bg-card) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+/* ============================================
+   МОДАЛЬНІ ВІКНА
+   ============================================ */
+.modal,
+.modal-content,
+.inventory-modal .modal,
+.vehicles-modal .modal,
+.audit-modal-content,
+div[class*="modal"] > div[class*="content"],
+div[class*="modal"] .modal {
+  background: var(--bg-modal) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+/* ============================================
+   ТАБЛИЦІ
+   ============================================ */
+.data-table,
+.table,
+table {
+  background: var(--bg-card) !important;
+  color: var(--text) !important;
+}
+
+.data-table th,
+table thead th,
+.table-header {
+  background: var(--bg-input) !important;
+  color: var(--text-muted) !important;
+}
+
+.data-table tbody tr:hover,
+table tbody tr:hover {
+  background: var(--bg-hover) !important;
+}
+
+.data-table td,
+table td {
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+}
+
+/* ============================================
+   ВКЛАДКИ (TABS)
+   ============================================ */
+.tab-btn,
+.ptab-btn,
+.erp-tabs .tab-btn {
+  background: transparent !important;
+  color: var(--text-muted) !important;
+  border-color: var(--border) !important;
+}
+
+.tab-btn:hover,
+.ptab-btn:hover {
+  background: var(--bg-hover) !important;
+  color: var(--text) !important;
+}
+
+.tab-btn.active,
+.ptab-btn.active {
+  color: var(--accent) !important;
+  border-bottom-color: var(--accent) !important;
+  background: rgba(59, 130, 246, 0.05) !important;
+}
+
+/* ============================================
+   БЕЙДЖІ (BADGES)
+   ============================================ */
+.badge:not(.badge-success):not(.badge-warning):not(.badge-danger):not(.badge-critical):not(.badge-info):not(.badge-primary):not(.badge-neutral),
+.status-badge:not([class*="success"]):not([class*="warning"]):not([class*="danger"]):not([class*="info"]),
+.info-badge,
+div[class*="badge"]:not([class*="success"]):not([class*="warning"]):not([class*="danger"]):not([class*="info"]):not([class*="primary"]) {
+  background: var(--bg-input) !important;
+  color: var(--text-muted) !important;
+  border: 1px solid var(--border) !important;
+}
+
+.badge-success {
+  background: var(--success-bg) !important;
+  color: var(--success) !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+
+.badge-warning {
+  background: var(--warning-bg) !important;
+  color: var(--warning) !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+.badge-danger,
+.badge-critical {
+  background: var(--error-bg) !important;
+  color: var(--error) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+.badge-info,
+.badge-primary {
+  background: var(--info-bg) !important;
+  color: var(--accent) !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+.badge-neutral {
+  background: var(--bg-input) !important;
+  color: var(--text-muted) !important;
+  border-color: var(--border) !important;
+}
+
+/* ============================================
+   АЛЕРТИ
+   ============================================ */
+.alert-card,
+.warning-alert,
+.info-alert,
+.success-alert,
+.alert-red,
+.alert-yellow,
+.alert-green {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+}
+
+.warning-alert,
+.alert-yellow {
+  background: rgba(245, 158, 11, 0.1) !important;
+  color: var(--warning) !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+.info-alert {
+  background: rgba(59, 130, 246, 0.1) !important;
+  color: var(--accent) !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+.success-alert,
+.alert-green {
+  background: rgba(16, 185, 129, 0.1) !important;
+  color: var(--success) !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+
+.alert-red {
+  background: rgba(239, 68, 68, 0.1) !important;
+  color: var(--error) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+/* ============================================
+   ДРОПДАУН МЕНЮ
+   ============================================ */
+.actions-dropdown-menu,
+.dropdown-menu,
+div[class*="dropdown-menu"] {
+  background: var(--bg-card) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+.actions-dropdown-menu button:hover,
+.dropdown-menu button:hover {
+  background: var(--bg-hover) !important;
+  color: var(--text-bright) !important;
+}
+
+/* ============================================
+   ІНПУТИ І ФОРМИ
+   ============================================ */
+input,
+select,
+textarea,
+.erp-input,
+.form-control {
+  background: var(--bg-input) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+input:focus,
+select:focus,
+textarea:focus,
+.erp-input:focus {
+  border-color: var(--accent) !important;
+  background: var(--bg-input) !important;
+}
+
+/* ============================================
+   СПЕЦИФІЧНІ ЕЛЕМЕНТИ
+   ============================================ */
+.progress-track,
+.progress-bar-bg {
+  background: var(--bg-input) !important;
+}
+
+.sla-footer,
+.footer,
+div[class*="footer"] {
+  background: var(--bg-card) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+.predict-item,
+.fraud-stats,
+.metric-item,
+div[class*="item"]:not(.notif-item) {
+  background: var(--bg-card) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+/* ============================================
+   ХОВЕР ЕФЕКТИ ДЛЯ КНОПОК
+   ============================================ */
+.btn-kebab:hover,
+.btn-kebab.active,
+.btn-icon-small:hover {
+  background: var(--bg-hover) !important;
+  color: var(--text-bright) !important;
+}
+
+.btn-icon-small.delete:hover {
+  background: rgba(239, 68, 68, 0.1) !important;
+  color: var(--error) !important;
+}
+
+/* ============================================
+   СКРОЛБАРИ
+   ============================================ */
+::-webkit-scrollbar-track {
+  background: var(--bg-input) !important;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-light) !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-hover) !important;
+}
+
+/* ============================================
+   НОТИФІКАЦІЇ
+   ============================================ */
+.notif-dropdown {
+  background: var(--bg-card) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+.notif-header {
+  background: var(--bg-input) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+.notif-item {
+  background: var(--bg-card) !important;
+  border-color: var(--border) !important;
+}
+
+.notif-item.sev-warning {
+  background: rgba(245, 158, 11, 0.1) !important;
+  border-left-color: var(--warning) !important;
+}
+
+.notif-item.sev-danger {
+  background: rgba(239, 68, 68, 0.1) !important;
+  border-left-color: var(--error) !important;
+}
+
+/* ============================================
+   ПРОФІЛЬ ТА ОБЛАДНАННЯ
+   ============================================ */
+.profile-card,
+.settings-panel,
+.permissions-panel,
+.equipment-card,
+.empty-state-card {
+  background: var(--bg-card) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+.perm-item {
+  background: var(--bg-card) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+/* ============================================
+   QR КОДИ ТА ЗОБРАЖЕННЯ
+   ============================================ */
+.qr-image-wrapper,
+.qr-id-code {
+  background: var(--bg-input) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+/* ============================================
+   СПЕЦІАЛЬНІ ВИПАДКИ - WARNING/ERROR BOXES
+   ============================================ */
+.warning-box {
+  background: rgba(239, 68, 68, 0.1) !important;
+  color: var(--error) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+.btn-report {
+  background: rgba(239, 68, 68, 0.1) !important;
+  color: var(--error) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+.btn-report:hover {
+  background: rgba(239, 68, 68, 0.2) !important;
+  border-color: var(--error) !important;
+}
+
+/* ============================================
+   БІЛІНГ ТА ІНШІ СТОРІНКИ
+   ============================================ */
+.kiosk-card,
+.billing-card,
+.audit-card {
+  background: var(--bg-card) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+/* ============================================
+   ВИДАЛЕННЯ ГРАДІЄНТІВ НА КНОПКАХ
+   ============================================ */
+button,
+.btn,
+a.btn {
+  background-image: none !important;
+}
+
+/* Залишаємо градієнти тільки для primary кнопок */
+.btn-primary {
+  background: var(--accent) !important;
+  background-image: none !important;
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover) !important;
+  background-image: none !important;
+}
+
+/* ============================================
+   ВИПРАВЛЕННЯ БІЛИХ КНОПОК
+   ============================================ */
+/* Тільки нейтральні кнопки без кольору */
+button:not(.btn-primary):not(.btn-success):not(.btn-danger):not(.btn-warning):not(.btn-info):not([class*="btn-"]):not(.forgot-password-link),
+.btn:not(.btn-primary):not(.btn-success):not(.btn-danger):not(.btn-warning):not(.btn-info):not(.btn-dispatch):not(.btn-secondary):not(.btn-cancel) {
+  background: var(--bg-input) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+}
+
+button:not(.btn-primary):not(.btn-success):not(.btn-danger):not(.btn-warning):not(.btn-info):not([class*="btn-"]):not(.forgot-password-link):hover {
+  background: var(--bg-hover) !important;
+  color: var(--text-bright) !important;
+  border-color: var(--border-light) !important;
+}
+
+/* Кнопки скасування - темні */
+.btn-cancel,
+.btn-secondary:not([style*="background"]):not([class*="purple"]):not([class*="green"]):not([class*="red"]) {
+  background: var(--bg-input) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+}
+
+.btn-cancel:hover,
+.btn-secondary:not([style*="background"]):hover {
+  background: var(--bg-hover) !important;
+  border-color: var(--border-light) !important;
+}
+
+
+/* ============================================
+   ДОДАТКОВІ ПЕРЕВИЗНАЧЕННЯ
+   ============================================ */
+.page-header,
+h1, h2, h3, h4, h5, h6 {
+  background: transparent !important;
+  color: var(--text-bright) !important;
+}
+
+.page-header {
+  border-color: var(--border) !important;
+}
+
+.empty-state,
+.no-data,
+.loading {
+  background: var(--bg-card) !important;
+  color: var(--text-muted) !important;
+}
+
+/* ============================================
+   СПЕЦИФІЧНІ СТОРІНКИ
+   ============================================ */
+
+/* GPS Tracking */
+.gps-page,
+.gps-tracking-page,
+.map-container,
+.map-sidebar,
+.vehicle-list,
+.route-card {
+  background: var(--bg-card) !important;
+  color: var(--text) !important;
+}
+
+/* Analytics Dashboard (включає analytics-erp-container) */
+.analytics-page,
+.analytics-dashboard,
+.analytics-erp-container,
+.kpi-dashboard {
+  background: var(--bg-body) !important;
+}
+
+/* Fuel Anomalies */
+.fuel-anomalies-page,
+.anomaly-list,
+.anomaly-detail {
+  background: var(--bg-body) !important;
+  color: var(--text) !important;
+}
+
+/* Maintenance Schedule */
+.maintenance-page,
+.schedule-grid,
+.schedule-item {
+  background: var(--bg-body) !important;
+  color: var(--text) !important;
+}
+
+/* Requests */
+.requests-page,
+.contractor-requests-page,
+.request-card,
+.request-list {
+  background: var(--bg-body) !important;
+  color: var(--text) !important;
+}
+
+/* Terminal / Kiosk */
+.kiosk-terminal,
+.terminal-page,
+.kiosk-card {
+  background: var(--bg-body) !important;
+  color: var(--text) !important;
+}
+
+/* Billing / Pricing */
+.billing-page,
+.pricing-page,
+.tariff-card {
+  background: var(--bg-body) !important;
+  color: var(--text) !important;
+}
+
+/* Profile */
+.profile-page,
+.profile-layout,
+.profile-card,
+.profile-tabs {
+  background: var(--bg-body) !important;
+}
+
+/* Warehouses */
+.warehouses-page,
+.warehouse-card {
+  background: var(--bg-body) !important;
+  color: var(--text) !important;
+}
+
+/* Inventory */
+.inventory-page,
+.inventory-card {
+  background: var(--bg-body) !important;
+  color: var(--text) !important;
+}
+
+/* Vehicles */
+.vehicles-page,
+.vehicle-card {
+  background: var(--bg-body) !important;
+  color: var(--text) !important;
+}
+
+/* ============================================
+   ВСІМ ЕЛЕМЕНТАМ З БІЛИМ ФОНОМ (але не кольоровим)
+   ============================================ */
+[style*="background: white"]:not([style*="background-color:"]),
+[style*="background: #fff"]:not([style*="background-color:"]),
+[style*="background:#fff"]:not([style*="background-color:"]),
+[style*="background-color: white"]:not(#official-pdf-report):not(#official-pdf-report *),
+[style*="background-color: #fff"]:not(#official-pdf-report):not(#official-pdf-report *),
+[style*="background-color:#fff"]:not(#official-pdf-report):not(#official-pdf-report *),
+[style*="background-color: rgb(255, 255, 255)"],
+[style*="background-color:rgb(255,255,255)"] {
+  background: var(--bg-card) !important;
+  color: var(--text) !important;
+}
+
+/* Сірі / off-white відтінки у inline стилях */
+[style*="background: #f8fafc"],
+[style*="background:#f8fafc"],
+[style*="background-color: #f8fafc"],
+[style*="background-color:#f8fafc"],
+[style*="background: #f1f5f9"],
+[style*="background-color: #f1f5f9"],
+[style*="background: #f9fafb"],
+[style*="background-color: #f9fafb"],
+[style*="background: #f8f9fa"],
+[style*="background-color: #f8f9fa"],
+[style*="background: #f0f2f5"],
+[style*="background-color: #f0f2f5"] {
+  background: var(--bg-input) !important;
+  color: var(--text) !important;
+}
+
+/* Блакитні відтінки */
+[style*="background: #eff6ff"],
+[style*="background-color: #eff6ff"],
+[style*="background: #f0f9ff"],
+[style*="background-color: #f0f9ff"],
+[style*="background: #dbeafe"],
+[style*="background-color: #dbeafe"],
+[style*="background: #e0f2fe"],
+[style*="background-color: #e0f2fe"] {
+  background: rgba(59, 130, 246, 0.12) !important;
+  color: var(--accent-light) !important;
+}
+
+/* Червоні/рожеві відтінки */
+[style*="background: #fef2f2"],
+[style*="background-color: #fef2f2"],
+[style*="background: #fee2e2"],
+[style*="background-color: #fee2e2"],
+[style*="background: #fff1f2"],
+[style*="background-color: #fff1f2"],
+[style*="background: #fff5f5"],
+[style*="background-color: #fff5f5"],
+[style*="background: #ffe4e6"],
+[style*="background-color: #ffe4e6"] {
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #fca5a5 !important;
+}
+
+/* Жовті/бежеві відтінки */
+[style*="background: #fffbeb"],
+[style*="background-color: #fffbeb"],
+[style*="background: #fef3c7"],
+[style*="background-color: #fef3c7"],
+[style*="background: #fff3cd"],
+[style*="background-color: #fff3cd"],
+[style*="background: #fef9c3"],
+[style*="background-color: #fef9c3"] {
+  background: rgba(245, 158, 11, 0.12) !important;
+  color: #fbbf24 !important;
+}
+
+/* Зелені відтінки */
+[style*="background: #f0fdf4"],
+[style*="background-color: #f0fdf4"],
+[style*="background: #dcfce7"],
+[style*="background-color: #dcfce7"],
+[style*="background: #ecfdf5"],
+[style*="background-color: #ecfdf5"] {
+  background: rgba(16, 185, 129, 0.12) !important;
+  color: #34d399 !important;
+}
+
+/* Фіолетові відтінки */
+[style*="background: #f5f3ff"],
+[style*="background-color: #f5f3ff"],
+[style*="background: #f3e8ff"],
+[style*="background-color: #f3e8ff"] {
+  background: rgba(139, 92, 246, 0.12) !important;
+  color: #a78bfa !important;
+}
+
+/* Сірий для disabled елементів */
+[style*="background: #e2e8f0"],
+[style*="background-color: #e2e8f0"],
+[style*="background: #e5e7eb"],
+[style*="background-color: #e5e7eb"],
+[style*="background: #f0f0f0"],
+[style*="background-color: #f0f0f0"] {
+  background: var(--bg-hover) !important;
+  color: var(--text-muted) !important;
+}
+
+/* Виправлення borders у inline стилях */
+[style*="border: 1px solid #e2e8f0"],
+[style*="border: 1px solid #e5e7eb"],
+[style*="border: 1px solid #cbd5e1"],
+[style*="border: 1px solid #d1d5db"],
+[style*="border: 1px dashed #cbd5e1"],
+[style*="border: 1px dashed #d1d5db"] {
+  border-color: var(--border) !important;
+}
+
+[style*="border: 1px solid #ffe4e6"],
+[style*="border: 1px solid #fecdd3"],
+[style*="border: 1px solid #fee2e2"] {
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+[style*="border: 1px solid #fde68a"],
+[style*="border: 1px solid #fef3c7"],
+[style*="border: 1px solid #ffeeba"] {
+  border-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+[style*="border: 1px solid #dbeafe"],
+[style*="border: 1px solid #bae6fd"] {
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+/* ============================================
+   ТЕКСТ - ЗАБЕЗПЕЧЕННЯ ЧИТАБЕЛЬНОСТІ
+   ============================================ */
+p, span, div, label, a, li, td, th {
+  color: var(--text) !important;
+}
+
+h1, h2, h3, h4, h5, h6,
+.heading,
+.title,
+[class*="title"],
+[class*="heading"] {
+  color: var(--text-bright) !important;
+}
+
+.muted,
+.text-muted,
+.subtitle,
+[class*="muted"],
+[class*="subtitle"] {
+  color: var(--text-muted) !important;
+}
+
+/* ============================================
+   IFRAME ТА ЗОБРАЖЕННЯ
+   ============================================ */
+iframe {
+  border-color: var(--border) !important;
+}
+
+/* ============================================
+   LEAFLET MAP (для GPS)
+   ============================================ */
+.leaflet-container {
+  background: var(--bg-card) !important;
+}
+
+.leaflet-popup-content-wrapper {
+  background: var(--bg-card) !important;
+  color: var(--text) !important;
+}
+
+.leaflet-control {
+  background: var(--bg-card) !important;
+  border-color: var(--border) !important;
+}
+
+/* ============================================
+   ВИПРАВЛЕННЯ БІЛИХ ЛІНІЙ ТА BORDERS
+   ============================================ */
+hr,
+.divider,
+[class*="divider"],
+[class*="separator"] {
+  border-color: var(--border) !important;
+  background: var(--border) !important;
+}
+
+/* Всі межі та рамки */
+*[style*="border-color: white"],
+*[style*="border-color: #fff"],
+*[style*="border-color:#fff"],
+*[style*="border: 1px solid white"],
+*[style*="border: 1px solid #fff"] {
+  border-color: var(--border) !important;
+}
+
+/* ============================================
+   ВИПРАВЛЕННЯ БІЛИХ КОНТЕЙНЕРІВ У ФОРМАХ
+   ============================================ */
+.form-group,
+.form-section,
+.form-container,
+.input-group,
+[class*="form-"],
+fieldset {
+  background: transparent !important;
+  color: var(--text) !important;
+}
+
+.form-row,
+.form-grid {
+  background: transparent !important;
+}
+
+/* Обгортки для інпутів */
+.input-wrapper,
+.select-wrapper,
+[class*="input-wrapper"],
+[class*="select-wrapper"] {
+  background: transparent !important;
+}
+
+/* ============================================
+   ВИПРАВЛЕННЯ БІЛИХ СЕГМЕНТІВ СТОРІНОК
+   ============================================ */
+.section-container,
+.content-section,
+.page-section,
+[class*="section-"],
+[class*="-section"]:not(.quick-actions-section):not(.login-form-section):not(.login-options-section):not(.login-action-section) {
+  background: var(--bg-card) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+/* Заголовки секцій */
+.section-header,
+.section-title,
+[class*="section-header"],
+[class*="section-title"] {
+  background: transparent !important;
+  color: var(--text-bright) !important;
+  border-color: var(--border) !important;
+}
+
+/* ============================================
+   ВИПРАВЛЕННЯ ТАБІВ З БІЛИМ ФОНОМ
+   ============================================ */
+.tabs,
+.tabs-container,
+.tab-list,
+[class*="tabs"],
+[class*="tab-list"] {
+  background: transparent !important;
+  border-color: var(--border) !important;
+}
+
+.tab,
+.tab-item,
+[class*="tab-"]:not(.tab-btn):not(.ptab-btn) {
+  background: transparent !important;
+  color: var(--text-muted) !important;
+  border-color: var(--border) !important;
+}
+
+.tab.active,
+.tab-item.active {
+  background: rgba(59, 130, 246, 0.05) !important;
+  color: var(--accent) !important;
+  border-bottom-color: var(--accent) !important;
+}
+
+/* ============================================
+   ВИПРАВЛЕННЯ ПРОФІЛЬНИХ ПАНЕЛЕЙ
+   ============================================ */
+.profile-header,
+.profile-info,
+.profile-details,
+[class*="profile-"] {
+  background: var(--bg-card) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+.profile-section {
+  background: transparent !important;
+}
+
+/* Поля у профілі */
+.profile-field,
+.info-row,
+[class*="info-row"] {
+  background: transparent !important;
+  border-color: var(--border) !important;
+}
+
+/* ============================================
+   ВИПРАВЛЕННЯ ПОРОЖНІХ СТАНІВ
+   ============================================ */
+.empty-state-container,
+.no-data-container,
+.empty-box,
+[class*="empty-"] {
+  background: transparent !important;
+  color: var(--text-muted) !important;
+}
+
+.empty-icon {
+  opacity: 0.5;
+}
+
+/* ============================================
+   ВИПРАВЛЕННЯ СПИСКІВ
+   ============================================ */
+ul, ol {
+  background: transparent !important;
+}
+
+li {
+  background: transparent !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+/* ============================================
+   ДОДАТКОВІ ЗАГАЛЬНІ ВИПРАВЛЕННЯ
+   ============================================ */
+/* Всі div, які можуть мати білий фон */
+div:not([class*="map"]):not([class*="chart"]):not([class*="graph"]) {
+  border-color: var(--border) !important;
+}
+
+/* Label та описи */
+label {
+  color: var(--text) !important;
+  background: transparent !important;
+}
+
+.label,
+.description,
+[class*="description"] {
+  color: var(--text-muted) !important;
+  background: transparent !important;
+}
+
+/* ============================================
+   ВИПРАВЛЕННЯ МОДАЛЬНИХ ЗАГОЛОВКІВ ТА ФУТЕРІВ
+   ============================================ */
+.modal-header,
+.modal-footer,
+[class*="modal-header"],
+[class*="modal-footer"] {
+  background: var(--bg-card) !important;
+  border-color: var(--border) !important;
+}
+
+.modal-body,
+[class*="modal-body"] {
+  background: var(--bg-modal) !important;
+  color: var(--text) !important;
+}
+
+/* ============================================
+   ВИПРАВЛЕННЯ КНОПОК У ГРУПАХ
+   ============================================ */
+.button-group,
+.btn-group,
+[class*="button-group"],
+[class*="btn-group"] {
+  background: transparent !important;
+}
+
+.button-group button,
+.btn-group button {
+  border-color: var(--border) !important;
+}
+
+/* ============================================
+   ВИПРАВЛЕННЯ SELECT ТА DROPDOWN
+   ============================================ */
+select option {
+  background: var(--bg-card) !important;
+  color: var(--text) !important;
+}
+
+.select-dropdown,
+.dropdown-list,
+[class*="dropdown-list"] {
+  background: var(--bg-card) !important;
+  border-color: var(--border) !important;
+}
+
+/* ============================================
+   ВИПРАВЛЕННЯ GRID LAYOUT
+   ============================================ */
+.grid,
+.grid-container,
+[class*="grid-"] {
+  background: transparent !important;
+}
+
+.grid-item,
+[class*="grid-item"] {
+  background: var(--bg-card) !important;
+  border-color: var(--border) !important;
+}
+
+/* ============================================
+   ГЛОБАЛЬНЕ ВИПРАВЛЕННЯ БІЛИХ ЕЛЕМЕНТІВ
+   ============================================ */
+/* Всі елементи з класом, що містить "white" але не містить color */
+[class*="white"]:not([class*="color"]) {
+  background: var(--bg-card) !important;
+  color: var(--text) !important;
+}
+
+/* Додаткові виправлення для специфічних сторінок */
+.profile-tabs-container,
+.profile-content-area {
+  background: transparent !important;
+}
+
+/* Розділові лінії */
+.separator,
+.line-separator,
+hr {
+  border-color: var(--border) !important;
+  background-color: var(--border) !important;
+}
+
+/* Додаткові кнопки та контроли - тільки без кольору */
+.control-btn:not([class*="green"]):not([class*="red"]):not([class*="blue"]),
+.action-btn:not([style*="background"]),
+[class*="control-"]:not([class*="green"]):not([class*="red"]),
+[class*="action-btn"]:not([style*="background"]) {
+  background: var(--bg-input) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+}
+
+.control-btn:not([class*="green"]):not([class*="red"]):not([class*="blue"]):hover,
+.action-btn:not([style*="background"]):hover {
+  background: var(--bg-hover) !important;
+  border-color: var(--border-light) !important;
+}
+
+/* Виправлення панелей */
+.info-panel,
+.details-panel,
+[class*="info-panel"],
+[class*="details-panel"] {
+  background: var(--bg-card) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+}
+
+/* Виправлення overlay та backdrop */
+.overlay,
+.backdrop {
+  background: rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Виправлення для контейнерів з inline стилями - тільки білі */
+div[style*="background-color: rgb(255, 255, 255)"]:not([class*="green"]):not([class*="red"]):not([class*="blue"]),
+div[style*="background-color:rgb(255, 255, 255)"]:not([class*="green"]):not([class*="red"]),
+div[style*="background-color: rgb(255,255,255)"]:not([class*="green"]):not([class*="red"]),
+div[style*="backgroundColor: 'white'"]:not([class*="green"]):not([class*="red"]),
+div[style*='backgroundColor: "white"']:not([class*="green"]):not([class*="red"]) {
+  background-color: var(--bg-card) !important;
+}
+
+/* Виправлення select та option */
+select,
+option {
+  background: var(--bg-input) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+/* Виправлення для textarea */
+textarea {
+  background: var(--bg-input) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+textarea:focus {
+  border-color: var(--accent) !important;
+}
+
+/* Виправлення checkbox та radio */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--accent) !important;
+}
+
+/* Виправлення fieldset */
+fieldset {
+  border-color: var(--border) !important;
+}
+
+legend {
+  color: var(--text-bright) !important;
+}
+
+/* Виправлення code blocks */
+code,
+pre {
+  background: var(--bg-input) !important;
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+/* Виправлення для blockquote */
+blockquote {
+  border-left-color: var(--border) !important;
+  background: var(--bg-input) !important;
+  color: var(--text-muted) !important;
+}
+
+/* ============================================
+   ФІНАЛЬНІ ВИПРАВЛЕННЯ (FINAL FIXES)
+   ============================================ */
+
+/* --- HOME: прозорі layout-контейнери сітки віджетів --- */
+/* Селектор div[class*="widget"] помилково заливає .widgets-grid, */
+/* .widgets-main-column та .widgets-side-column — робимо їх прозорими */
+div.widgets-grid,
+div.widgets-main-column,
+div.widgets-side-column {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* --- PROFILE: прозорі layout-контейнери (не картки) --- */
+/* Селектор [class*="profile-"] помилково заливає усі profile-* елементи */
+div.profile-page,
+div.profile-layout,
+div.profile-sidebar,
+div.profile-tabs,
+div.profile-badges,
+div.profile-section,
+div.profile-header,
+div.profile-form,
+form.profile-form {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Картка профілю (єдиний блок-картка у лівій колонці) */
+div.profile-card {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+}
+
+/* Права колонка профілю — це layout-обгортка, а не картка.
+   Інакше вона зливається з .empty-state-card і вкладками всередині неї. */
+div.profile-content,
+div.profile-content > div.tab-body {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* .profile-details — всередині картки, має бути прозорим з розділювачем */
+div.profile-card div.profile-details {
+  background: transparent !important;
+  border: none !important;
+  border-top: 1px solid var(--border) !important;
+}
+
+/* --- ANALYTICS: панель оперативного контролю --- */
+/* Стилі винесено в AnalyticsDashboard.css (нейтральний accent, без "alarm red"). */
+/* Тут лишаємо лише мінімальний оверрайд для узгодження з темою. */
+.sla-control-panel .widget-header {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 1px solid var(--border) !important;
+  padding: 0 0 12px 0 !important;
+  margin: 0 0 16px 0 !important;
+}
+.sla-control-panel .widget-header h3 {
+  color: var(--text-bright) !important;
+  background: transparent !important;
+}
+
+/* --- ANALYTICS: чорні "коробки" всередині віджетів --- */
+/* Глобальний селектор div[class*="container"] заливає .scroll-container / */
+/* .chart-container кольором body (темнішим за картку) — робимо прозорими */
+.erp-widget .scroll-container,
+.erp-widget .chart-container,
+div.scroll-container,
+div.chart-container {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+}
+
+/* --- INVENTORY: вкладки "На балансі" / "Списані" --- */
+/* Ці кнопки мають inline style="background: none; border: none; ..." — */
+/* перебиваємо глобальне правило (specificity 0,6,1) додаванням :not-ланцюга */
+button:not(.btn-primary):not(.btn-success):not(.btn-danger):not(.btn-warning):not(.btn-info):not([class*="btn-"])[style*="background: none"],
+button:not(.btn-primary):not(.btn-success):not(.btn-danger):not(.btn-warning):not(.btn-info):not([class*="btn-"])[style*="background:none"] {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  border-top: none !important;
+  border-left: none !important;
+  border-right: none !important;
+}
+
+/* --- PLATFORM ADMIN: кольорові кнопки (висока специфічність) --- */
+.platform-admin .pa-toolbar button:not(.btn-primary):not(.btn-success):not(.btn-danger):not(.btn-warning):not(.btn-info):not([class*="btn-"]),
+.platform-admin .pa-actions button:not(.btn-primary):not(.btn-success):not(.btn-danger):not(.btn-warning):not(.btn-info):not([class*="btn-"]):not(.danger) {
+  background: var(--accent) !important;
+  background-color: var(--accent) !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+.platform-admin .pa-toolbar button:not(.btn-primary):not(.btn-success):not(.btn-danger):not(.btn-warning):not(.btn-info):not([class*="btn-"]):hover,
+.platform-admin .pa-actions button:not(.btn-primary):not(.btn-success):not(.btn-danger):not(.btn-warning):not(.btn-info):not([class*="btn-"]):not(.danger):hover {
+  background: var(--accent-hover, #1d4ed8) !important;
+  background-color: var(--accent-hover, #1d4ed8) !important;
+  color: #ffffff !important;
+}
+.platform-admin .pa-actions button.danger {
+  background: var(--error, #ef4444) !important;
+  background-color: var(--error, #ef4444) !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+.platform-admin .pa-actions button.danger:hover {
+  background: var(--error-dark, #dc2626) !important;
+  background-color: var(--error-dark, #dc2626) !important;
+  color: #ffffff !important;
+}
+
+/* --- PLATFORM ADMIN: яскраві бейджі статусу --- */
+/* Глобальний [class*="badge"] перебиває .pa-badge.ok / .pa-badge.off */
+.platform-admin .pa-badge.ok,
+span.pa-badge.ok {
+  background: rgba(34, 197, 94, 0.18) !important;
+  background-color: rgba(34, 197, 94, 0.18) !important;
+  color: #4ade80 !important;
+  border: 1px solid rgba(34, 197, 94, 0.35) !important;
+}
+.platform-admin .pa-badge.off,
+span.pa-badge.off {
+  background: rgba(239, 68, 68, 0.18) !important;
+  background-color: rgba(239, 68, 68, 0.18) !important;
+  color: #f87171 !important;
+  border: 1px solid rgba(239, 68, 68, 0.35) !important;
+}
+
+/* --- PROFILE / ANALYTICS: tab-кнопки не повинні виглядати як сірі кнопки --- */
+/* Глобальне правило button:not(...) заливає .ptab-btn та .tab-btn фоном bg-input */
+/* та додає рамку — повертаємо їм прозорий вигляд з підкресленням знизу */
+button.ptab-btn,
+button.tab-btn,
+.profile-tabs button.ptab-btn,
+.erp-tabs button.tab-btn {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  border-bottom: 3px solid transparent !important;
+  border-radius: 0 !important;
+  color: var(--text-muted) !important;
+  box-shadow: none !important;
+}
+button.ptab-btn:hover,
+button.tab-btn:hover,
+.profile-tabs button.ptab-btn:hover,
+.erp-tabs button.tab-btn:hover {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: var(--text-bright) !important;
+  border-color: transparent !important;
+  border-bottom-color: transparent !important;
+}
+button.ptab-btn.active,
+button.tab-btn.active,
+.profile-tabs button.ptab-btn.active,
+.erp-tabs button.tab-btn.active {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: var(--accent) !important;
+  border: none !important;
+  border-bottom: 3px solid var(--accent) !important;
+}
+
+/* --- PROFILE: empty-state-card — прибираємо «нерівну» пунктирну рамку --- */
+.profile-page .empty-state-card,
+div.empty-state-card {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-muted) !important;
+}
+
+/* --- PLATFORM ADMIN: вирівнювання цифр у статистичних картках --- */
+/* Одна з карток має довший label (переноситься у 2 рядки), через */
+/* що цифра "виступає" нижче за інші. Робимо картки flex з value внизу */
+.platform-admin .pa-stat-card {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  min-height: 92px;
+}
+.platform-admin .pa-stat-value {
+  margin-top: auto !important;
+  line-height: 1.1;
+}
+
+/* --- LOGIN: layout-контейнери форми логіна мають бути прозорими --- */
+/* .login-card вже має bg-card, тому .login-form-section і .login-options-section */
+/* (це flex-колонки grid layout) повинні бути transparent, інакше створюють зайві "коробки" */
+.login-card .login-form-section,
+.login-card .login-options-section,
+.login-card .login-action-section {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* --- SIDEBAR: вирівнювання user-badge --- */
+/* Гарантуємо, що .user-name та .user-role розташовані вертикально */
+.sidebar-footer .user-badge {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.25rem !important;
+}
+.sidebar-footer .user-name,
+.sidebar-footer .user-role {
+  display: block !important;
+  margin: 0 !important;
+}
+
+/* ============================================
+   КРИТИЧНЕ ВИПРАВЛЕННЯ: Login - Забули пароль
+   ============================================ */
+/* Перебиваємо ВСІ глобальні правила для forgot-password-container */
+.login-page .login-card div.forgot-password-container,
+.login-card div.forgot-password-container,
+div.forgot-password-container,
+div[class*="forgot-password"] {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+.login-page .login-card button.forgot-password-link,
+.login-card button.forgot-password-link,
+button.forgot-password-link,
+button[class*="forgot-password"] {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  box-shadow: none !important;
+  min-height: 0 !important;
+  height: auto !important;
+  width: auto !important;
+}

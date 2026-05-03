@@ -4,10 +4,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
 import { PaywallBadge } from '../components/FeatureGate';
 import toast, { Toaster } from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import './Inventory.css';
 
 export default function Inventory() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const perms = usePermissions();
   
@@ -124,7 +126,7 @@ export default function Inventory() {
           scanner.clear();
           setIsScannerOpen(false);
           
-          if (decodedText.startsWith('millog-resource:')) {
+          if (decodedText.startsWith('Omnilog-resource:')) {
             const resourceId = decodedText.split(':')[1];
             const toastId = toast.loading('Шукаємо майно в базі...');
             try {
@@ -228,8 +230,38 @@ export default function Inventory() {
       });
       toast.success('Ресурс успішно додано на склад');
       loadData();
-    } catch (err) { 
-      toast.error(err instanceof Error ? err.message : 'Помилка збереження ресурсу'); 
+    } catch (err: any) { 
+      // Перевіряємо, чи це помилка ліміту (402 Payment Required)
+      if (err?.response?.status === 402 || err?.message?.includes('ліміт') || err?.message?.includes('Ліміт')) {
+        const errorMsg = err?.response?.data?.error || err?.message || 'Досягнуто ліміт ресурсів для вашого тарифу';
+        toast.error(
+          (t) => (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <strong>🚫 {errorMsg}</strong>
+              <button
+                onClick={() => {
+                  toast.dismiss(t.id);
+                  navigate('/billing');
+                }}
+                style={{
+                  padding: '8px 16px',
+                  background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: '600'
+                }}
+              >
+                💎 Оновити тариф
+              </button>
+            </div>
+          ),
+          { duration: 8000 }
+        );
+      } else {
+        toast.error(err?.message || 'Помилка збереження ресурсу');
+      }
     }
   };
 
@@ -504,7 +536,7 @@ export default function Inventory() {
             <h3 style={{ color: '#ef4444' }}>⚠️ Видалення категорії</h3>
             <p className="confirm-text text-left">
               Видалити категорію <strong>{deletingCategory.name}</strong>?<br/>
-              <small style={{color: '#64748b'}}>Це можливо лише якщо в категорії немає майна.</small>
+              <small style={{color: 'var(--text-muted)'}}>Це можливо лише якщо в категорії немає майна.</small>
             </p>
             <div className="modal-actions">
               <button type="button" className="btn btn-secondary" onClick={() => setDeletingCategory(null)}>Скасувати</button>
@@ -602,11 +634,11 @@ export default function Inventory() {
         <div className="modal-overlay inventory-modal" onClick={() => { setAssignModalData(null); setAssignError(null); }}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>Видача майна персоналу</h3>
-            <p style={{color: '#64748b', textAlign: 'left'}}>
-              Видаємо: <strong style={{color: '#0f172a'}}>{assignModalData.resource.name}</strong><br />
+            <p style={{color: 'var(--text-muted)', textAlign: 'left'}}>
+              Видаємо: <strong style={{color: 'var(--text-bright)'}}>{assignModalData.resource.name}</strong><br />
               Доступно: {assignModalData.resource.quantity} {formatUnitType(assignModalData.resource.unit_type)}
             </p>
-            {assignError && (<div style={{color: '#dc2626', padding: '10px', background: '#fef2f2', borderRadius: '6px', marginBottom: '16px'}}>❌ {assignError}</div>)}
+            {assignError && (<div style={{color: '#dc2626', padding: '10px', background: 'rgba(239, 68, 68, 0.12)', borderRadius: '6px', marginBottom: '16px'}}>❌ {assignError}</div>)}
             <form onSubmit={handleAssignSubmit}>
               <div className="form-group text-left">
                 <label>Кількість до видачі</label>
@@ -634,7 +666,7 @@ export default function Inventory() {
         <div className="modal-overlay inventory-modal" onClick={() => { setResourceToDelete(null); setDeleteError(null); }}>
           <div className="modal confirm-modal" onClick={(e) => e.stopPropagation()}>
             <h3 style={{color: '#ef4444'}}>Підтвердження видалення</h3>
-            {deleteError && (<div style={{color: '#dc2626', padding: '10px', background: '#fef2f2', borderRadius: '6px', marginBottom: '16px'}}>❌ {deleteError}</div>)}
+            {deleteError && (<div style={{color: '#dc2626', padding: '10px', background: 'rgba(239, 68, 68, 0.12)', borderRadius: '6px', marginBottom: '16px'}}>❌ {deleteError}</div>)}
             <p className="confirm-text text-left">Видалити <strong>{resourceToDelete.name}</strong>?</p>
             <div className="modal-actions">
               <button type="button" className="btn btn-secondary" onClick={() => { setResourceToDelete(null); setDeleteError(null); }}>Скасувати</button>
@@ -670,7 +702,7 @@ export default function Inventory() {
         <div className="modal-overlay inventory-modal" onClick={() => { setWriteOffModalData(null); setWriteOffError(null); }}>
           <div className="modal confirm-modal" onClick={(e) => e.stopPropagation()}>
             <h3 style={{color: '#ef4444'}}>Списання майна</h3>
-            {writeOffError && (<div style={{color: '#dc2626', padding: '10px', background: '#fef2f2', borderRadius: '6px', marginBottom: '16px'}}>❌ {writeOffError}</div>)}
+            {writeOffError && (<div style={{color: '#dc2626', padding: '10px', background: 'rgba(239, 68, 68, 0.12)', borderRadius: '6px', marginBottom: '16px'}}>❌ {writeOffError}</div>)}
             <form onSubmit={handleWriteOffSubmit}>
               <div className="form-group" style={{ textAlign: 'left' }}>
                 <label>Кількість до списання</label>
@@ -693,7 +725,7 @@ export default function Inventory() {
           <div className="modal qr-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Наклейка майна</h3>
-              <button className="close-btn" onClick={() => setQrPreviewData(null)} style={{background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#64748b'}}>&times;</button>
+              <button className="close-btn" onClick={() => setQrPreviewData(null)} style={{background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: 'var(--text-muted)'}}>&times;</button>
             </div>
             <div className="qr-modal-body">
               <p className="qr-resource-name">{qrPreviewData.name}</p>
@@ -724,7 +756,7 @@ export default function Inventory() {
           <div className="modal scanner-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Наведіть камеру на QR-код</h3>
-              <button className="close-btn" onClick={() => setIsScannerOpen(false)} style={{background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#64748b'}}>&times;</button>
+              <button className="close-btn" onClick={() => setIsScannerOpen(false)} style={{background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: 'var(--text-muted)'}}>&times;</button>
             </div>
             <div className="scanner-modal-body">
               <div id="qr-reader" className="qr-reader-container"></div>
@@ -741,7 +773,7 @@ export default function Inventory() {
           <div className="modal scan-result-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Картка майна (Скан)</h3>
-              <button className="close-btn" onClick={() => setScannedResource(null)} style={{background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#64748b'}}>&times;</button>
+              <button className="close-btn" onClick={() => setScannedResource(null)} style={{background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: 'var(--text-muted)'}}>&times;</button>
             </div>
             
             <div className="scanner-modal-body">
@@ -867,7 +899,7 @@ export default function Inventory() {
                     paddingTop: '6px', 
                     paddingBottom: '6px', 
                     height: 'auto',
-                    border: '1px solid #cbd5e1'
+                    border: '1px solid var(--border)'
                   }}
                 />
                 {searchQuery && (
@@ -882,15 +914,15 @@ export default function Inventory() {
             </div>
 
             {/* Права частина: Вкладки (Таби) */}
-            <div style={{ display: 'flex', gap: '8px', borderBottom: '2px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', gap: '8px', borderBottom: '2px solid var(--border)' }}>
               <button 
-                style={{ background: 'none', border: 'none', padding: '8px 16px', fontWeight: 600, cursor: 'pointer', color: activeTab === 'active' ? '#2563eb' : '#64748b', borderBottom: activeTab === 'active' ? '2px solid #2563eb' : '2px solid transparent', marginBottom: '-2px' }} 
+                style={{ background: 'none', border: 'none', padding: '8px 16px', fontWeight: 600, cursor: 'pointer', color: activeTab === 'active' ? 'var(--accent)' : 'var(--text-muted)', borderBottom: activeTab === 'active' ? '2px solid var(--accent)' : '2px solid transparent', marginBottom: '-2px' }} 
                 onClick={() => setActiveTab('active')}
               >
                 На балансі
               </button>
               <button 
-                style={{ background: 'none', border: 'none', padding: '8px 16px', fontWeight: 600, cursor: 'pointer', color: activeTab === 'written_off' ? '#2563eb' : '#64748b', borderBottom: activeTab === 'written_off' ? '2px solid #2563eb' : '2px solid transparent', marginBottom: '-2px' }} 
+                style={{ background: 'none', border: 'none', padding: '8px 16px', fontWeight: 600, cursor: 'pointer', color: activeTab === 'written_off' ? 'var(--accent)' : 'var(--text-muted)', borderBottom: activeTab === 'written_off' ? '2px solid var(--accent)' : '2px solid transparent', marginBottom: '-2px' }} 
                 onClick={() => setActiveTab('written_off')}
               >
                 Списані
@@ -908,7 +940,7 @@ export default function Inventory() {
             </div>
             
             <form onSubmit={handleImportSubmit}>
-              <div className="info-box" style={{ background: '#f0f9ff', padding: '12px', borderRadius: '8px', marginBottom: '16px', fontSize: '0.9rem', border: '1px solid #bae6fd' }}>
+              <div className="info-box" style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '12px', borderRadius: '8px', marginBottom: '16px', fontSize: '0.9rem', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
                 💡 Завантажте шаблон, заповніть його даними та перетягніть файл сюди. 
                 Система автоматично створить нові записи в базі.
                 <button type="button" onClick={handleDownloadTemplate} style={{ display: 'block', marginTop: '8px', color: '#0284c7', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>
@@ -1036,7 +1068,7 @@ export default function Inventory() {
                               </div>
                             </td>
                             <td style={{textAlign: 'center', fontWeight: 'bold'}}>
-                              {totalQuantity} <small style={{color: '#64748b', fontWeight: 'normal', marginLeft: '4px'}}>{formatUnitType(r.unit_type)}</small>
+                              {totalQuantity} <small style={{color: 'var(--text-muted)', fontWeight: 'normal', marginLeft: '4px'}}>{formatUnitType(r.unit_type)}</small>
                             </td>
                             <td style={{textAlign: 'center'}}>{r.min_quantity}</td>
                             <td style={{textAlign: 'center'}}><span className={`badge badge-${status}`}>{statusText}</span></td>

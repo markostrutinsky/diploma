@@ -1,0 +1,34 @@
+# Compiled binary
+millog_backend
+Omnilog_backend
+main
+
+# Go test files
+*.test
+*.out
+
+# Go build cache
+go.sum.backup
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+
+# Temporary files
+*.tmp
+*.log
+
+# Debug
+__debug_bin
+
+# Air live reload
+tmp/

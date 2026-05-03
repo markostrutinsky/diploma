@@ -1,4 +1,4 @@
-# Seed DB — сідер для MilLog / OmniLog
+# Seed DB — сідер для Omnilog / OmniLog
 
 Скрипт заповнює БД синтетичними даними так, щоб одразу можна було протестувати
 **і безкоштовний (BASIC), і платний (PRO/ENTERPRISE)** функціонал.
@@ -25,18 +25,18 @@
 
 | Email | Роль | Тариф (через unit) |
 |-------|------|--------------------|
-| `admin@millog.local`              | ADMIN              | bypass (див. нижче) |
-| `director.west@millog.local`      | REGION_DIRECTOR    | PRO |
-| `logist.west@millog.local`        | REGION_LOGISTICIAN | PRO |
-| `director.center@millog.local`    | REGION_DIRECTOR    | BASIC |
-| `director.east@millog.local`      | REGION_DIRECTOR    | BASIC (біля ліміту) |
-| `director.test@millog.local`      | REGION_DIRECTOR    | ENTERPRISE |
-| `contractor1@millog.local`        | CONTRACTOR         | — |
+| `admin@Omnilog.local`              | ADMIN              | bypass (див. нижче) |
+| `director.west@Omnilog.local`      | REGION_DIRECTOR    | PRO |
+| `logist.west@Omnilog.local`        | REGION_LOGISTICIAN | PRO |
+| `director.center@Omnilog.local`    | REGION_DIRECTOR    | BASIC |
+| `director.east@Omnilog.local`      | REGION_DIRECTOR    | BASIC (біля ліміту) |
+| `director.test@Omnilog.local`      | REGION_DIRECTOR    | ENTERPRISE |
+| `contractor1@Omnilog.local`        | CONTRACTOR         | — |
 
 ## Як себе поводить адмін (важливий нюанс)
 
 - У middleware `RequireSubscriptionTier` (файл
-  `millog_backend/internal/middleware/subscription.go`) для ролі `ADMIN` є
+  `Omnilog_backend/internal/middleware/subscription.go`) для ролі `ADMIN` є
   явний **bypass** — адмін завжди отримує доступ до PRO/ENTERPRISE фіч,
   навіть якщо `unit_id = NULL`. Це задумано для підтримки/демо.
 - `LimitationService` (файл `internal/services/limitation_service.go`) bypass-у
@@ -93,16 +93,16 @@ python seed.py --dsn 'postgres://postgres:postgres@localhost:5432/omnilog'
 
 ## Сценарії для тестування
 
-1. **BASIC paywall.** Залогінься як `director.center@millog.local` і спробуй
+1. **BASIC paywall.** Залогінься як `director.center@Omnilog.local` і спробуй
    `GET /api/analytics/dashboard` — повинен повернутись **HTTP 402** з текстом
    «Функція доступна тільки на тарифі: PRO».
-2. **PRO функціонал.** Той самий запит від `director.west@millog.local` має
+2. **PRO функціонал.** Той самий запит від `director.west@Omnilog.local` має
    повернути дані аналітики.
-3. **Адмін як супер'юзер.** `admin@millog.local` отримує **усі** PRO-фічі,
+3. **Адмін як супер'юзер.** `admin@Omnilog.local` отримує **усі** PRO-фічі,
    незважаючи на `unit_id = NULL`.
-4. **Ліміти BASIC.** `director.east@millog.local` спробує створити 2-й склад
+4. **Ліміти BASIC.** `director.east@Omnilog.local` спробує створити 2-й склад
    (у регіоні вже 9/10) — пройде. Третій спробувати — отримає помилку ліміту.
-5. **ENTERPRISE без меж.** `director.test@millog.local` — жодних обмежень.
+5. **ENTERPRISE без меж.** `director.test@Omnilog.local` — жодних обмежень.
 6. **Аналітика аномалій пального.** PRO-юзер запитує `GET /api/analytics/fuel-anomalies`
    і бачить штучно проставлений `is_anomaly = TRUE`.
 7. **GPS-трекінг (PRO).** PRO-юзер запитує

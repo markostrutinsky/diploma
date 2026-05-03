@@ -1,7 +1,7 @@
 # 🔐 Аналіз обмежень функціоналу по ролях та платній підписці
 
 **Дата аналізу**: 22 квітня 2026  
-**Статус проекту**: Мілітарна логістична система (MilLog/Omnilog)
+**Статус проекту**: Мілітарна логістична система (Omnilog/Omnilog)
 
 ---
 
@@ -291,7 +291,7 @@
 - DEPT_MANAGER (якщо за підпискою)
 
 **Де використовується:**  
-`/millog_frontend/src/pages/Requests.tsx` (лін. 100)
+`/Omnilog_frontend/src/pages/Requests.tsx` (лін. 100)
 
 ```tsx
 const hasSmartDispatch = perms.hasFeature('smart_dispatch')
@@ -320,7 +320,7 @@ const hasSmartDispatch = perms.hasFeature('smart_dispatch')
 - BRANCH_LOGISTICIAN (якщо за підпискою)
 
 **Де використовується:**  
-`/millog_frontend/src/pages/AnalyticsDashboard.tsx` (лін. 36)
+`/Omnilog_frontend/src/pages/AnalyticsDashboard.tsx` (лін. 36)
 
 ```tsx
 const hasSmartReplenish = perms.hasFeature('smart_replenish')
@@ -350,7 +350,7 @@ const hasSmartReplenish = perms.hasFeature('smart_replenish')
 **Доступна для:** Всі логісти/менеджери (при PRO)
 
 **Де використовується:**  
-`/millog_frontend/src/pages/Vehicles.tsx` (лін. 79)
+`/Omnilog_frontend/src/pages/Vehicles.tsx` (лін. 79)
 
 ```tsx
 const hasFuelAntifraud = perms.hasFeature('fuel_antifraud')
@@ -368,7 +368,7 @@ const hasFuelAntifraud = perms.hasFeature('fuel_antifraud')
 **Доступна для:** Логісти/менеджери
 
 **Де використовується:**  
-`/millog_frontend/src/pages/Vehicles.tsx` (лін. 80)
+`/Omnilog_frontend/src/pages/Vehicles.tsx` (лін. 80)
 
 **Що це робит:**
 - Передбачає необхідне ТО на основі пробігу та історії
@@ -382,7 +382,7 @@ const hasFuelAntifraud = perms.hasFeature('fuel_antifraud')
 **Доступна для:** STOREKEEPER + вище (при PRO)
 
 **Де використовується:**  
-`/millog_frontend/src/pages/Inventory.tsx` (лін. 79)
+`/Omnilog_frontend/src/pages/Inventory.tsx` (лін. 79)
 
 ```tsx
 const hasExcelImport = perms.hasFeature('excel_import')
@@ -511,7 +511,7 @@ requests.POST("/smart-dispatch-preview",
 
 ### **2. Успадкування підписки від матері-одиниці**
 **Як реалізовано:**  
-`/millog_backend/internal/repositories/unit_repository.go` (лін. 355-370)
+`/Omnilog_backend/internal/repositories/unit_repository.go` (лін. 355-370)
 
 ```go
 WITH RECURSIVE unit_hierarchy AS (

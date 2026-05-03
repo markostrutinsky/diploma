@@ -31,40 +31,49 @@ export default function Register() {
 
   return (
     <div className="login-page">
-      <div className="login-card">
-        <h1>Реєстрація підрядника</h1>
-        <p>Створіть обліковий запис для виконання заявок</p>
-        <p className="login-hint">
-          <Link to="/login">Маєте обліковий запис — увійти</Link>
-        </p>
-        <form onSubmit={handleSubmit}>
-          <input
-            type="text"
-            placeholder="ПІБ"
-            value={fullName}
-            onChange={(e) => setFullName(e.target.value)}
-            required
-          />
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <input
-            type="password"
-            placeholder="Пароль (мін. 8 символів)"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            minLength={8}
-          />
-          {error && <div className="form-error">{error}</div>}
-          <button type="submit" className="btn btn-primary" disabled={loading}>
-            {loading ? 'Реєстрація...' : 'Зареєструватися'}
-          </button>
-        </form>
+      <div className="login-card" style={{ 
+        maxWidth: '500px', 
+        gridTemplateColumns: '1fr',
+        gap: '0'
+      }}>
+        <div className="login-form-section">
+          <h1>Реєстрація підрядника</h1>
+          <p>Створіть обліковий запис для виконання заявок</p>
+          <p className="login-hint">
+            <Link to="/login">Маєте обліковий запис — увійти</Link>
+          </p>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <input
+              type="text"
+              placeholder="ПІБ"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              required
+              style={{ width: '100%', margin: 0 }}
+            />
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              style={{ width: '100%', margin: 0 }}
+            />
+            <input
+              type="password"
+              placeholder="Пароль (мін. 8 символів)"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={8}
+              style={{ width: '100%', margin: 0 }}
+            />
+            {error && <div className="form-error">{error}</div>}
+            <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%', margin: 0 }}>
+              {loading ? 'Реєстрація...' : 'Зареєструватися'}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   )

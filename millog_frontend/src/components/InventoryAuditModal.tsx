@@ -49,7 +49,7 @@ export default function InventoryAuditModal({ warehouseId, warehouseName, onClos
       
       scanner.render(
         (text) => {
-          if (text.startsWith('millog-resource:')) {
+          if (text.startsWith('Omnilog-resource:')) {
             const id = text.split(':')[1];
             handleMatch(id);
           }
@@ -91,7 +91,7 @@ export default function InventoryAuditModal({ warehouseId, warehouseName, onClos
       const html5QrCode = new Html5Qrcode("file-qr-reader");
       const decodedText = await html5QrCode.scanFile(file, false);
 
-      if (decodedText.startsWith('millog-resource:')) {
+      if (decodedText.startsWith('Omnilog-resource:')) {
         const id = decodedText.split(':')[1];
         handleMatch(id);
         toast.success('QR-код успішно зчитано з фото!', { id: toastId });
@@ -182,7 +182,7 @@ export default function InventoryAuditModal({ warehouseId, warehouseName, onClos
               margin: 0, 
               height: '42px', 
               alignItems: 'center',
-              backgroundColor: '#f8fafc',
+              backgroundColor: 'var(--bg-input)',
               border: '1px dashed #94a3b8'
             }}>
               <input
@@ -215,7 +215,7 @@ export default function InventoryAuditModal({ warehouseId, warehouseName, onClos
               <tbody>
                 {items.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="text-center" style={{ padding: '30px', color: '#64748b' }}>
+                    <td colSpan={4} className="text-center" style={{ padding: '30px', color: 'var(--text-muted)' }}>
                       На цьому складі ще немає майна.
                     </td>
                   </tr>

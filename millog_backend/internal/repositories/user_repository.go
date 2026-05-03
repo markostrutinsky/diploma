@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"millog_backend/internal/models"
+	"Omnilog_backend/internal/models"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -162,7 +162,7 @@ func (r *UserRepository) GetByID(ctx context.Context, db DBExecutor, id string) 
 	query := `
 		SELECT u.id, u.tenant_id, u.username, u.email, u.full_name, u.phone, u.password_hash,
 			u.role, u.status, u.unit_id, u.created_at, u.updated_at,
-			COALESCE(t.subscription_tier, 'FREE') AS effective_tier
+			COALESCE(t.subscription_tier, 'BASIC') AS effective_tier
 		FROM users u
 		LEFT JOIN tenants t ON t.id = u.tenant_id
 		WHERE u.id = $1`

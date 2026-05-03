@@ -3,7 +3,7 @@
 ========================================== */
 .warehouses-page {
   padding: 24px;
-  background-color: #f1f5f9;
+  background-color: var(--bg-input);
   min-height: 100vh;
 }
 
@@ -15,8 +15,8 @@
 }
 
 .warehouses-page .card-table {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
   overflow: hidden;
@@ -34,27 +34,27 @@
 }
 
 .warehouses-page .data-table thead th {
-  background-color: #f8fafc;
-  color: #475569;
+  background-color: var(--bg-input);
+  color: var(--text);
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   padding: 16px;
-  border-bottom: 2px solid #cbd5e1;
+  border-bottom: 2px solid var(--border-light);
   white-space: nowrap;
 }
 
 .warehouses-page .data-table tbody td {
   padding: 16px;
   font-size: 14px;
-  color: #1e293b;
-  border-bottom: 1px solid #e2e8f0;
+  color: var(--text-bright);
+  border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
 
 .warehouses-page .data-table tbody tr:hover {
-  background-color: #f1f5f9;
+  background-color: var(--bg-input);
   transition: background-color 0.2s ease;
 }
 
@@ -64,7 +64,7 @@
 
 .warehouses-page .text-center { text-align: center; }
 .warehouses-page .font-bold { font-weight: 600; }
-.warehouses-page .text-muted { color: #64748b; }
+.warehouses-page .text-muted { color: var(--text-muted); }
 
 .warehouses-page .actions-flex {
   display: flex;
@@ -85,10 +85,10 @@
   font-weight: 600;
 }
 
-.warehouses-page .badge-success { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
-.warehouses-page .badge-warning { background: #fffbeb; color: #d97706; border: 1px solid #fde68a; }
-.warehouses-page .badge-critical { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
-.warehouses-page .badge-neutral { background: #f8fafc; color: #475569; border: 1px solid #e2e8f0; }
+.warehouses-page .badge-success { background: rgba(16, 185, 129, 0.1); color: #16a34a; border: 1px solid #bbf7d0; }
+.warehouses-page .badge-warning { background: rgba(245, 158, 11, 0.1); color: #d97706; border: 1px solid rgba(245, 158, 11, 0.3); }
+.warehouses-page .badge-critical { background: rgba(239, 68, 68, 0.1); color: #dc2626; border: 1px solid #fecaca; }
+.warehouses-page .badge-neutral { background: var(--bg-input); color: var(--text); border: 1px solid var(--border); }
 
 /* ==========================================
    БОКОВА ПАНЕЛЬ "ФОРМУВАННЯ РЕЙСУ"
@@ -99,30 +99,30 @@
   right: 16px;
   bottom: 16px;
   width: 420px;
-  background-color: #ffffff;
+  background-color: var(--bg-card);
   border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.15);
   z-index: 1000;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   font-family: 'Inter', sans-serif;
 }
 
 .warehouses-page .dispatch-header {
   padding: 16px 20px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background-color: #f8fafc;
+  background-color: var(--bg-input);
 }
 
 .warehouses-page .dispatch-header h3 {
   margin: 0;
   font-size: 16px;
-  color: #1e293b;
+  color: var(--text-bright);
   font-weight: 600;
 }
 
@@ -145,45 +145,45 @@
 
 .warehouses-page .dispatch-footer {
   padding: 16px 20px;
-  border-top: 1px solid #e2e8f0;
-  background-color: #f8fafc;
+  border-top: 1px solid var(--border);
+  background-color: var(--bg-input);
   display: flex;
   gap: 12px;
 }
 
 .warehouses-page .route-info-box { padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; font-size: 13px; }
-.warehouses-page .route-success { background-color: #f3e8ff; border-left: 4px solid #8b5cf6; }
-.warehouses-page .route-error { background-color: #fef2f2; border-left: 4px solid #ef4444; color: #ef4444; font-weight: 500; }
+.warehouses-page .route-success { background-color: rgba(139, 92, 246, 0.15); border-left: 4px solid #8b5cf6; }
+.warehouses-page .route-error { background-color: rgba(239, 68, 68, 0.1); border-left: 4px solid #ef4444; color: #ef4444; font-weight: 500; }
 
 .warehouses-page .fuel-forecast-box {
-  margin-top: 12px; padding: 12px; background-color: #fffbeb;
-  border: 1px solid #fde68a; border-radius: 8px; font-size: 13px; color: #78350f;
+  margin-top: 12px; padding: 12px; background-color: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 8px; font-size: 13px; color: #78350f;
 }
 
 .warehouses-page .manifest-container {
-  background-color: #f8fafc; padding: 12px; border-radius: 8px;
-  border: 1px solid #e2e8f0; margin-bottom: 16px;
+  background-color: var(--bg-input); padding: 12px; border-radius: 8px;
+  border: 1px solid var(--border); margin-bottom: 16px;
 }
 
 .warehouses-page .manifest-table-wrapper {
-  border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;
+  border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
 }
 
 .warehouses-page .manifest-table {
   width: 100%; border-collapse: collapse; font-size: 12px; text-align: left;
 }
 
-.warehouses-page .manifest-table thead { background-color: #f1f5f9; border-bottom: 1px solid #e2e8f0; }
-.warehouses-page .manifest-table th { padding: 8px 12px; font-weight: 600; color: #475569; }
-.warehouses-page .manifest-table td { padding: 8px 12px; border-bottom: 1px solid #e2e8f0; color: #475569; }
+.warehouses-page .manifest-table thead { background-color: var(--bg-input); border-bottom: 1px solid var(--border); }
+.warehouses-page .manifest-table th { padding: 8px 12px; font-weight: 600; color: var(--text); }
+.warehouses-page .manifest-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); color: var(--text); }
 .warehouses-page .manifest-table tbody tr:last-child td { border-bottom: none; }
 
 .warehouses-page .weight-summary {
   margin-top: 16px; padding: 12px 16px; border-radius: 8px;
   display: flex; justify-content: space-between; align-items: center;
 }
-.warehouses-page .weight-ok { background-color: #f0fdf4; border: 1px solid #bbf7d0; color: #16a34a; }
-.warehouses-page .weight-error { background-color: #fef2f2; border: 1px solid #fca5a5; color: #dc2626; }
+.warehouses-page .weight-ok { background-color: rgba(16, 185, 129, 0.1); border: 1px solid #bbf7d0; color: #16a34a; }
+.warehouses-page .weight-error { background-color: rgba(239, 68, 68, 0.1); border: 1px solid #fca5a5; color: #dc2626; }
 
 /* ==========================================
    КАРТА ТА ПОПАПИ
@@ -192,9 +192,8 @@
   height: 700px;
   width: 100%;
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
   overflow: hidden;
-  background-color: #f8fafc;
+  background-color: var(--bg-input);
   position: relative;
 }
 
@@ -206,13 +205,13 @@
 .warehouses-page .popup-title {
   margin: 0 0 6px 0;
   font-size: 16px;
-  color: #0f172a;
+  color: var(--text-bright);
   font-weight: 700;
 }
 
 .warehouses-page .popup-subtitle {
   font-size: 13px;
-  color: #64748b;
+  color: var(--text-muted);
   margin-bottom: 14px;
 }
 
@@ -249,31 +248,31 @@
 }
 
 .warehouses-page .wh-btn.wh-edit {
-  background-color: #eff6ff;
+  background-color: rgba(59, 130, 246, 0.1);
   color: #2563eb;
 }
 .warehouses-page .wh-btn.wh-edit:hover { background-color: #dbeafe; }
 
 .warehouses-page .wh-btn.wh-delete {
-  background-color: #fef2f2;
+  background-color: rgba(239, 68, 68, 0.1);
   color: #ef4444;
 }
-.warehouses-page .wh-btn.wh-delete:hover { background-color: #fee2e2; }
+.warehouses-page .wh-btn.wh-delete:hover { background-color: rgba(239, 68, 68, 0.15); }
 
 /* ==========================================
    ВКЛАДКИ НАВІГАЦІЇ
 ========================================== */
 .warehouses-page .erp-tabs {
-  display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 2px solid #e2e8f0; padding-bottom: 1px;
+  display: flex; gap: 8px; margin-bottom: 24px; border-bottom: 2px solid var(--border); padding-bottom: 1px;
 }
 .warehouses-page .tab-btn {
   background: transparent; border: none; padding: 12px 24px; font-size: 1rem;
-  font-weight: 600; color: #64748b; cursor: pointer; border-bottom: 3px solid transparent;
+  font-weight: 600; color: var(--text-muted); cursor: pointer; border-bottom: 3px solid transparent;
   margin-bottom: -3px; transition: all 0.2s ease;
 }
-.warehouses-page .tab-btn:hover { color: #334155; background: #f8fafc; border-radius: 6px 6px 0 0; }
-.warehouses-page .tab-btn.active { color: #2563eb; border-bottom: 3px solid #2563eb; background: linear-gradient(to top, #eff6ff 0%, transparent 100%); }
+.warehouses-page .tab-btn:hover { color: var(--text); background: var(--bg-input); border-radius: 6px 6px 0 0; }
+.warehouses-page .tab-btn.active { color: #2563eb; border-bottom: 3px solid #2563eb; background: linear-gradient(to top, rgba(59, 130, 246, 0.1) 0%, transparent 100%); }
 
 .warehouses-page .empty-state {
-  padding: 40px; text-align: center; color: #64748b; font-size: 15px;
+  padding: 40px; text-align: center; color: var(--text-muted); font-size: 15px;
 }

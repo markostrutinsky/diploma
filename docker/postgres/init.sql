@@ -1,4 +1,4 @@
--- MilLog: повна схема БД (виконується при першому запуску PostgreSQL)
+-- Omnilog: повна схема БД (виконується при першому запуску PostgreSQL)
 
 -- 0. Тенанти (організації)
 CREATE TABLE IF NOT EXISTS tenants (

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"millog_backend/internal/models"
+	"Omnilog_backend/internal/models"
 )
 
 type TenantRepository struct{}

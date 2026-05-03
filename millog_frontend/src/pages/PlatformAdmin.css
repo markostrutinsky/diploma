@@ -1,17 +1,17 @@
 .platform-admin {
   padding: 1.5rem;
-  color: #e2e8f0;
+  color: var(--text);
   max-width: 1400px;
   margin: 0 auto;
 }
 
 .pa-header h1 {
   margin: 0 0 0.25rem;
-  color: #f1f5f9;
+  color: var(--text-bright);
 }
 
 .pa-header p {
-  color: #94a3b8;
+  color: var(--text-muted);
   margin: 0 0 1.5rem;
 }
 
@@ -23,14 +23,14 @@
 }
 
 .pa-stat-card {
-  background: #1e293b;
-  border: 1px solid #334155;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 1rem;
 }
 
 .pa-stat-label {
-  color: #94a3b8;
+  color: var(--text-muted);
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -40,7 +40,8 @@
   margin-top: 0.35rem;
   font-size: 1.75rem;
   font-weight: 700;
-  color: #f1f5f9;
+  color: var(--text-bright);
+  font-variant-numeric: tabular-nums;
 }
 
 .pa-toolbar {
@@ -51,21 +52,21 @@
 
 .pa-toolbar input {
   flex: 1;
-  background: #0f172a;
-  border: 1px solid #334155;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
   border-radius: 6px;
   padding: 0.55rem 0.8rem;
-  color: #f1f5f9;
+  color: var(--text-bright);
   outline: none;
 }
 
 .pa-toolbar input:focus {
-  border-color: #3b82f6;
+  border-color: var(--accent);
 }
 
 .pa-toolbar button,
 .pa-actions button {
-  background: #3b82f6;
+  background: var(--accent);
   color: white;
   border: none;
   border-radius: 6px;
@@ -76,20 +77,20 @@
 
 .pa-toolbar button:hover,
 .pa-actions button:hover {
-  background: #2563eb;
+  background: var(--accent-dark);
 }
 
 .pa-actions button.danger {
-  background: #dc2626;
+  background: var(--error);
 }
 
 .pa-actions button.danger:hover {
-  background: #b91c1c;
+  background: var(--error-dark);
 }
 
 .pa-table-wrap {
-  background: #1e293b;
-  border: 1px solid #334155;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 8px;
   overflow: auto;
 }
@@ -104,13 +105,13 @@
 .pa-table td {
   padding: 0.75rem 0.9rem;
   text-align: left;
-  border-bottom: 1px solid #334155;
+  border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
 
 .pa-table th {
-  background: #0f172a;
-  color: #cbd5e1;
+  background: var(--bg-input);
+  color: var(--text);
   font-weight: 600;
   font-size: 0.8rem;
   text-transform: uppercase;
@@ -118,17 +119,17 @@
 }
 
 .pa-table code {
-  background: #0f172a;
+  background: var(--bg-input);
   padding: 0.15rem 0.4rem;
   border-radius: 4px;
-  color: #60a5fa;
+  color: var(--accent-light);
   font-size: 0.85rem;
 }
 
 .pa-table select {
-  background: #0f172a;
-  color: #f1f5f9;
-  border: 1px solid #334155;
+  background: var(--bg-input);
+  color: var(--text-bright);
+  border: 1px solid var(--border);
   border-radius: 6px;
   padding: 0.35rem 0.5rem;
 }
@@ -165,5 +166,5 @@
 .pa-empty {
   text-align: center;
   padding: 2rem;
-  color: #94a3b8;
+  color: var(--text-muted);
 }

@@ -101,8 +101,11 @@ var UnitManagerRoles = []UserRole{
 	RoleRegionLogistician, RoleBranchLogistician, RoleRegionStorekeeper, RoleBranchStorekeeper,
 }
 
+// UserCreatorRoles — ролі, яким дозволено створювати користувачів через /admin/users.
+// SYSTEM_ADMIN свідомо виключено: платформний адмін працює крос-тенантно і не створює
+// звичайних користувачів у конкретних організаціях (для цього є TENANT_ADMIN).
 var UserCreatorRoles = []UserRole{
-	RoleSystemAdmin, RoleTenantAdmin, RoleAdmin,
+	RoleTenantAdmin, RoleAdmin,
 	RoleRegionDirector, RoleBranchManager, RoleDeptManager, RoleTeamLead,
 	RoleRegionLogistician, RoleBranchLogistician, RoleRegionStorekeeper, RoleBranchStorekeeper, RoleDeptSupervisor,
 }

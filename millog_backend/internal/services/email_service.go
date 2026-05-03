@@ -42,13 +42,13 @@ func NewEmailService(host, portStr, email, password string) (EmailService, error
 func (s *emailService) SendInviteEmail(toEmail string, inviteLink string) error {
 	fromEmail := s.email
 	if fromEmail == "" {
-		fromEmail = "noreply@millog.local"
+		fromEmail = "noreply@Omnilog.local"
 	}
 
 	m := gomail.NewMessage()
-	m.SetHeader("From", fmt.Sprintf("Millog System <%s>", fromEmail))
+	m.SetHeader("From", fmt.Sprintf("Omnilog System <%s>", fromEmail))
 	m.SetHeader("To", toEmail)
-	m.SetHeader("Subject", "Запрошення до системи Millog")
+	m.SetHeader("Subject", "Запрошення до системи Omnilog")
 
 	plainText := fmt.Sprintf("Вітаємо!\nВаш акаунт створено.\nПерейдіть за посиланням для активації: %s", inviteLink)
 	m.SetBody("text/plain", plainText)
@@ -94,7 +94,7 @@ func (s *emailService) SendPasswordChangedAlert(toEmail string) error {
 
 // 2. Для Забув пароль (Лінк на відновлення)
 func (s *emailService) SendPasswordResetEmail(toEmail, resetLink string) error {
-	subject := "Millog: Відновлення пароля"
+	subject := "Omnilog: Відновлення пароля"
 	body := fmt.Sprintf("Ви подали запит на скидання пароля.\n\nПерейдіть за посиланням нижче, щоб встановити новий пароль. Посилання дійсне 1 годину:\n\n%s\n\nЯкщо ви не робили цього запиту, просто проігноруйте цей лист.", resetLink)
 
 	// Тут твій стандартний код відправки (smtp.SendMail)
@@ -105,11 +105,11 @@ func (s *emailService) SendPasswordResetEmail(toEmail, resetLink string) error {
 func (s *emailService) sendMail(toEmail, subject, plainText string) error {
 	fromEmail := s.email
 	if fromEmail == "" {
-		fromEmail = "noreply@millog.local"
+		fromEmail = "noreply@Omnilog.local"
 	}
 
 	m := gomail.NewMessage()
-	m.SetHeader("From", fmt.Sprintf("Millog System <%s>", fromEmail))
+	m.SetHeader("From", fmt.Sprintf("Omnilog System <%s>", fromEmail))
 	m.SetHeader("To", toEmail)
 	m.SetHeader("Subject", subject)
 

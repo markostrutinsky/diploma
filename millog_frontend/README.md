@@ -1,6 +1,6 @@
-# Millog Frontend
+# Omnilog Frontend
 
-Фронтенд системи військової логістики Millog.
+Фронтенд системи військової логістики Omnilog.
 
 ## Запуск
 

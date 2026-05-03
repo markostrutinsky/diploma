@@ -11,12 +11,12 @@
 .profile-header h1 {
   margin: 0 0 4px 0;
   font-size: 1.8rem;
-  color: #0f172a;
+  color: var(--text-bright);
 }
 
 .profile-header .subtitle {
   margin: 0;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 1rem;
 }
 
@@ -33,10 +33,15 @@
   }
 }
 
+/* --- САЙДБАР (прозорий, без фону) --- */
+.profile-sidebar {
+  background: transparent;
+}
+
 /* --- КАРТКА ПРОФІЛЮ (Зліва) --- */
 .profile-card {
-  background: white;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 16px;
   padding: 32px 24px;
   text-align: center;
@@ -61,7 +66,7 @@
 .profile-name {
   margin: 0 0 12px 0;
   font-size: 1.4rem;
-  color: #0f172a;
+  color: var(--text-bright);
   line-height: 1.3;
 }
 
@@ -75,8 +80,8 @@
 
 .profile-role-badge {
   display: inline-block;
-  background: #f1f5f9;
-  color: #334155;
+  background: var(--bg-input);
+  color: var(--text);
   padding: 6px 14px;
   border-radius: 20px;
   font-size: 0.85rem;
@@ -93,13 +98,13 @@
   letter-spacing: 0.5px;
 }
 
-.status-success { background: #dcfce7; color: #16a34a; }
-.status-warning { background: #fef3c7; color: #d97706; }
-.status-danger { background: #fee2e2; color: #dc2626; }
+.status-success { background: rgba(16, 185, 129, 0.15); color: #16a34a; }
+.status-warning { background: rgba(245, 158, 11, 0.15); color: #d97706; }
+.status-danger { background: rgba(239, 68, 68, 0.15); color: #dc2626; }
 
 .profile-details {
   text-align: left;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--border);
   padding-top: 24px;
   display: flex;
   flex-direction: column;
@@ -114,7 +119,7 @@
 
 .detail-label {
   font-size: 0.75rem;
-  color: #64748b;
+  color: var(--text-muted);
   text-transform: uppercase;
   font-weight: 700;
   letter-spacing: 0.5px;
@@ -122,24 +127,24 @@
 
 .detail-value {
   font-size: 0.95rem;
-  color: #0f172a;
+  color: var(--text-bright);
   font-weight: 500;
   word-break: break-all;
 }
 
 .font-mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  background: #f8fafc;
+  background: var(--bg-input);
   padding: 2px 6px;
   border-radius: 4px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
 }
 
 /* --- ПРАВА ЧАСТИНА (Вкладки) --- */
 .profile-tabs {
   display: flex;
   gap: 12px;
-  border-bottom: 2px solid #e2e8f0;
+  border-bottom: 2px solid var(--border);
   margin-bottom: 24px;
   flex-wrap: wrap; 
   row-gap: 0;
@@ -151,7 +156,7 @@
   padding: 12px 16px;
   font-size: 1rem;
   font-weight: 600;
-  color: #64748b;
+  color: var(--text-muted);
   cursor: pointer;
   border-bottom: 3px solid transparent;
   margin-bottom: -2px;
@@ -159,7 +164,7 @@
   white-space: nowrap;
 }
 
-.ptab-btn:hover { color: #334155; }
+.ptab-btn:hover { color: var(--text); }
 .ptab-btn.active {
   color: #2563eb;
   border-bottom-color: #2563eb;
@@ -167,8 +172,8 @@
 
 /* --- Вкладка: Налаштування та Повноваження --- */
 .settings-panel, .permissions-panel {
-  background: white;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: 16px;
   padding: 32px;
   box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
@@ -177,7 +182,7 @@
 .settings-panel h3, .permissions-panel h3 {
   margin-top: 0;
   font-size: 1.25rem;
-  color: #0f172a;
+  color: var(--text-bright);
 }
 
 .mb-4 { margin-bottom: 1.5rem; }
@@ -194,8 +199,8 @@
   align-items: flex-start;
   gap: 16px;
   padding: 16px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
   border-radius: 12px;
 }
 
@@ -207,34 +212,34 @@
 .perm-text strong {
   display: block;
   font-size: 1.05rem;
-  color: #0f172a;
+  color: var(--text-bright);
   margin-bottom: 4px;
 }
 
 .perm-text p {
   margin: 0;
   font-size: 0.9rem;
-  color: #64748b;
+  color: var(--text-muted);
   line-height: 1.4;
 }
 
 /* --- СІТКА ЕКІПІРУВАННЯ (Без змін) --- */
 .equipment-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-.equipment-card { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; transition: 0.2s; }
-.equipment-card:hover { transform: translateY(-4px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border-color: #cbd5e1; }
+.equipment-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); display: flex; flex-direction: column; transition: 0.2s; }
+.equipment-card:hover { transform: translateY(-4px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border-color: var(--border); }
 .card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; font-size: 0.85rem; font-weight: 600; }
-.status-indicator { color: #10b981; background: #dcfce7; padding: 4px 10px; border-radius: 20px; }
+.status-indicator { color: #10b981; background: rgba(16, 185, 129, 0.15); padding: 4px 10px; border-radius: 20px; }
 .issue-date { color: #94a3b8; }
-.item-name { margin: 0 0 16px 0; font-size: 1.1rem; color: #1e293b; line-height: 1.4; }
+.item-name { margin: 0 0 16px 0; font-size: 1.1rem; color: var(--text-bright); line-height: 1.4; }
 .item-quantity { margin-top: auto; margin-bottom: 24px; display: flex; align-items: baseline; gap: 4px; }
 .qty-number { font-size: 2.5rem; font-weight: 800; color: #2563eb; line-height: 1; }
-.qty-unit { font-size: 1.1rem; color: #64748b; font-weight: 500; }
-.btn-report { width: 100%; background: #fff5f5; color: #e11d48; border: 1px solid #fecdd3; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; }
-.btn-report:hover { background: #ffe4e6; border-color: #fda4af; }
-.empty-state-card { text-align: center; padding: 60px 20px; background: #ffffff; border-radius: 16px; border: 2px dashed #cbd5e1; }
+.qty-unit { font-size: 1.1rem; color: var(--text-muted); font-weight: 500; }
+.btn-report { width: 100%; background: rgba(239, 68, 68, 0.1); color: #e11d48; border: 1px solid #fecdd3; padding: 12px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+.btn-report:hover { background: rgba(239, 68, 68, 0.15); border-color: #fda4af; }
+.empty-state-card { text-align: center; padding: 60px 20px; background: var(--bg-card); border-radius: 16px; border: 2px dashed var(--border-light); }
 .empty-icon { font-size: 4rem; display: block; margin-bottom: 16px; }
-.empty-state-card h3 { color: #334155; margin: 0 0 8px 0; }
-.empty-state-card p { color: #64748b; margin: 0; }
+.empty-state-card h3 { color: var(--text); margin: 0 0 8px 0; }
+.empty-state-card p { color: var(--text-muted); margin: 0; }
 
 /* --- ФОРМА РЕДАГУВАННЯ ПРОФІЛЮ --- */
 .profile-form {
@@ -265,25 +270,25 @@
 .form-group label {
   font-size: 0.85rem;
   font-weight: 700;
-  color: #475569;
+  color: var(--text);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .erp-input {
   padding: 12px 16px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border);
   border-radius: 8px;
   font-size: 1rem;
-  color: #1e293b;
+  color: var(--text-bright);
   transition: all 0.2s ease;
-  background-color: #f8fafc;
+  background-color: var(--bg-input);
 }
 
 .erp-input:focus {
   outline: none;
   border-color: #2563eb;
-  background-color: #ffffff;
+  background-color: var(--bg-card);
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 

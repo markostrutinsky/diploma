@@ -6,7 +6,6 @@ import "time"
 type SubscriptionTier string
 
 const (
-	TierFree       SubscriptionTier = "FREE"
 	TierBasic      SubscriptionTier = "BASIC"
 	TierPro        SubscriptionTier = "PRO"
 	TierEnterprise SubscriptionTier = "ENTERPRISE"

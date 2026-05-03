@@ -1,11 +1,11 @@
 package handlers
 
 import (
+	"Omnilog_backend/internal/middleware"
+	"Omnilog_backend/internal/models"
+	"Omnilog_backend/internal/services"
 	"context"
 	"fmt"
-	"millog_backend/internal/middleware"
-	"millog_backend/internal/models"
-	"millog_backend/internal/services"
 	"net/http"
 	"strconv"
 	"strings"
@@ -129,7 +129,12 @@ func (h *InventoryHandler) ListResources(c *gin.Context) {
 		}
 	}
 
-	if userRole == "ADMIN" {
+	// Перевіряємо чи це власник організації (ADMIN, TENANT_ADMIN, SYSTEM_ADMIN)
+	isOwner := userRole == string(models.RoleAdmin) ||
+		userRole == string(models.RoleTenantAdmin) ||
+		userRole == string(models.RoleSystemAdmin)
+
+	if isOwner {
 		finalUnitID = requestedUnitID
 	} else {
 		if requestedUnitID != nil {

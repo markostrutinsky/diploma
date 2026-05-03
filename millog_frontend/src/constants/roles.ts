@@ -30,6 +30,8 @@ export type Tier = 'BASIC' | 'PRO' | 'ENTERPRISE'
 
 export const ROLE_GROUPS = {
   analytics: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
     ROLES.ADMIN,
     ROLES.REGION_DIRECTOR,
     ROLES.BRANCH_MANAGER,
@@ -37,6 +39,8 @@ export const ROLE_GROUPS = {
     ROLES.REGION_STOREKEEPER,
   ],
   inventory: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
     ROLES.ADMIN,
     ROLES.REGION_DIRECTOR,
     ROLES.REGION_STOREKEEPER,
@@ -48,6 +52,8 @@ export const ROLE_GROUPS = {
     ROLES.BRANCH_LOGISTICIAN,
   ],
   transport: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
     ROLES.ADMIN,
     ROLES.REGION_DIRECTOR,
     ROLES.REGION_LOGISTICIAN,
@@ -56,6 +62,8 @@ export const ROLE_GROUPS = {
     ROLES.DEPT_SUPERVISOR,
   ],
   units: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
     ROLES.ADMIN,
     ROLES.REGION_DIRECTOR,
     ROLES.BRANCH_MANAGER,
@@ -63,6 +71,8 @@ export const ROLE_GROUPS = {
     ROLES.REGION_LOGISTICIAN,
   ],
   users: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
     ROLES.ADMIN,
     ROLES.REGION_DIRECTOR,
     ROLES.BRANCH_MANAGER,
@@ -70,12 +80,16 @@ export const ROLE_GROUPS = {
     ROLES.TEAM_LEAD,
   ],
   kiosk: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
     ROLES.ADMIN,
     ROLES.REGION_STOREKEEPER,
     ROLES.BRANCH_STOREKEEPER,
     ROLES.DEPT_SUPERVISOR,
   ],
   contracts: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
     ROLES.ADMIN,
     ROLES.REGION_DIRECTOR,
     ROLES.BRANCH_MANAGER,
@@ -84,6 +98,8 @@ export const ROLE_GROUPS = {
     ROLES.DEPT_MANAGER,
   ],
   approvers: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
     ROLES.ADMIN,
     ROLES.REGION_DIRECTOR,
     ROLES.BRANCH_MANAGER,
@@ -92,6 +108,8 @@ export const ROLE_GROUPS = {
     ROLES.BRANCH_LOGISTICIAN,
   ],
   requests: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
     ROLES.ADMIN,
     ROLES.REGION_DIRECTOR,
     ROLES.REGION_LOGISTICIAN,
@@ -105,6 +123,8 @@ export const ROLE_GROUPS = {
     ROLES.EMPLOYEE,
   ],
   contractorRequestsView: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
     ROLES.ADMIN,
     ROLES.REGION_DIRECTOR,
     ROLES.BRANCH_MANAGER,
@@ -124,6 +144,8 @@ export const ROLE_GROUPS = {
 export const ACTIONS = {
   // Ресурси
   resource_manage: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
     ROLES.ADMIN,
     ROLES.REGION_STOREKEEPER,
     ROLES.BRANCH_STOREKEEPER,
@@ -131,18 +153,24 @@ export const ACTIONS = {
     ROLES.REGION_LOGISTICIAN,
   ],
   resource_assign: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
     ROLES.ADMIN,
     ROLES.REGION_STOREKEEPER,
     ROLES.BRANCH_STOREKEEPER,
     ROLES.DEPT_SUPERVISOR,
   ],
   resource_writeoff: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
     ROLES.ADMIN,
     ROLES.REGION_STOREKEEPER,
     ROLES.BRANCH_STOREKEEPER,
     ROLES.REGION_LOGISTICIAN,
   ],
   resource_transfer: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
     ROLES.ADMIN,
     ROLES.REGION_STOREKEEPER,
     ROLES.REGION_LOGISTICIAN,
@@ -151,6 +179,8 @@ export const ACTIONS = {
 
   // Категорії
   category_manage: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
     ROLES.ADMIN,
     ROLES.REGION_LOGISTICIAN,
     ROLES.REGION_DIRECTOR,
@@ -158,6 +188,8 @@ export const ACTIONS = {
 
   // Заявки на постачання
   request_create: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
     ROLES.ADMIN,
     ROLES.REGION_DIRECTOR,
     ROLES.BRANCH_MANAGER,
@@ -169,6 +201,8 @@ export const ACTIONS = {
     ROLES.EMPLOYEE,
   ],
   request_approve: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
     ROLES.ADMIN,
     ROLES.REGION_DIRECTOR,
     ROLES.BRANCH_MANAGER,
@@ -177,6 +211,8 @@ export const ACTIONS = {
     ROLES.BRANCH_LOGISTICIAN,
   ],
   request_dispatch: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
     ROLES.ADMIN,
     ROLES.REGION_STOREKEEPER,
     ROLES.BRANCH_STOREKEEPER,
@@ -186,6 +222,8 @@ export const ACTIONS = {
 
   // Склади
   warehouse_manage: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
     ROLES.ADMIN,
     ROLES.REGION_DIRECTOR,
     ROLES.REGION_LOGISTICIAN,
@@ -194,6 +232,8 @@ export const ACTIONS = {
     ROLES.DEPT_MANAGER,
   ],
   warehouse_audit: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
     ROLES.ADMIN,
     ROLES.REGION_STOREKEEPER,
     ROLES.BRANCH_STOREKEEPER,
@@ -202,6 +242,8 @@ export const ACTIONS = {
 
   // Автопарк
   vehicle_manage: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
     ROLES.ADMIN,
     ROLES.REGION_DIRECTOR,
     ROLES.REGION_LOGISTICIAN,
@@ -209,12 +251,16 @@ export const ACTIONS = {
     ROLES.DEPT_SUPERVISOR,
   ],
   vehicle_fuel_log: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
     ROLES.ADMIN,
     ROLES.REGION_LOGISTICIAN,
     ROLES.BRANCH_LOGISTICIAN,
     ROLES.DEPT_SUPERVISOR,
   ],
   vehicle_maintenance: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
     ROLES.ADMIN,
     ROLES.REGION_LOGISTICIAN,
     ROLES.BRANCH_LOGISTICIAN,
@@ -222,6 +268,8 @@ export const ACTIONS = {
 
   // Організаційна структура
   unit_manage: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
     ROLES.ADMIN,
     ROLES.REGION_DIRECTOR,
     ROLES.BRANCH_MANAGER,
@@ -231,17 +279,32 @@ export const ACTIONS = {
 
   // Персонал
   user_invite: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
     ROLES.ADMIN,
     ROLES.REGION_DIRECTOR,
     ROLES.BRANCH_MANAGER,
     ROLES.DEPT_MANAGER,
     ROLES.TEAM_LEAD,
   ],
-  user_block: [ROLES.ADMIN, ROLES.REGION_DIRECTOR, ROLES.BRANCH_MANAGER],
-  user_change_role: [ROLES.ADMIN, ROLES.REGION_DIRECTOR],
+  user_block: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
+    ROLES.ADMIN,
+    ROLES.REGION_DIRECTOR,
+    ROLES.BRANCH_MANAGER,
+  ],
+  user_change_role: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
+    ROLES.ADMIN,
+    ROLES.REGION_DIRECTOR,
+  ],
 
   // Заявки підрядникам
   contractor_request_create: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
     ROLES.ADMIN,
     ROLES.REGION_DIRECTOR,
     ROLES.BRANCH_MANAGER,
@@ -252,12 +315,19 @@ export const ACTIONS = {
   contractor_request_take: [ROLES.CONTRACTOR],
 
   // Адмін-функції
-  audit_view: [ROLES.ADMIN],
-  billing_manage: [ROLES.ADMIN, ROLES.REGION_DIRECTOR],
-  sla_trigger: [ROLES.ADMIN],
+  audit_view: [ROLES.SYSTEM_ADMIN, ROLES.TENANT_ADMIN, ROLES.ADMIN],
+  billing_manage: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
+    ROLES.ADMIN,
+    ROLES.REGION_DIRECTOR,
+  ],
+  sla_trigger: [ROLES.SYSTEM_ADMIN, ROLES.TENANT_ADMIN, ROLES.ADMIN],
 
   // Термінал
   kiosk_operate: [
+    ROLES.SYSTEM_ADMIN,
+    ROLES.TENANT_ADMIN,
     ROLES.ADMIN,
     ROLES.REGION_STOREKEEPER,
     ROLES.BRANCH_STOREKEEPER,
@@ -277,6 +347,7 @@ export const FEATURES = {
   advanced_analytics: { minTier: 'PRO' as Tier, label: 'Розширена аналітика (SLA, TCO, ризики)' },
   fuel_antifraud: { minTier: 'PRO' as Tier, label: 'Антифрод-система пального' },
   predictive_maintenance: { minTier: 'PRO' as Tier, label: 'Прогноз ТО за пробігом' },
+  gps_tracking: { minTier: 'PRO' as Tier, label: 'GPS-трекінг автопарку (real-time мапа)' },
   excel_import: { minTier: 'PRO' as Tier, label: 'Масовий імпорт з Excel' },
   audit_log_extended: { minTier: 'PRO' as Tier, label: 'Журнал аудиту понад 7 днів' },
   // Примітка: «Пріоритетна підтримка» та «Мульти-регіональна консолідація»

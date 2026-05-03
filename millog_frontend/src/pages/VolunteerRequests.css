@@ -107,11 +107,11 @@
 
 /* Сіра кнопка (Скасувати) - для статусу OPEN */
 .btn-action-small.btn-secondary {
-  background-color: #f8f9fa;
-  color: #495057;
-  border: 1px solid #ced4da;
+  background-color: var(--bg-input);
+  color: var(--text);
+  border: 1px solid var(--border);
 }
 
 .btn-action-small.btn-secondary:hover {
-  background-color: #e2e6ea;
+  background-color: var(--border);
 }

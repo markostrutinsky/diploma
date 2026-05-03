@@ -371,28 +371,30 @@ const AnalyticsDashboard: React.FC = () => {
         {/* ВКЛАДКА 1: ЗВЕДЕННЯ */}
         {activeTab === 'overview' && (
           <div className="grid-layout">
-            <div className="erp-widget col-span-full sla-control-panel">
-              <div className="widget-header">
-                <h3>🛠️ Панель оперативного контролю</h3>
-              </div>
-              
-              <div className="sla-control-body">
-                <div className="sla-control-text">
-                  <p className="sla-control-title">Моніторинг «завислих» заявок</p>
-                  <p className="sla-control-desc">
-                    Система автоматично перевіряє заявки кожну годину. Натисніть кнопку, щоб запустити перевірку та ескалацію негайно.
-                  </p>
+            {canTriggerSla && (
+              <div className="erp-widget col-span-full sla-control-panel">
+                <div className="widget-header">
+                  <h3>🛠️ Панель оперативного контролю</h3>
                 </div>
                 
-                <button 
-                  onClick={handleTriggerSLA} 
-                  className="btn-danger-action" 
-                  disabled={isSlaChecking}
-                >
-                  Запустити монітор
-                </button>
+                <div className="sla-control-body">
+                  <div className="sla-control-text">
+                    <p className="sla-control-title">Моніторинг «завислих» заявок</p>
+                    <p className="sla-control-desc">
+                      Система автоматично перевіряє заявки кожну годину. Натисніть кнопку, щоб запустити перевірку та ескалацію негайно.
+                    </p>
+                  </div>
+                  
+                  <button 
+                    onClick={handleTriggerSLA} 
+                    className="btn-danger-action" 
+                    disabled={isSlaChecking}
+                  >
+                    Запустити монітор
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="erp-widget col-span-2">
               <div className="widget-header"><h3>Рівень забезпечення орг. одиниць</h3><span className="info-badge">Готовність</span></div>
@@ -502,31 +504,31 @@ const AnalyticsDashboard: React.FC = () => {
               </div>
               
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginTop: '10px' }}>
-                <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Списано (Використано)</span>
-                  <div style={{ fontSize: '2rem', fontWeight: 700, color: '#0f172a', marginTop: '10px' }}>
-                    {data?.written_off_resources || 0} <span style={{fontSize: '1rem', color: '#94a3b8', fontWeight: 500}}>позицій</span>
+                <div style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '8px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Списано (Використано)</span>
+                  <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--text)', marginTop: '10px' }}>
+                    {data?.written_off_resources || 0} <span style={{fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 500}}>позицій</span>
                   </div>
                 </div>
 
-                <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Успішні переміщення</span>
-                  <div style={{ fontSize: '2rem', fontWeight: 700, color: '#10b981', marginTop: '10px' }}>
-                    {data?.completed_requests || 0} <span style={{fontSize: '1rem', color: '#94a3b8', fontWeight: 500}}>заявок</span>
+                <div style={{ background: 'var(--bg-card)', padding: '20px', borderRadius: '8px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase' }}>Успішні переміщення</span>
+                  <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--success)', marginTop: '10px' }}>
+                    {data?.completed_requests || 0} <span style={{fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 500}}>заявок</span>
                   </div>
                 </div>
 
-                <div style={{ background: '#fffbeb', padding: '20px', borderRadius: '8px', border: '1px solid #fde68a', display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontSize: '0.85rem', color: '#b45309', fontWeight: 600, textTransform: 'uppercase' }}>Автопарк: В ремонті</span>
-                  <div style={{ fontSize: '2rem', fontWeight: 700, color: '#d97706', marginTop: '10px' }}>
-                    {data?.in_repair_vehicles || 0} <span style={{fontSize: '1rem', color: '#d97706', opacity: 0.7, fontWeight: 500}}>ТЗ</span>
+                <div style={{ background: 'rgba(251, 191, 36, 0.1)', padding: '20px', borderRadius: '8px', border: '1px solid rgba(251, 191, 36, 0.3)', display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--warning)', fontWeight: 600, textTransform: 'uppercase' }}>Автопарк: В ремонті</span>
+                  <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--warning)', marginTop: '10px' }}>
+                    {data?.in_repair_vehicles || 0} <span style={{fontSize: '1rem', color: 'var(--warning)', opacity: 0.7, fontWeight: 500}}>ТЗ</span>
                   </div>
                 </div>
 
-                <div style={{ background: '#fef2f2', padding: '20px', borderRadius: '8px', border: '1px solid #fecaca', display: 'flex', flexDirection: 'column' }}>
-                  <span style={{ fontSize: '0.85rem', color: '#b91c1c', fontWeight: 600, textTransform: 'uppercase' }}>Виведено з експлуатації</span>
-                  <div style={{ fontSize: '2rem', fontWeight: 700, color: '#ef4444', marginTop: '10px' }}>
-                    {data?.inactive_vehicles || 0} <span style={{fontSize: '1rem', color: '#ef4444', opacity: 0.7, fontWeight: 500}}>ТЗ</span>
+                <div style={{ background: 'rgba(239, 68, 68, 0.1)', padding: '20px', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.3)', display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--error)', fontWeight: 600, textTransform: 'uppercase' }}>Виведено з експлуатації</span>
+                  <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--error)', marginTop: '10px' }}>
+                    {data?.inactive_vehicles || 0} <span style={{fontSize: '1rem', color: 'var(--error)', opacity: 0.7, fontWeight: 500}}>ТЗ</span>
                   </div>
                 </div>
               </div>

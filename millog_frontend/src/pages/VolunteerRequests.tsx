@@ -239,7 +239,7 @@ export default function ContractorRequests() {
       </div>
 
       {/* НОВИЙ БЛОК ПОШУКУ */}
-      <div className="filters-bar" style={{ marginBottom: '24px', backgroundColor: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+      <div className="filters-bar" style={{ marginBottom: '24px', backgroundColor: 'var(--bg-input)', padding: '16px', borderRadius: '8px', border: '1px solid var(--border)' }}>
         <div style={{ position: 'relative', width: '100%', maxWidth: '400px' }}>
           <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', fontSize: '14px' }}>
             🔍
@@ -319,7 +319,7 @@ export default function ContractorRequests() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>Оприбуткування майна</h3>
             
-            <div style={{ display: 'flex', gap: '15px', marginBottom: '20px', padding: '10px', background: '#f8f9fa', borderRadius: '8px' }}>
+            <div style={{ display: 'flex', gap: '15px', marginBottom: '20px', padding: '10px', background: 'var(--bg-input)', borderRadius: '8px' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
                 <input 
                   type="radio" 
@@ -430,7 +430,7 @@ export default function ContractorRequests() {
               </div>
 
               {nameMismatchWarning && (
-                <div style={{ backgroundColor: '#fff3cd', color: '#856404', padding: '12px', borderRadius: '6px', border: '1px solid #ffeeba', marginBottom: '15px', fontSize: '14px' }}>
+                <div style={{ backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#856404', padding: '12px', borderRadius: '6px', border: '1px solid rgba(245, 158, 11, 0.3)', marginBottom: '15px', fontSize: '14px' }}>
                   ⚠️ <strong>Увага, можлива помилка!</strong><br/>
                   Ви приймаєте заявку на <strong>"{requests.find(r => r.id === acceptModalId)?.title}"</strong>, 
                   але обрали на складі <strong>"{acceptForm.name}"</strong>. <br/>

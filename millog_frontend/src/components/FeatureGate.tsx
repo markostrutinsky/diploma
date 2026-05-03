@@ -64,6 +64,37 @@ export function PaywallCard({ feature }: PaywallCardProps) {
   )
 }
 
+interface PaywallScreenProps {
+  feature: FeatureKey
+  /** Необов'язковий опис чому саме ця фіча корисна — зʼявиться під основним текстом. */
+  description?: string
+}
+
+/**
+ * Повноекранна заглушка для платних сторінок (GPS, KPI, Analytics, ТО, Антифрод).
+ * Замість червоної плашки "error" показує елегантну картку з CTA.
+ */
+export function PaywallScreen({ feature, description }: PaywallScreenProps) {
+  const meta = FEATURES[feature]
+  return (
+    <div className="paywall-screen">
+      <div className="paywall-screen__card">
+        <div className="paywall-screen__icon">🔒</div>
+        <div className="paywall-screen__title">{meta.label}</div>
+        <div className="paywall-screen__tier">
+          Доступно на тарифі <strong>{TIER_NAMES[meta.minTier]}</strong> і вище
+        </div>
+        {description && (
+          <p className="paywall-screen__description">{description}</p>
+        )}
+        <Link to="/billing" className="paywall-screen__cta">
+          Переглянути тарифи
+        </Link>
+      </div>
+    </div>
+  )
+}
+
 interface PaywallBadgeProps {
   feature: FeatureKey
   compact?: boolean

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"millog_backend/internal/models"
+	"Omnilog_backend/internal/models"
 )
 
 type ContractorRequestRepository struct{}
