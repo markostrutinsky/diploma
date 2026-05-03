@@ -25,12 +25,7 @@ func (r *ResourceRepository) Create(ctx context.Context, db DBExecutor, res *mod
 
 	tid := TenantFromCtx(ctx)
 	if tid == "" {
-		query := `INSERT INTO resources (category_id, unit_id, name, description, quantity, unit_type, serial_number, barcode, warehouse_id, condition, min_quantity, weight_kg)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id, created_at, updated_at`
-		return db.QueryRow(ctx, query,
-			res.CategoryID, res.UnitID, res.Name, res.Description, res.Quantity, res.UnitType, res.SerialNumber,
-			res.Barcode, res.WarehouseID, res.Condition, res.MinQuantity, res.WeightKg,
-		).Scan(&res.ID, &res.CreatedAt, &res.UpdatedAt)
+		return fmt.Errorf("tenant_id is required for creating resources")
 	}
 
 	query := `INSERT INTO resources (category_id, unit_id, name, description, quantity, unit_type, serial_number, barcode, warehouse_id, condition, min_quantity, weight_kg, tenant_id)
@@ -187,13 +182,18 @@ func (r *ResourceRepository) WriteOff(ctx context.Context, db DBExecutor, id str
 
 	// 3. Якщо такого списаного ресурсу ще не було (база оновила 0 рядків), створюємо новий
 	if result.RowsAffected() == 0 {
+		tid := TenantFromCtx(ctx)
+		if tid == "" {
+			return fmt.Errorf("tenant_id is required for creating written-off resources")
+		}
+
 		insertQuery := `
-            INSERT INTO resources (category_id, unit_id, name, description, quantity, unit_type, serial_number, warehouse_id, condition, min_quantity)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'WRITTEN_OFF', $9)`
+            INSERT INTO resources (category_id, unit_id, name, description, quantity, unit_type, serial_number, warehouse_id, condition, min_quantity, tenant_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'WRITTEN_OFF', $9, $10)`
 
 		_, err = db.Exec(ctx, insertQuery,
 			orig.CategoryID, orig.UnitID, orig.Name, orig.Description, quantity, orig.UnitType, orig.SerialNumber,
-			wID, orig.MinQuantity,
+			wID, orig.MinQuantity, tid,
 		)
 		return err
 	}
@@ -699,6 +699,11 @@ func (r *ResourceRepository) ReceiveShipment(ctx context.Context, db *pgxpool.Po
 	rows.Close()
 
 	// 4. Оновлюємо або створюємо ресурси на складі-одержувачі
+	tid := TenantFromCtx(ctx)
+	if tid == "" {
+		return fmt.Errorf("tenant_id is required for shipment receiving")
+	}
+
 	for _, item := range items {
 		var existingResID string
 		err := tx.QueryRow(ctx, `SELECT id FROM resources WHERE warehouse_id = $1 AND name = $2 AND condition != 'WRITTEN_OFF'`, targetWarehouseID, item.Name).Scan(&existingResID)
@@ -710,11 +715,11 @@ func (r *ResourceRepository) ReceiveShipment(ctx context.Context, db *pgxpool.Po
 				return fmt.Errorf("помилка оновлення залишку: %w", updateErr)
 			}
 		} else {
-			// Якщо товару немає — створюємо новий запис (ДОДАНО condition = 'NEW')
+			// Якщо товару немає — створюємо новий запис (ДОДАНО condition = 'NEW' та tenant_id)
 			_, insertErr := tx.Exec(ctx, `
-                INSERT INTO resources (category_id, unit_id, warehouse_id, name, description, quantity, unit_type, weight_kg, min_quantity, condition) 
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'NEW')
-            `, item.CatID, targetUnitID, targetWarehouseID, item.Name, item.Desc, item.Qty, item.UType, item.Weight, item.MinQty)
+                INSERT INTO resources (category_id, unit_id, warehouse_id, name, description, quantity, unit_type, weight_kg, min_quantity, condition, tenant_id) 
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'NEW', $10)
+            `, item.CatID, targetUnitID, targetWarehouseID, item.Name, item.Desc, item.Qty, item.UType, item.Weight, item.MinQty, tid)
 			if insertErr != nil {
 				return fmt.Errorf("помилка створення нового ресурсу на складі: %w", insertErr)
 			}

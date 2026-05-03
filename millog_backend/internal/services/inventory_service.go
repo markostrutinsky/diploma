@@ -417,17 +417,24 @@ func (s *RequestService) ProcessBulkImport(ctx context.Context, rows []models.Im
 		}
 
 		// -- Додаємо валідний запис у Batch --
+		tid := repositories.TenantFromCtx(ctx)
+		if tid == "" {
+			resp.Errors = append(resp.Errors, fmt.Sprintf("Рядок %d: tenant_id відсутній у контексті", rowNumber))
+			resp.Failed++
+			continue
+		}
+
 		query := `
 			INSERT INTO resources (
 				category_id, unit_id, warehouse_id, name, description, 
-				quantity, unit_type, weight_kg, condition, serial_number, barcode, created_at, updated_at
+				quantity, unit_type, weight_kg, condition, serial_number, barcode, tenant_id, created_at, updated_at
 			) VALUES (
-				$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW()
+				$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW()
 			)
 		`
 		batch.Queue(query,
 			finalCategoryID, unitID, warehouseID, row.ResourceName, row.Description,
-			row.Quantity, row.UnitType, row.WeightKg, row.Condition, row.SerialNumber, row.Barcode,
+			row.Quantity, row.UnitType, row.WeightKg, row.Condition, row.SerialNumber, row.Barcode, tid,
 		)
 		validRowsCount++
 	}

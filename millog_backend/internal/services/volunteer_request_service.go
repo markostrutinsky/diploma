@@ -80,11 +80,16 @@ func (s *ContractorRequestService) AcceptAndStore(ctx context.Context, requestID
 		}
 
 	} else {
+		tid := repositories.TenantFromCtx(ctx)
+		if tid == "" {
+			return fmt.Errorf("tenant_id is required for creating resources")
+		}
+
 		insertQuery := `
-            INSERT INTO resources (unit_id, category_id, name, quantity, unit_type, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            INSERT INTO resources (unit_id, category_id, name, quantity, unit_type, tenant_id, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         `
-		_, err = tx.Exec(ctx, insertQuery, unitID, payload.CategoryID, payload.Name, payload.Quantity, payload.UnitType)
+		_, err = tx.Exec(ctx, insertQuery, unitID, payload.CategoryID, payload.Name, payload.Quantity, payload.UnitType, tid)
 		if err != nil {
 			return fmt.Errorf("помилка додавання нового майна на склад: %w", err)
 		}
