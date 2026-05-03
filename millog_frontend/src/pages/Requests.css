@@ -329,8 +329,8 @@
 .modal-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background-color: rgba(15, 23, 42, 0.6);
-  backdrop-filter: blur(2px);
+  background-color: rgba(15, 23, 42, 0.75);
+  /* backdrop-filter: blur(2px); */ /* Тимчасово вимкнено - може блокувати dropdown */
   display: flex;
   justify-content: center;
   align-items: center;
@@ -345,9 +345,36 @@
   width: 100%;
   max-width: 400px;
   max-height: 90vh;
-  overflow-y: auto;
+  overflow: visible; /* КРИТИЧНО: Дозволяємо dropdown виходити за межі */
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   border: 1px solid var(--border);
+  position: relative;
+  z-index: 10000;
+}
+
+/* КРИТИЧНИЙ ФІКС: Прибираємо всі кастомні стилі з select */
+.modal select,
+.modal select.erp-input {
+  /* Повертаємо нативний вигляд браузера */
+  -webkit-appearance: menulist !important;
+  -moz-appearance: menulist !important;
+  appearance: menulist !important;
+  
+  /* Скидаємо background */
+  background-image: none !important;
+  padding-right: 12px !important;
+  
+  cursor: pointer !important;
+  position: relative !important;
+  z-index: auto !important;
+  
+  /* Дозволяємо dropdown */
+  overflow: visible !important;
+}
+
+/* Прибираємо IE/Edge стрілку */
+.modal select::-ms-expand {
+  display: block !important;
 }
 
 .modal-wide {
@@ -586,9 +613,50 @@
   list-style: none;
   color: var(--text);
   font-size: 13px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+}
+
+/* ============================================
+   ФІНАЛЬНИЙ ФІКС ДЛЯ SELECT DROPDOWN
+   Цей блок повинен бути в кінці файлу для максимального пріоритету
+   ============================================ */
+.modal-overlay .modal select,
+.modal-overlay .modal form select,
+.requests-page .modal select {
+  /* КРИТИЧНО: Повертаємо нативний браузерний вигляд */
+  -webkit-appearance: menulist !important;
+  -moz-appearance: menulist !important;
+  appearance: menulist !important;
+  
+  /* Прибираємо кастомні background */
+  background-image: none !important;
+  
+  /* Нормальний padding */
+  padding-right: 12px !important;
+  
+  /* Переконуємося що елемент інтерактивний */
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  
+  /* Z-index не повинен заважати */
+  position: relative !important;
+  z-index: 1 !important;
+  
+  /* КРИТИЧНО: Дозволяємо браузеру контролювати dropdown */
+  overflow: visible !important;
+}
+
+/* Модалка повинна дозволяти dropdown виходити за межі */
+.modal {
+  overflow: visible !important;
+}
+
+.modal form {
+  overflow: visible !important;
+}
+
+/* Для Edge/IE */
+.modal select::-ms-expand {
+  display: block !important;
 }
 
 .smart-route-items li {

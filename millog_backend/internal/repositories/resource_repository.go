@@ -470,12 +470,19 @@ func (r *ResourceRepository) CreateShipment(ctx context.Context, db *pgxpool.Poo
 		return err
 	}
 
-	// 3. Створюємо запис про рейс...
+	// 3. Отримуємо tenant_id зі складу відправника
+	var tenantID *string
+	err = tx.QueryRow(ctx, "SELECT tenant_id FROM warehouses WHERE id = $1", req.FromWarehouseID).Scan(&tenantID)
+	if err != nil {
+		return fmt.Errorf("не вдалося отримати tenant_id зі складу: %w", err)
+	}
+
+	// 4. Створюємо запис про рейс...
 	var shipmentID string
 	err = tx.QueryRow(ctx, `
-        INSERT INTO shipments (from_warehouse_id, to_warehouse_id, vehicle_id, priority, status)
-        VALUES ($1, $2, $3, $4, 'DISPATCHED') RETURNING id
-    `, req.FromWarehouseID, req.ToWarehouseID, req.VehicleID, req.Priority).Scan(&shipmentID)
+        INSERT INTO shipments (from_warehouse_id, to_warehouse_id, vehicle_id, priority, status, tenant_id)
+        VALUES ($1, $2, $3, $4, 'DISPATCHED', $5) RETURNING id
+    `, req.FromWarehouseID, req.ToWarehouseID, req.VehicleID, req.Priority, tenantID).Scan(&shipmentID)
 	if err != nil {
 		return err
 	}

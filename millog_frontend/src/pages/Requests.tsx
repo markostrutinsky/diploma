@@ -121,16 +121,23 @@ export default function Requests() {
       setUsers(Array.isArray(usersRes) ? usersRes : [])
       setUnits(Array.isArray(unitsRes) ? unitsRes : [])
       
-      if (Array.isArray(resRes) && resRes.length > 0 && !newReq.resource_id) {
-        setNewReq(prev => ({ ...prev, resource_id: resRes[0].id }))
+      // Завжди встановлюємо перші значення при завантаженні даних
+      if (Array.isArray(resRes) && resRes.length > 0) {
+        setNewReq(prev => ({ 
+          ...prev, 
+          resource_id: prev.resource_id || resRes[0].id 
+        }))
       }
-      if (whsArray.length > 0 && !newReq.target_warehouse_id) {
-        setNewReq(prev => ({ ...prev, target_warehouse_id: whsArray[0].id }))
+      if (whsArray.length > 0) {
+        setNewReq(prev => ({ 
+          ...prev, 
+          target_warehouse_id: prev.target_warehouse_id || whsArray[0].id 
+        }))
       }
     } catch (error) { console.error(error) } finally { setLoading(false) }
   }
 
-  useEffect(() => { loadData() }, [showForm])
+  useEffect(() => { loadData() }, [])
 
   const activeTargetWarehouseId = selectedReqIds.size > 0 
     ? requests.find(r => r.id === Array.from(selectedReqIds)[0])?.target_warehouse_id 
@@ -433,7 +440,9 @@ export default function Requests() {
     CANCELLED: 'Скасовано'
   }
   
-  const availableVehicles = vehicles.filter(v => v.status === 'ACTIVE' && (v.type === 'VAN' || v.type === 'TRUCK' || v.type === 'PICKUP'))
+  const availableVehicles = useMemo(() => {
+    return vehicles.filter(v => v.status === 'ACTIVE' && (v.type === 'VAN' || v.type === 'TRUCK' || v.type === 'PICKUP'))
+  }, [vehicles])
 
   if (loading) return <div className="page-loading"><div className="spinner" /></div>
 
@@ -746,7 +755,18 @@ export default function Requests() {
               )}
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowDispatchModal(false)}>Скасувати</button>
-                <button type="submit" className="btn btn-dispatch" disabled={availableVehicles.length === 0 || isOverweight || allowedSourceWarehouses.length === 0}>Відправити рейс 🚀</button>
+                <button 
+                  type="submit" 
+                  className="btn btn-dispatch" 
+                  disabled={
+                    !dispatchForm.vehicle_id || 
+                    !dispatchForm.from_warehouse_id || 
+                    isOverweight || 
+                    allowedSourceWarehouses.length === 0
+                  }
+                >
+                  Відправити рейс 🚀
+                </button>
               </div>
             </form>
           </div>
@@ -868,8 +888,17 @@ export default function Requests() {
             <form onSubmit={handleCreate}>
               <div className="form-group">
                 <label>Ресурс</label>
-                <select className="erp-input" value={newReq.resource_id} onChange={(e) => setNewReq({ ...newReq, resource_id: e.target.value })} required>
-                  <option value="" disabled>Оберіть ресурс</option>
+                <select 
+                  className="erp-input" 
+                  value={newReq.resource_id} 
+                  onChange={(e) => setNewReq({ ...newReq, resource_id: e.target.value })} 
+                  onClick={(e) => {
+                    console.log('Select clicked!', e);
+                    e.stopPropagation();
+                  }}
+                  required
+                >
+                  {!newReq.resource_id && <option value="" disabled>Оберіть ресурс</option>}
                   {resources.map((r) => <option key={r.id} value={r.id}>{r.name} (залишок: {r.quantity})</option>)}
                 </select>
               </div>
@@ -889,8 +918,17 @@ export default function Requests() {
               </div>
               <div className="form-group">
                 <label>На який склад доставити?</label>
-                <select className="erp-input" value={newReq.target_warehouse_id} onChange={(e) => setNewReq({ ...newReq, target_warehouse_id: e.target.value })} required>
-                  <option value="" disabled>Оберіть ваш склад...</option>
+                <select 
+                  className="erp-input" 
+                  value={newReq.target_warehouse_id} 
+                  onChange={(e) => setNewReq({ ...newReq, target_warehouse_id: e.target.value })} 
+                  onClick={(e) => {
+                    console.log('Warehouse select clicked!', e);
+                    e.stopPropagation();
+                  }}
+                  required
+                >
+                  {!newReq.target_warehouse_id && <option value="" disabled>Оберіть ваш склад...</option>}
                   {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
                 </select>
               </div>

@@ -49,7 +49,8 @@ func (s *RequestService) Create(ctx context.Context, userID string, req *models.
 	}
 
 	initialStatus := models.RequestPending
-	if creator.Role == models.RoleAdmin {
+	// Автоматично затверджуємо заявки від TENANT_ADMIN, SYSTEM_ADMIN або ADMIN
+	if creator.Role == models.RoleTenantAdmin || creator.Role == models.RoleSystemAdmin || creator.Role == models.RoleAdmin {
 		initialStatus = models.RequestApproved
 	}
 
@@ -61,7 +62,7 @@ func (s *RequestService) Create(ctx context.Context, userID string, req *models.
 		TargetWarehouseID: req.TargetWarehouseID,
 	}
 
-	if creator.Role == models.RoleAdmin {
+	if creator.Role == models.RoleTenantAdmin || creator.Role == models.RoleSystemAdmin || creator.Role == models.RoleAdmin {
 		approvedBy := userID
 		sr.ApprovedBy = &approvedBy
 		now := time.Now()
@@ -73,7 +74,7 @@ func (s *RequestService) Create(ctx context.Context, userID string, req *models.
 	}
 
 	// Для адміна одразу проставляємо approved_by/approved_at в БД.
-	if creator.Role == models.RoleAdmin {
+	if creator.Role == models.RoleTenantAdmin || creator.Role == models.RoleSystemAdmin || creator.Role == models.RoleAdmin {
 		if err := s.requestRepo.Approve(ctx, s.dbPool, sr.ID, userID, true, ""); err != nil {
 			// Не валимо запит — заявка вже створена, просто логуємо.
 			return sr, nil
