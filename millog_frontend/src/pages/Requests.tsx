@@ -746,6 +746,14 @@ export default function Requests() {
                   </option>
                   {availableVehicles.map(v => <option key={v.id} value={v.id}>{v.brand} ({v.plate_number}) - Макс {v.capacity_kg} кг</option>)}
                 </select>
+                {dispatchForm.from_warehouse_id && dispatchForm.to_warehouse_id && availableVehicles.length === 0 && (
+                  <div style={{ marginTop: '8px', padding: '12px', backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '6px', fontSize: '13px', color: '#ef4444' }}>
+                    <strong>⚠️ Немає доступного транспорту</strong>
+                    <div style={{ marginTop: '4px', fontSize: '12px', lineHeight: '1.4' }}>
+                      На маршруті між обраними складами немає вільних автомобілів зі статусом ACTIVE. Перевірте наявність транспорту на сторінці "Транспорт" або оберіть інші склади.
+                    </div>
+                  </div>
+                )}
               </div>
               {selectedVehicle && (
                 <div className="capacity-indicator">
