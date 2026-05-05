@@ -24,21 +24,29 @@ type Claims struct {
 
 func AuthMiddleware(jwtSecret string, db *pgxpool.Pool) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		var tokenStr string
+
+		// Пріоритет 1: Authorization header (Bearer token)
 		auth := c.GetHeader("Authorization")
-		if auth == "" {
+		if auth != "" {
+			parts := strings.SplitN(auth, " ", 2)
+			if len(parts) == 2 && parts[0] == "Bearer" {
+				tokenStr = parts[1]
+			}
+		}
+
+		// Пріоритет 2: access_token cookie (httpOnly)
+		if tokenStr == "" {
+			if cookieVal, err := c.Cookie("access_token"); err == nil && cookieVal != "" {
+				tokenStr = cookieVal
+			}
+		}
+
+		if tokenStr == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "missing authorization header"})
 			c.Abort()
 			return
 		}
-
-		parts := strings.SplitN(auth, " ", 2)
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization format"})
-			c.Abort()
-			return
-		}
-
-		tokenStr := parts[1]
 		token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(t *jwt.Token) (interface{}, error) {
 			return []byte(jwtSecret), nil
 		})

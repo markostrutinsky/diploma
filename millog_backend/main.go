@@ -155,6 +155,7 @@ func main() {
 		auth := api.Group("/auth")
 		{
 			auth.POST("/login", middleware.RateLimitMiddleware(authRateLimiter), authHandler.Login)
+			auth.POST("/logout", authHandler.Logout)
 			auth.POST("/refresh", authHandler.Refresh)
 			auth.POST("/register", middleware.RateLimitMiddleware(authRateLimiter), authHandler.RegisterContractor)
 			auth.POST("/setup-password", authHandler.SetupPassword)

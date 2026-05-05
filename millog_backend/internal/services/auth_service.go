@@ -11,12 +11,42 @@ import (
 	"os"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 )
+
+// validatePasswordStrength перевіряє складність пароля:
+// мінімум 8 символів, 1 велика літера, 1 цифра, 1 спецсимвол.
+func validatePasswordStrength(password string) error {
+	if len(password) < 8 {
+		return fmt.Errorf("пароль має містити не менше 8 символів")
+	}
+	var hasUpper, hasDigit, hasSpecial bool
+	for _, ch := range password {
+		switch {
+		case unicode.IsUpper(ch):
+			hasUpper = true
+		case unicode.IsDigit(ch):
+			hasDigit = true
+		case !unicode.IsLetter(ch) && !unicode.IsDigit(ch):
+			hasSpecial = true
+		}
+	}
+	if !hasUpper {
+		return fmt.Errorf("пароль має містити хоча б одну велику літеру")
+	}
+	if !hasDigit {
+		return fmt.Errorf("пароль має містити хоча б одну цифру")
+	}
+	if !hasSpecial {
+		return fmt.Errorf("пароль має містити хоча б один спецсимвол (!@#$... тощо)")
+	}
+	return nil
+}
 
 type AuthService struct {
 	userRepository         *repositories.UserRepository
@@ -151,6 +181,9 @@ func (s *AuthService) RegisterUser(ctx context.Context, request *models.CreateUs
 }
 
 func (s *AuthService) RegisterCONTRACTOR(ctx context.Context, email, password, fullName string) (*models.CreateUserResponse, error) {
+	if err := validatePasswordStrength(password); err != nil {
+		return nil, err
+	}
 	existing, _ := s.userRepository.GetByEmail(ctx, s.dbPool, email)
 	if existing != nil {
 		return nil, fmt.Errorf("користувач з таким email вже існує")
@@ -210,6 +243,9 @@ func (s *AuthService) GetCommanders(ctx context.Context) ([]*models.User, error)
 }
 
 func (s *AuthService) BootstrapAdmin(ctx context.Context, email, password, fullName string) error {
+	if err := validatePasswordStrength(password); err != nil {
+		return err
+	}
 	if os.Getenv("ALLOW_BOOTSTRAP_OVERRIDE") != "true" {
 		var count int
 		err := s.dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM users WHERE role = 'SYSTEM_ADMIN'").Scan(&count)
@@ -248,6 +284,9 @@ func (s *AuthService) BootstrapAdmin(ctx context.Context, email, password, fullN
 // CreateTenant — self-service створення організації з першим TENANT_ADMIN.
 // Повертає ID новоствореного tenant та ID TENANT_ADMIN користувача.
 func (s *AuthService) CreateTenant(ctx context.Context, req *models.CreateTenantRequest) (string, string, error) {
+	if err := validatePasswordStrength(req.OwnerPassword); err != nil {
+		return "", "", err
+	}
 	slug := strings.ToLower(strings.TrimSpace(req.Slug))
 	if slug == "" {
 		return "", "", fmt.Errorf("slug обов'язковий")
@@ -335,6 +374,9 @@ func (s *AuthService) parseRole(r string) models.UserRole {
 }
 
 func (s *AuthService) SetupPassword(ctx context.Context, token, password string) error {
+	if err := validatePasswordStrength(password); err != nil {
+		return err
+	}
 	tokenHash := tokens.HashToken(token)
 	tx, err := s.dbPool.Begin(ctx)
 	if err != nil {
@@ -601,6 +643,9 @@ func (s *AuthService) UpdateProfile(ctx context.Context, userID string, req mode
 }
 
 func (s *AuthService) UpdateMyPassword(ctx context.Context, userID, oldPassword, newPassword string) error {
+	if err := validatePasswordStrength(newPassword); err != nil {
+		return err
+	}
 	// 1. Отримуємо користувача
 	user, err := s.userRepository.GetByID(ctx, s.dbPool, userID)
 	if err != nil {

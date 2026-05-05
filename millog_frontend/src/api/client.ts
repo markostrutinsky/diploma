@@ -1,7 +1,14 @@
 const API_BASE = '/api'
 
-function getToken(): string | null {
-  return localStorage.getItem('token')
+// In-memory token store — не зберігається в localStorage, недоступний для XSS
+let _inMemoryToken: string | null = null
+
+export function setInMemoryToken(token: string | null) {
+  _inMemoryToken = token
+}
+
+export function getInMemoryToken(): string | null {
+  return _inMemoryToken
 }
 
 async function request<T>(
@@ -13,12 +20,11 @@ async function request<T>(
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   }
-  const token = getToken()
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
+  if (_inMemoryToken) {
+    headers['Authorization'] = `Bearer ${_inMemoryToken}`
   }
 
-  const res = await fetch(url, { ...options, headers })
+  const res = await fetch(url, { ...options, headers, credentials: 'include' })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) {
     throw new Error(data.error || `HTTP ${res.status}`)
@@ -33,11 +39,11 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       }),
-    refresh: (refreshToken: string) =>
-      request<LoginResponse>('/auth/refresh', {
-        method: 'POST',
-        body: JSON.stringify({ refresh_token: refreshToken }),
-      }),
+    // Refresh використовує httpOnly cookie автоматично (credentials: 'include')
+    refresh: () =>
+      request<LoginResponse>('/auth/refresh', { method: 'POST', body: '{}' }),
+    logout: () =>
+      request<{ message: string }>('/auth/logout', { method: 'POST', body: '{}' }),
     register: (body: { email: string; password: string; full_name: string }) =>
       request<{ id: string; message: string }>('/auth/register', {
         method: 'POST',
@@ -194,7 +200,7 @@ export const api = {
       request<InventoryItem[]>(`/inventory/warehouse/${warehouseId}`),
 
     downloadShipmentPDF: async (shipmentId: string) => {
-      const token = getToken();
+      const token = getInMemoryToken();
       const response = await fetch(`${API_BASE}/inventory/shipments/${shipmentId}/pdf`, {
         method: 'GET',
         headers: {
@@ -222,7 +228,7 @@ export const api = {
     },
 
     downloadResourceQR: async (resourceId: string) => {
-      const token = getToken();
+      const token = getInMemoryToken();
       const response = await fetch(`${API_BASE}/inventory/resources/${resourceId}/qr`, {
         method: 'GET',
         headers: { 'Authorization': token ? `Bearer ${token}` : '' },
@@ -237,7 +243,7 @@ export const api = {
     },
 
     submitAudit: async (warehouseId: string, discrepancies: AuditDiscrepancy[]) => {
-      const token = getToken();
+      const token = getInMemoryToken();
       const response = await fetch(`${API_BASE}/inventory/audit`, {
         method: 'POST',
         headers: {
@@ -283,7 +289,7 @@ export const api = {
       }),
 
     downloadImportTemplate: async () => {
-      const token = getToken();
+      const token = getInMemoryToken();
       const response = await fetch(`${API_BASE}/inventory/resources/import/template`, {
         method: 'GET',
         headers: { 'Authorization': token ? `Bearer ${token}` : '' },
@@ -300,7 +306,7 @@ export const api = {
     },
 
     importExcel: async (unitId: number, warehouseId: string, file: File) => {
-      const token = getToken();
+      const token = getInMemoryToken();
       const formData = new FormData();
       formData.append('unit_id', unitId.toString());
       formData.append('warehouse_id', warehouseId);
@@ -520,7 +526,7 @@ export const api = {
         body: JSON.stringify({ items }),
       }),
     exportInventory: async (unitId?: number) => {
-      const token = getToken();
+      const token = getInMemoryToken();
       const query = unitId ? `?unit_id=${unitId}` : '';
       
       const response = await fetch(`${API_BASE}/analytics/export/inventory${query}`, {
@@ -548,7 +554,7 @@ export const api = {
     },
 
     exportFuel: async (startDate?: string, endDate?: string) => {
-      const token = getToken();
+      const token = getInMemoryToken();
       const params = new URLSearchParams();
       if (startDate) params.append('start', startDate);
       if (endDate) params.append('end', endDate);

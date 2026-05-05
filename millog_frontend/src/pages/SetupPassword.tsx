@@ -22,6 +22,18 @@ export default function SetupPassword() {
       setError('Пароль має бути не менше 8 символів')
       return
     }
+    if (!/[A-Z]/.test(password)) {
+      setError('Пароль має містити хоча б одну велику літеру')
+      return
+    }
+    if (!/[0-9]/.test(password)) {
+      setError('Пароль має містити хоча б одну цифру')
+      return
+    }
+    if (!/[^A-Za-z0-9]/.test(password)) {
+      setError('Пароль має містити хоча б один спецсимвол (!@#$... тощо)')
+      return
+    }
     if (password !== confirm) {
       setError('Паролі не збігаються')
       return
@@ -68,6 +80,12 @@ export default function SetupPassword() {
       <div className="setup-card">
         <h1>Встановити пароль</h1>
         <p>Оберіть надійний пароль для вашого облікового запису.</p>
+        <ul style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '1rem', paddingLeft: '1.2rem' }}>
+          <li style={{ color: password.length >= 8 ? 'var(--success)' : undefined }}>Мінімум 8 символів</li>
+          <li style={{ color: /[A-Z]/.test(password) ? 'var(--success)' : undefined }}>Хоча б одна велика літера</li>
+          <li style={{ color: /[0-9]/.test(password) ? 'var(--success)' : undefined }}>Хоча б одна цифра</li>
+          <li style={{ color: /[^A-Za-z0-9]/.test(password) ? 'var(--success)' : undefined }}>Хоча б один спецсимвол (!@#$...)</li>
+        </ul>
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">

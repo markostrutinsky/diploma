@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { api, type User } from '../api/client'
+import { api, setInMemoryToken, type User } from '../api/client'
 
 interface AuthContextType {
   user: User | null
@@ -13,54 +13,40 @@ const AuthContext = createContext<AuthContextType | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
+  const [token, setToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!token) {
-      setUser(null)
-      setLoading(false)
-      return
-    }
-    const loadUser = async () => {
+    // При запуску намагаємось відновити сесію через httpOnly cookie (refresh_token)
+    const restoreSession = async () => {
       try {
-        const u = await api.auth.me()
-        setUser(u)
+        const res = await api.auth.refresh()
+        setInMemoryToken(res.token)
+        setToken(res.token)
+        setUser(res.user)
       } catch {
-        const refreshToken = localStorage.getItem('refresh_token')
-        if (refreshToken) {
-          try {
-            const res = await api.auth.refresh(refreshToken)
-            localStorage.setItem('token', res.token)
-            localStorage.setItem('refresh_token', res.refresh_token)
-            setToken(res.token)
-            setUser(res.user)
-            return
-          } catch {
-            // refresh failed
-          }
-        }
-        localStorage.removeItem('token')
-        localStorage.removeItem('refresh_token')
+        // Cookie відсутній або протермінований — користувач не авторизований
+        setInMemoryToken(null)
         setToken(null)
         setUser(null)
       } finally {
         setLoading(false)
       }
     }
-    loadUser()
-  }, [token])
+    restoreSession()
+  }, [])
 
-  const login = (t: string, rt: string, u: User) => {
-    localStorage.setItem('token', t)
-    localStorage.setItem('refresh_token', rt)
+  const login = (t: string, _rt: string, u: User) => {
+    // refresh_token зберігається у httpOnly cookie на бекенді
+    // access_token зберігаємо лише в пам'яті
+    setInMemoryToken(t)
     setToken(t)
     setUser(u)
   }
 
-  const logout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('refresh_token')
+  const logout = async () => {
+    try { await api.auth.logout() } catch { /* ігноруємо помилку */ }
+    setInMemoryToken(null)
     setToken(null)
     setUser(null)
   }

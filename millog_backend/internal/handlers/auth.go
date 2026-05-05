@@ -99,11 +99,22 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	// Зберігаємо refresh_token як httpOnly cookie (недоступний для JS)
+	c.SetCookie("refresh_token", response.RefreshToken, 30*24*3600, "/", "", true, true)
+	// Прибираємо refresh_token з тіла відповіді
+	response.RefreshToken = ""
+
 	go func(email string) {
 		_ = h.auditService.LogAction(context.Background(), "SYSTEM", "LOGIN", "USER", email, "Успішна авторизація користувача")
 	}(request.Email)
 
 	c.JSON(http.StatusOK, response)
+}
+
+func (h *AuthHandler) Logout(c *gin.Context) {
+	// Очищуємо refresh_token cookie
+	c.SetCookie("refresh_token", "", -1, "/", "", true, true)
+	c.JSON(http.StatusOK, gin.H{"message": "Вийдено успішно"})
 }
 
 func (h *AuthHandler) ListCommanders(c *gin.Context) {
@@ -195,16 +206,26 @@ func (h *AuthHandler) SetupPassword(c *gin.Context) {
 }
 
 func (h *AuthHandler) Refresh(c *gin.Context) {
-	var request models.RefreshRequest
-	if err := c.ShouldBindJSON(&request); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+	// Читаємо refresh_token з httpOnly cookie (пріоритет) або з тіла запиту
+	refreshToken, err := c.Cookie("refresh_token")
+	if err != nil || refreshToken == "" {
+		var request models.RefreshRequest
+		if err := c.ShouldBindJSON(&request); err != nil || request.RefreshToken == "" {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "refresh token відсутній"})
+			return
+		}
+		refreshToken = request.RefreshToken
 	}
-	response, err := h.authService.Refresh(c.Request.Context(), request.RefreshToken)
+
+	response, err := h.authService.Refresh(c.Request.Context(), refreshToken)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
+
+	// Оновлюємо refresh_token cookie
+	c.SetCookie("refresh_token", response.RefreshToken, 30*24*3600, "/", "", true, true)
+	response.RefreshToken = ""
 
 	go func() {
 		_ = h.auditService.LogAction(context.Background(), "SYSTEM", "REFRESH", "TOKEN", "", "Оновлення токена доступу")

@@ -101,6 +101,10 @@ export default function Profile() {
       toast.error('Нові паролі не співпадають!');
       return;
     }
+    if (passwords.new.length < 8 || !/[A-Z]/.test(passwords.new) || !/[0-9]/.test(passwords.new) || !/[^A-Za-z0-9]/.test(passwords.new)) {
+      toast.error('Пароль має містити мін. 8 символів, 1 велику літеру, 1 цифру та 1 спецсимвол');
+      return;
+    }
     try {
       setIsChangingPass(true);
       await api.auth.updatePassword({ 

@@ -63,6 +63,8 @@ const DraggableMarker = ({ warehouse, icon, unitName, onDragEnd, onViewInventory
     mouseover() { if (onHover) onHover(warehouse.unit_id); }, mouseout() { if (onHover) onHover(null); }
   }), [warehouse, onDragEnd, onHover]);
 
+  const closePopup = () => { markerRef.current?.closePopup(); };
+
   return (
     <Marker draggable={true} eventHandlers={eventHandlers} position={[warehouse.latitude, warehouse.longitude]} ref={markerRef} icon={icon}>
       <Popup minWidth={270}>
@@ -78,8 +80,8 @@ const DraggableMarker = ({ warehouse, icon, unitName, onDragEnd, onViewInventory
           </div>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <button className="btn btn-primary" style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600, display: 'flex', justifyContent: 'center', borderRadius: '6px', border: 'none', cursor: 'pointer' }} onClick={() => onViewInventory(warehouse)}>📦 Переглянути залишки</button>
-            <button className="btn btn-secondary" style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600, display: 'flex', justifyContent: 'center', borderRadius: '6px', border: '1px solid var(--border)', cursor: 'pointer' }} onClick={() => onDispatchTrip(warehouse)}>🚚 Сформувати рейс сюди</button>
+            <button className="btn btn-primary" style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600, display: 'flex', justifyContent: 'center', borderRadius: '6px', border: 'none', cursor: 'pointer' }} onClick={() => { closePopup(); onViewInventory(warehouse); }}>📦 Переглянути залишки</button>
+            <button className="btn btn-secondary" style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 600, display: 'flex', justifyContent: 'center', borderRadius: '6px', border: '1px solid var(--border)', cursor: 'pointer' }} onClick={() => { closePopup(); onDispatchTrip(warehouse); }}>🚚 Сформувати рейс сюди</button>
           </div>
           
           <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '16px', paddingTop: '12px', textAlign: 'center', borderTop: '1px dashed #cbd5e1' }}>
