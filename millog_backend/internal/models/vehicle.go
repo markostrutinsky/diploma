@@ -34,7 +34,8 @@ type Vehicle struct {
 	CapacityKg              float64       `json:"capacity_kg"` // ВАГА
 	Status                  VehicleStatus `json:"status"`
 	DriverID                *string       `json:"driver_id"`
-	DriverName              *string       `json:"driver_name"` // ДОДАЙ ЦЕ ПОЛЕ!
+	DriverName              *string       `json:"driver_name"`          // ДОДАЙ ЦЕ ПОЛЕ!
+	CurrentWarehouseID      *string       `json:"current_warehouse_id"` // ПОТОЧНА ЛОКАЦІЯ
 	TankCapacity            float64       `json:"tank_capacity"`
 	FuelNorm                float64       `json:"fuel_norm"`
 	MaintenanceIntervalKm   int           `json:"maintenance_interval_km"`
@@ -109,13 +110,16 @@ type InventoryItem struct {
 
 // Shipment (Накладна/Рейс) описує сам факт відправки машини з товаром
 type Shipment struct {
-	ID              string    `json:"id"`
-	FromWarehouseID string    `json:"from_warehouse_id"`
-	ToWarehouseID   string    `json:"to_warehouse_id"`
-	VehicleID       string    `json:"vehicle_id"` // Яка машина поїхала
-	Priority        string    `json:"priority"`   // "NORMAL" або "URGENT"
-	Status          string    `json:"status"`     // "DISPATCHED", "DELIVERED"
-	CreatedAt       time.Time `json:"created_at"`
+	ID              string     `json:"id"`
+	FromWarehouseID string     `json:"from_warehouse_id"`
+	ToWarehouseID   string     `json:"to_warehouse_id"`
+	VehicleID       string     `json:"vehicle_id"` // Яка машина поїхала
+	Priority        string     `json:"priority"`   // "NORMAL" або "URGENT"
+	Status          string     `json:"status"`     // "PENDING", "IN_TRANSIT", "DELIVERED", "CANCELLED"
+	Direction       string     `json:"direction"`  // "DOWNSTREAM" (розподіл), "UPSTREAM" (консолідація/повернення), "LATERAL" (в межах підрозділу)
+	CreatedAt       time.Time  `json:"created_at"`
+	StartedAt       *time.Time `json:"started_at,omitempty"`   // Коли водій почав рейс
+	DeliveredAt     *time.Time `json:"delivered_at,omitempty"` // Коли доставлено
 }
 
 // ShipmentItem (Вміст рейсу) описує, що саме поклали в машину

@@ -413,7 +413,7 @@ export default function AdminUsers() {
                 <button 
                   type="submit" 
                   className="btn btn-primary" 
-                  disabled={loading || availableRoles.length === 0}
+                  disabled={loading || availableRoles.length === 0 || (!editingUser && (!form.email || !form.full_name?.trim()))}
                 >
                   {loading ? 'Обробка...' : (editingUser ? 'Підтвердити переміщення' : 'Створити')}
                 </button>

@@ -73,10 +73,16 @@ func (s *SLAMonitor) CheckPendingRequests(ctx context.Context) (int, error) {
 		go func(rID, det, aID, targetEmail string) {
 			bgCtx := context.Background()
 
-			// 1. Зміна статусу на ESCALATED
-			err := s.reqRepo.UpdateStatus(bgCtx, s.db, rID, "ESCALATED", "Автоматична ескалація SLA")
+			// 1. Зміна статусу на ESCALATED — тільки якщо заявка досі PENDING
+			// Це захищає від ситуації, коли заявка вже скасована між вибіркою і оновленням
+			escalated, err := s.reqRepo.EscalateStatus(bgCtx, s.db, rID, "Автоматична ескалація SLA")
 			if err != nil {
 				log.Println("❌ SLA Monitor: Помилка зміни статусу:", err)
+				return
+			}
+			if !escalated {
+				// Заявка вже не PENDING (скасована, відхилена, відправлена тощо) — пропускаємо
+				log.Printf("⏭️ SLA Monitor: Заявка %s вже не в стані PENDING, ескалацію пропущено.\n", rID)
 				return
 			}
 

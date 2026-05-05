@@ -24,26 +24,40 @@ func (r *SupplyRequestRepository) Create(ctx context.Context, db DBExecutor, req
 		targetWH = req.TargetWarehouseID
 	}
 
+	var resID interface{}
+	if req.ResourceID == nil || *req.ResourceID == "" {
+		resID = nil
+	} else {
+		resID = *req.ResourceID
+	}
+
+	var catID interface{}
+	if req.ResourceCategoryID == nil || *req.ResourceCategoryID == "" {
+		catID = nil
+	} else {
+		catID = *req.ResourceCategoryID
+	}
+
 	tid := TenantFromCtx(ctx)
 	if tid == "" {
-		query := `INSERT INTO supply_requests (created_by, resource_id, quantity, status, target_warehouse_id)
-		VALUES ($1, $2, $3, $4, $5) RETURNING id, created_at, updated_at`
-		return db.QueryRow(ctx, query, req.CreatedBy, req.ResourceID, req.Quantity, req.Status, targetWH).Scan(&req.ID, &req.CreatedAt, &req.UpdatedAt)
+		query := `INSERT INTO supply_requests (created_by, resource_id, resource_name, resource_category_id, quantity, status, target_warehouse_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, created_at, updated_at`
+		return db.QueryRow(ctx, query, req.CreatedBy, resID, req.ResourceName, catID, req.Quantity, req.Status, targetWH).Scan(&req.ID, &req.CreatedAt, &req.UpdatedAt)
 	}
-	query := `INSERT INTO supply_requests (created_by, resource_id, quantity, status, target_warehouse_id, tenant_id)
-	VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, created_at, updated_at`
-	return db.QueryRow(ctx, query, req.CreatedBy, req.ResourceID, req.Quantity, req.Status, targetWH, tid).Scan(&req.ID, &req.CreatedAt, &req.UpdatedAt)
+	query := `INSERT INTO supply_requests (created_by, resource_id, resource_name, resource_category_id, quantity, status, target_warehouse_id, tenant_id)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, created_at, updated_at`
+	return db.QueryRow(ctx, query, req.CreatedBy, resID, req.ResourceName, catID, req.Quantity, req.Status, targetWH, tid).Scan(&req.ID, &req.CreatedAt, &req.UpdatedAt)
 }
 
 func (r *SupplyRequestRepository) GetByID(ctx context.Context, db DBExecutor, id string) (*models.SupplyRequest, error) {
 	args := []any{id}
 	tFilter := tenantFilter(ctx, "", "AND", &args)
-	query := `SELECT id, created_by, resource_id, quantity, status, COALESCE(target_warehouse_id::text, ''), approved_by, approved_at, comment, created_at, updated_at
+	query := `SELECT id, created_by, resource_id, COALESCE(resource_name, ''), resource_category_id, quantity, status, COALESCE(target_warehouse_id::text, ''), approved_by, approved_at, comment, created_at, updated_at
 	FROM supply_requests WHERE id = $1` + tFilter
 
 	var req models.SupplyRequest
 	err := db.QueryRow(ctx, query, args...).Scan(
-		&req.ID, &req.CreatedBy, &req.ResourceID, &req.Quantity, &req.Status, &req.TargetWarehouseID,
+		&req.ID, &req.CreatedBy, &req.ResourceID, &req.ResourceName, &req.ResourceCategoryID, &req.Quantity, &req.Status, &req.TargetWarehouseID,
 		&req.ApprovedBy, &req.ApprovedAt, &req.Comment, &req.CreatedAt, &req.UpdatedAt,
 	)
 	if err != nil {
@@ -59,7 +73,7 @@ func (r *SupplyRequestRepository) List(ctx context.Context, db DBExecutor, userR
 	if userRole == "ADMIN" || userRole == "TENANT_ADMIN" || userRole == "SYSTEM_ADMIN" || userRole == "CONTRACTOR" {
 		args := []any{}
 		tFilter := tenantFilter(ctx, "", "WHERE", &args)
-		query := `SELECT id, created_by, resource_id, quantity, status, COALESCE(target_warehouse_id::text, ''), approved_by, approved_at, comment, created_at, updated_at
+		query := `SELECT id, created_by, resource_id, COALESCE(resource_name, ''), resource_category_id, quantity, status, COALESCE(target_warehouse_id::text, ''), approved_by, approved_at, comment, created_at, updated_at
 				  FROM supply_requests` + tFilter + ` ORDER BY created_at DESC`
 		rows, err = db.Query(ctx, query, args...)
 	} else {
@@ -75,7 +89,7 @@ func (r *SupplyRequestRepository) List(ctx context.Context, db DBExecutor, userR
 				SELECT u.id FROM units u
 				INNER JOIN unit_tree ut ON u.parent_id = ut.id
 			)
-			SELECT sr.id, sr.created_by, sr.resource_id, sr.quantity, sr.status, COALESCE(sr.target_warehouse_id::text, ''), sr.approved_by, sr.approved_at, sr.comment, sr.created_at, sr.updated_at
+			SELECT sr.id, sr.created_by, sr.resource_id, COALESCE(sr.resource_name, ''), sr.resource_category_id, sr.quantity, sr.status, COALESCE(sr.target_warehouse_id::text, ''), sr.approved_by, sr.approved_at, sr.comment, sr.created_at, sr.updated_at
 			FROM supply_requests sr
 			JOIN users u ON sr.created_by = u.id
 			WHERE u.unit_id IN (SELECT id FROM unit_tree)` + tFilter + `
@@ -92,7 +106,7 @@ func (r *SupplyRequestRepository) List(ctx context.Context, db DBExecutor, userR
 	var list []models.SupplyRequest
 	for rows.Next() {
 		var req models.SupplyRequest
-		if err := rows.Scan(&req.ID, &req.CreatedBy, &req.ResourceID, &req.Quantity, &req.Status, &req.TargetWarehouseID,
+		if err := rows.Scan(&req.ID, &req.CreatedBy, &req.ResourceID, &req.ResourceName, &req.ResourceCategoryID, &req.Quantity, &req.Status, &req.TargetWarehouseID,
 			&req.ApprovedBy, &req.ApprovedAt, &req.Comment, &req.CreatedAt, &req.UpdatedAt); err != nil {
 			return nil, err
 		}
@@ -129,6 +143,19 @@ func (r *SupplyRequestRepository) UpdateStatus(ctx context.Context, db DBExecuto
 	query := `UPDATE supply_requests SET status = $1, comment = $2 WHERE id = $3` + tFilter
 	_, err := db.Exec(ctx, query, args...)
 	return err
+}
+
+// EscalateStatus змінює статус на ESCALATED ТІЛЬКИ якщо поточний статус — PENDING.
+// Захищає від гонки стану: якщо заявку скасували між вибіркою і оновленням — вона НЕ буде ескальована.
+func (r *SupplyRequestRepository) EscalateStatus(ctx context.Context, db DBExecutor, id string, comment string) (bool, error) {
+	args := []any{"ESCALATED", comment, id, "PENDING"}
+	tFilter := tenantFilter(ctx, "", "AND", &args)
+	query := `UPDATE supply_requests SET status = $1, comment = $2 WHERE id = $3 AND status = $4` + tFilter
+	result, err := db.Exec(ctx, query, args...)
+	if err != nil {
+		return false, err
+	}
+	return result.RowsAffected() > 0, nil
 }
 
 // GetRequestsForDispatch витягує вибрані заявки та розраховує їхню загальну вагу

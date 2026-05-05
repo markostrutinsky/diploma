@@ -144,6 +144,10 @@ export const api = {
       }),
     listResources: (unitId?: number) =>
       request<Resource[]>(unitId ? `/inventory/resources?unit_id=${unitId}` : '/inventory/resources'),
+    getUniqueResourceNames: (unitId?: number) => 
+      request<Array<{ name: string; category_id: string }>>(
+        unitId ? `/inventory/resources/unique-names?unit_id=${unitId}` : '/inventory/resources/unique-names'
+      ),
     createResource: (body: CreateResourceRequest) =>
       request<Resource>('/inventory/resources', {
         method: 'POST',
@@ -314,7 +318,12 @@ export const api = {
   },
   requests: {
     list: () => request<SupplyRequest[]>('/requests'),
-    create: (body: { resource_id: string; quantity: number; target_warehouse_id: string }) =>
+    create: (body: { 
+      resource_name: string; 
+      resource_category_id?: string; 
+      quantity: number; 
+      target_warehouse_id: string 
+    }) =>
       request<SupplyRequest>('/requests', {
         method: 'POST',
         body: JSON.stringify(body),
@@ -600,6 +609,19 @@ export const api = {
     getGeofenceAlerts: (hours: number = 24) =>
       request<any>(`/gps/geofence-alerts?hours=${hours}`),
     getFleetStatus: () => request<any>('/gps/fleet-status'),
+  },
+
+  notifications: {
+    list: (limit: number = 50) => 
+      request<NotificationListResponse>(`/notifications?limit=${limit}`),
+    getUnreadCount: () => 
+      request<{ unread_count: number }>('/notifications/unread-count'),
+    markAsRead: (id: string) =>
+      request<{ message: string }>(`/notifications/${id}/read`, { method: 'PATCH' }),
+    markAllAsRead: () =>
+      request<{ message: string }>('/notifications/mark-all-read', { method: 'POST' }),
+    delete: (id: string) =>
+      request<{ message: string }>(`/notifications/${id}`, { method: 'DELETE' }),
   }
 }
 
@@ -742,6 +764,7 @@ export interface Resource {
   category_id: string
   unit_id?: number
   warehouse_id?: string;
+  warehouse_name?: string; // 🆕 Назва складу для відображення
   name: string
   description: string
   quantity: number
@@ -778,13 +801,17 @@ export type RequestStatus = 'PENDING' | 'APPROVED' | 'DISPATCHED' | 'REJECTED' |
 export interface SupplyRequest {
   id: string
   created_by: string
-  resource_id: string
+  resource_id?: string | null  // Тепер nullable
+  resource_name: string  // Нове поле - назва ресурсу
+  resource_category_id?: string | null  // Нове поле - категорія ресурсу
   quantity: number
   status: RequestStatus 
   target_warehouse_id: string 
   approved_by?: string
-  comment: string
+  approved_at?: string
+  comment?: string
   created_at: string
+  updated_at?: string
 }
 
 export type FuelRecordType = 'REFUEL' | 'EXPENSE';
@@ -952,4 +979,33 @@ export interface VehicleBin {
 export interface SmartDispatchResult {
   routes: VehicleBin[];
   unassigned: RequestItem[];
+}
+
+// ==========================================
+// NOTIFICATIONS (Сповіщення)
+// ==========================================
+
+export type NotificationType = 
+  | 'SHIPMENT_ASSIGNED' 
+  | 'REQUEST_APPROVED' 
+  | 'REQUEST_REJECTED' 
+  | 'SHIPMENT_DELIVERED'
+  | 'LOW_STOCK';
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  tenant_id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  related_id?: string;
+  is_read: boolean;
+  created_at: string;
+  read_at?: string;
+}
+
+export interface NotificationListResponse {
+  notifications: Notification[];
+  unread_count: number;
 }

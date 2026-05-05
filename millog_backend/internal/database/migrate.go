@@ -246,6 +246,10 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		`ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS type VARCHAR(50) DEFAULT 'VAN';`,
 		`ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS capacity_kg DECIMAL(10,2) NOT NULL DEFAULT 1500.00;`,
 
+		// 25a. Поточна локація машини (на якому складі зараз знаходиться)
+		`ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS current_warehouse_id UUID REFERENCES warehouses(id) ON DELETE SET NULL;`,
+		`CREATE INDEX IF NOT EXISTS idx_vehicles_warehouse ON vehicles(current_warehouse_id);`,
+
 		// 26. Вага ресурсу/товару (САМЕ ЦЬОГО НЕ ВИСТАЧАЛО!)
 		`ALTER TABLE resources ADD COLUMN IF NOT EXISTS weight_kg DECIMAL(10,2) NOT NULL DEFAULT 1.00;`,
 
@@ -256,8 +260,10 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 			to_warehouse_id UUID NOT NULL REFERENCES warehouses(id) ON DELETE CASCADE,
 			vehicle_id UUID NOT NULL REFERENCES vehicles(id) ON DELETE RESTRICT,
 			priority VARCHAR(20) NOT NULL DEFAULT 'NORMAL',
-			status VARCHAR(30) NOT NULL DEFAULT 'DISPATCHED', -- DISPATCHED, DELIVERED, CANCELLED
-			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+			status VARCHAR(30) NOT NULL DEFAULT 'PENDING', -- PENDING, IN_TRANSIT, DELIVERED, CANCELLED
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+			started_at TIMESTAMP WITH TIME ZONE, -- Коли водій почав рейс
+			delivered_at TIMESTAMP WITH TIME ZONE -- Коли доставлено
 		);`,
 
 		// 28. Вміст рейсу (що саме везуть)
@@ -295,6 +301,22 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 
 		`ALTER TABLE shipment_items ADD COLUMN IF NOT EXISTS request_id UUID REFERENCES supply_requests(id) ON DELETE SET NULL;`,
 		`ALTER TABLE supply_requests ADD COLUMN IF NOT EXISTS target_warehouse_id UUID REFERENCES warehouses(id) ON DELETE SET NULL;`,
+
+		// Додаємо поля для збереження назви ресурсу (щоб не прив'язуватись до конкретного екземпляру на складі)
+		`ALTER TABLE supply_requests ADD COLUMN IF NOT EXISTS resource_name VARCHAR(255);`,
+		`ALTER TABLE supply_requests ADD COLUMN IF NOT EXISTS resource_category_id UUID REFERENCES resource_categories(id) ON DELETE SET NULL;`,
+
+		// Робимо resource_id nullable (тепер можна створити заявку без прив'язки до конкретного складу)
+		`ALTER TABLE supply_requests ALTER COLUMN resource_id DROP NOT NULL;`,
+
+		// Додаємо нові колонки для відстеження етапів рейсу
+		`ALTER TABLE shipments ADD COLUMN IF NOT EXISTS started_at TIMESTAMP WITH TIME ZONE;`,
+		`ALTER TABLE shipments ADD COLUMN IF NOT EXISTS delivered_at TIMESTAMP WITH TIME ZONE;`,
+
+		// Додаємо поле для відстеження напрямку руху по ієрархії підрозділів
+		// DOWNSTREAM - розподіл (від вищого до нижчого), UPSTREAM - консолідація/повернення (від нижчого до вищого), LATERAL - в межах одного підрозділу
+		`ALTER TABLE shipments ADD COLUMN IF NOT EXISTS direction VARCHAR(20);`,
+		`CREATE INDEX IF NOT EXISTS idx_shipments_direction ON shipments(direction);`,
 
 		`ALTER TABLE shipments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;`,
 
@@ -595,6 +617,24 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		`UPDATE geofences g SET tenant_id = u.tenant_id FROM units u WHERE g.unit_id = u.id AND g.tenant_id IS NULL;`,
 		`CREATE INDEX IF NOT EXISTS idx_geofences_tenant ON geofences(tenant_id);`,
 
+		// T16a. Додати tenant_id до notifications
+		`CREATE TABLE IF NOT EXISTS notifications (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+			type VARCHAR(50) NOT NULL,
+			title VARCHAR(255) NOT NULL,
+			message TEXT NOT NULL,
+			related_id UUID,
+			is_read BOOLEAN DEFAULT FALSE,
+			created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+			read_at TIMESTAMP WITH TIME ZONE
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_notifications_tenant_id ON notifications(tenant_id);`,
+		`CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON notifications(is_read);`,
+		`CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC);`,
+
 		// ============================================================
 		// T17. RLS — Row-Level Security (defense-in-depth).
 		// Політика: якщо app.tenant_id не встановлено / порожній — повний доступ
@@ -607,7 +647,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 			tables TEXT[] := ARRAY[
 				'users','units','resources','categories','warehouses',
 				'vehicles','fuel_records','supply_requests','contractor_requests',
-				'shipments','audit_logs','gps_locations','geofences'
+				'shipments','audit_logs','gps_locations','geofences','notifications'
 			];
 		BEGIN
 			FOREACH t IN ARRAY tables LOOP

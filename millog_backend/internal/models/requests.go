@@ -15,25 +15,29 @@ const (
 )
 
 type SupplyRequest struct {
-	ID                string        `json:"id"`
-	CreatedBy         string        `json:"created_by"`
-	ResourceID        string        `json:"resource_id"`
-	Quantity          int           `json:"quantity"`
-	Status            RequestStatus `json:"status"`
-	TargetWarehouseID string        `json:"target_warehouse_id"`
-	ApprovedBy        *string       `json:"approved_by"`
-	ApprovedAt        *time.Time    `json:"approved_at"`
-	Comment           *string       `json:"comment"`
-	CreatedAt         time.Time     `json:"created_at"`
-	UpdatedAt         time.Time     `json:"updated_at"`
+	ID                 string        `json:"id"`
+	CreatedBy          string        `json:"created_by"`
+	ResourceID         *string       `json:"resource_id"` // Тепер nullable - може бути без прив'язки до конкретного складу
+	ResourceName       string        `json:"resource_name"`
+	ResourceCategoryID *string       `json:"resource_category_id"`
+	Quantity           int           `json:"quantity"`
+	Status             RequestStatus `json:"status"`
+	TargetWarehouseID  string        `json:"target_warehouse_id"`
+	ApprovedBy         *string       `json:"approved_by"`
+	ApprovedAt         *time.Time    `json:"approved_at"`
+	Comment            *string       `json:"comment"`
+	CreatedAt          time.Time     `json:"created_at"`
+	UpdatedAt          time.Time     `json:"updated_at"`
 
 	ManagerEmail string `json:"-"` // Додано для зручності при відправці SLA-сповіщень
 }
 
 type CreateSupplyRequest struct {
-	ResourceID        string `json:"resource_id" binding:"required"`
-	Quantity          int    `json:"quantity" binding:"required,min=1"`
-	TargetWarehouseID string `json:"target_warehouse_id" binding:"required,uuid"` // <-- ДОДАЙ ВАЛІДАЦІЮ UUID
+	ResourceID         *string `json:"resource_id"` // Тепер опціонально
+	ResourceName       string  `json:"resource_name" binding:"required"`
+	ResourceCategoryID *string `json:"resource_category_id"`
+	Quantity           int     `json:"quantity" binding:"required,min=1"`
+	TargetWarehouseID  string  `json:"target_warehouse_id" binding:"required,uuid"` // <-- ДОДАЙ ВАЛІДАЦІЮ UUID
 }
 type ApproveRequest struct {
 	Approved bool   `json:"approved"`

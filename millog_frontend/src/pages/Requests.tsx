@@ -41,7 +41,14 @@ export default function Requests() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   
-  const [newReq, setNewReq] = useState({ resource_id: '', quantity: 1, target_warehouse_id: '' })
+  const [newReq, setNewReq] = useState({ 
+    resource_name: '', 
+    resource_category_id: '', 
+    quantity: 1, 
+    target_warehouse_id: '' 
+  })
+  
+  const [uniqueResources, setUniqueResources] = useState<Array<{ name: string; category_id: string }>>([])
 
   const [filterStatus, setFilterStatus] = useState<string>('ALL')
   const [filterWarehouseId, setFilterWarehouseId] = useState<string>('ALL')
@@ -104,9 +111,10 @@ export default function Requests() {
   const loadData = async () => {
     setLoading(true)
     try {
-      const [reqs, resRes, whs, vehs, usersRes, unitsRes] = await Promise.all([
+      const [reqs, resRes, uniqueRes, whs, vehs, usersRes, unitsRes] = await Promise.all([
         api.requests.list().catch(() => []),
         api.inventory.listResources(undefined).catch(() => []),
+        api.inventory.getUniqueResourceNames(undefined).catch(() => []), // Завантажуємо унікальні назви
         api.warehouses.list().catch(() => []),
         api.vehicles.list().catch(() => []),
         api.users.getVisible().catch(() => []),
@@ -114,18 +122,24 @@ export default function Requests() {
       ])
       
       setRequests(Array.isArray(reqs) ? reqs : [])
+      console.log('📊 Loaded requests:', reqs)
+      console.log('📊 Requests count:', Array.isArray(reqs) ? reqs.length : 0)
       setResources(Array.isArray(resRes) ? resRes : [])
+      setUniqueResources(Array.isArray(uniqueRes) ? uniqueRes : []) // Зберігаємо унікальні назви
+      console.log('🔍 Loaded unique resources:', uniqueRes)
+      console.log('🔍 Unique resources count:', Array.isArray(uniqueRes) ? uniqueRes.length : 0)
       const whsArray = Array.isArray(whs) ? whs : []
       setWarehouses(whsArray)
       setVehicles(Array.isArray(vehs) ? vehs : [])
       setUsers(Array.isArray(usersRes) ? usersRes : [])
       setUnits(Array.isArray(unitsRes) ? unitsRes : [])
       
-      // Завжди встановлюємо перші значення при завантаженні даних
-      if (Array.isArray(resRes) && resRes.length > 0) {
+      // Встановлюємо перші значення при завантаженні даних
+      if (Array.isArray(uniqueRes) && uniqueRes.length > 0) {
         setNewReq(prev => ({ 
           ...prev, 
-          resource_id: prev.resource_id || resRes[0].id 
+          resource_name: prev.resource_name || uniqueRes[0].name,
+          resource_category_id: prev.resource_category_id || uniqueRes[0].category_id
         }))
       }
       if (whsArray.length > 0) {
@@ -158,7 +172,7 @@ export default function Requests() {
     let matchSearch = true;
     
     if (query !== '') {
-      const resourceName = (resources.find(res => res.id === r.resource_id)?.name || '').toLowerCase();
+      const resourceName = (r.resource_name || '').toLowerCase();
       const authorName = (users.find(u => u.id === r.created_by)?.full_name || '').toLowerCase();
       const warehouseName = (warehouses.find(w => w.id === r.target_warehouse_id)?.name || '').toLowerCase();
       const reqId = (r.id || '').toLowerCase();
@@ -169,10 +183,16 @@ export default function Requests() {
     return matchStatus && matchWarehouse && matchSearch;
   })
 
+  console.log('📊 Filtered requests count:', filteredRequests.length, 'Total:', requests.length, 'Filter status:', filterStatus)
+
   const selectedRequestsDetails = requests.filter(r => selectedReqIds.has(r.id))
   const currentTotalWeight = useMemo(() => {
     return selectedRequestsDetails.reduce((sum, req) => {
-      const resource = resources.find(res => res.id === req.resource_id)
+      // Шукаємо ресурс по назві та категорії
+      const resource = resources.find(res => 
+        res.name === req.resource_name && 
+        (!req.resource_category_id || res.category_id === req.resource_category_id)
+      )
       return sum + ((resource?.weight_kg || 1) * req.quantity)
     }, 0)
   }, [selectedRequestsDetails, resources])
@@ -198,6 +218,7 @@ export default function Requests() {
     const allowedUnitIds = new Set<number>();
     allowedUnitIds.add(targetUnit.id);
 
+    // Збираємо предків (вгору по ієрархії)
     let currentParentId = targetUnit.parent_id;
     let depth = 0;
     while (currentParentId && depth < 20) {
@@ -207,18 +228,31 @@ export default function Requests() {
       depth++;
     }
 
+    // Збираємо нащадків (вниз по ієрархії) для підтримки UPSTREAM рейсів
+    const collectDescendants = (parentId: number, maxDepth = 20, currentDepth = 0) => {
+      if (currentDepth >= maxDepth) return;
+      const children = units.filter(u => u.parent_id === parentId);
+      children.forEach(child => {
+        allowedUnitIds.add(child.id);
+        collectDescendants(child.id, maxDepth, currentDepth + 1);
+      });
+    };
+    collectDescendants(targetUnit.id);
+
     const hierarchicallyAllowed = warehouses.filter(w =>
       (isCrossUnitOperator || allowedUnitIds.has(w.unit_id)) && w.id !== dispatchForm.to_warehouse_id
     );
 
+    // Збираємо список необхідних ресурсів з обраних заявок
     const requiredItems = selectedRequestsDetails.reduce((acc, req) => {
-      const res = resources.find(r => r.id === req.resource_id);
-      if (res && res.name) {
-        acc[res.name] = (acc[res.name] || 0) + req.quantity;
+      const name = req.resource_name;
+      if (name) {
+        acc[name] = (acc[name] || 0) + req.quantity;
       }
       return acc;
     }, {} as Record<string, number>);
 
+    // Фільтруємо склади - показуємо тільки ті, де є ВСІ потрібні ресурси у достатній кількості
     return hierarchicallyAllowed.filter(w => {
       for (const [name, neededQty] of Object.entries(requiredItems)) {
         const availableQty = resources
@@ -229,23 +263,6 @@ export default function Requests() {
       return true;
     });
   }, [dispatchForm.to_warehouse_id, warehouses, units, selectedRequestsDetails, resources, user?.role]);
-
-  const localAlternatives = useMemo(() => {
-    if (!newReq.resource_id || !newReq.target_warehouse_id) return [];
-    const targetW = warehouses.find(w => w.id === newReq.target_warehouse_id);
-    const resName = resources.find(r => r.id === newReq.resource_id)?.name;
-    if (!targetW || !resName) return [];
-
-    return warehouses
-      .filter(w => w.unit_id === targetW.unit_id && w.id !== targetW.id)
-      .map(w => {
-        const availableQty = resources
-          .filter(r => r.warehouse_id === w.id && r.name === resName)
-          .reduce((sum, r) => sum + r.quantity, 0);
-        return { warehouse: w, availableQty };
-      })
-      .filter(info => info.availableQty > 0);
-  }, [newReq.resource_id, newReq.target_warehouse_id, warehouses, resources]);
 
   const canApproveThis = useMemo(() => (r: SupplyRequest) => {
   if (!user) return false;
@@ -265,10 +282,23 @@ export default function Requests() {
 }, [user, users]);
 
   const handleOpenDispatchModal = () => {
+    // 🎯 Тепер користувач обирає склад-відправника вручну,
+    // тому що заявки не прив'язані до конкретного ресурсу на складі
+    
+    // Перевіряємо, чи всі заявки мають однаковий target_warehouse
+    const targetWarehouseIds = new Set(selectedRequestsDetails.map(r => r.target_warehouse_id));
+    
+    if (targetWarehouseIds.size > 1) {
+      return toast.error(
+        '❌ Обрані заявки мають різні склади призначення! Оберіть заявки з одним цільовим складом.',
+        { duration: 6000 }
+      );
+    }
+    
     setDispatchForm(prev => ({
       ...prev,
       to_warehouse_id: activeTargetWarehouseId || '',
-      from_warehouse_id: '' 
+      from_warehouse_id: '' // Користувач обере вручну
     }))
     setShowDispatchModal(true)
   }
@@ -285,11 +315,26 @@ export default function Requests() {
     toast.loading('Формуємо збірний рейс...', { id: toastId })
 
     try {
-      const payloadItems = selectedRequestsDetails.map(req => ({
-        resource_id: req.resource_id,
-        quantity: req.quantity,
-        request_id: req.id 
-      }))
+      // Отримуємо ресурси з складу-відправника
+      const warehouseResources = resources.filter(r => r.warehouse_id === dispatchForm.from_warehouse_id)
+      
+      const payloadItems = selectedRequestsDetails.map(req => {
+        // Знаходимо ресурс на складі-відправнику по назві та категорії
+        const matchingResource = warehouseResources.find(r => 
+          r.name === req.resource_name && 
+          (!req.resource_category_id || r.category_id === req.resource_category_id)
+        )
+        
+        if (!matchingResource) {
+          throw new Error(`Ресурс "${req.resource_name}" не знайдено на обраному складі-відправнику!`)
+        }
+        
+        return {
+          resource_id: matchingResource.id,
+          quantity: req.quantity,
+          request_id: req.id 
+        }
+      })
 
       const payload = {
         from_warehouse_id: dispatchForm.from_warehouse_id,
@@ -385,10 +430,16 @@ export default function Requests() {
   const handleCreate = async (e: React.FormEvent) => { 
     e.preventDefault(); 
     if (!newReq.target_warehouse_id) return toast.error("❌ Оберіть цільовий склад!", { duration: 5000 })
+    if (!newReq.resource_name) return toast.error("❌ Оберіть ресурс!", { duration: 5000 })
     try { 
       await api.requests.create(newReq); 
       setShowForm(false); 
-      setNewReq({ resource_id: resources[0]?.id || '', quantity: 1, target_warehouse_id: warehouses[0]?.id || '' }); 
+      setNewReq({ 
+        resource_name: uniqueResources[0]?.name || '', 
+        resource_category_id: uniqueResources[0]?.category_id || '',
+        quantity: 1, 
+        target_warehouse_id: warehouses[0]?.id || '' 
+      }); 
       loadData(); 
       toast.success('Заявку створено!') 
     } catch (err) { toast.error(err instanceof Error ? err.message : 'Помилка') } 
@@ -653,7 +704,7 @@ export default function Requests() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3 style={{ color: '#ef4444' }}>Відхилення заявки</h3>
             <p className="text-muted">
-              Відхилити заявку на <strong>{resources.find(r => r.id === rejectModalData.resource_id)?.name}</strong> ({rejectModalData.quantity} шт.)?
+              Відхилити заявку на <strong>{rejectModalData.resource_name}</strong> ({rejectModalData.quantity} шт.)?
             </p>
             <form onSubmit={handleRejectSubmit}>
               <div className="form-group" style={{ textAlign: 'left', marginTop: '15px' }}>
@@ -681,7 +732,7 @@ export default function Requests() {
         <div className="modal-overlay" onClick={() => !isProcessing && setCancelModalData(null)}>
           <div className="modal confirm-modal" onClick={(e) => e.stopPropagation()}>
             <h3 style={{ color: 'var(--text-muted)' }}>Скасування заявки</h3>
-            <p>Ви впевнені, що хочете відкликати свою заявку на <strong>{resources.find(r => r.id === cancelModalData.resource_id)?.name}</strong>?</p>
+            <p>Ви впевнені, що хочете відкликати свою заявку на <strong>{cancelModalData.resource_name}</strong>?</p>
             <div className="modal-actions">
               <button className="btn btn-secondary" onClick={() => setCancelModalData(null)} disabled={isProcessing}>Ні, залишити</button>
               <button className="btn" style={{ backgroundColor: '#64748b', color: 'white' }} onClick={handleCancel} disabled={isProcessing}>{isProcessing ? 'Обробка...' : 'Так, скасувати'}</button>
@@ -698,11 +749,15 @@ export default function Requests() {
               <div className="summary-title">Вантаж до відправки ({selectedReqIds.size} позицій):</div>
               <ul className="summary-list">
                 {selectedRequestsDetails.map(req => {
-                  const res = resources.find(r => r.id === req.resource_id)
+                  // Шукаємо ресурс по назві та категорії для отримання ваги
+                  const res = resources.find(r => 
+                    r.name === req.resource_name && 
+                    (!req.resource_category_id || r.category_id === req.resource_category_id)
+                  )
                   const itemWeight = (res?.weight_kg || 1) * req.quantity
                   return (
                     <li key={req.id} className="summary-item">
-                      <span className="item-name">📦 {res?.name || 'Невідомий ресурс'} — {req.quantity} шт.</span>
+                      <span className="item-name">📦 {req.resource_name} — {req.quantity} шт.</span>
                       <span className="item-weight">~{itemWeight.toFixed(1)} кг</span>
                     </li>
                   )
@@ -713,15 +768,22 @@ export default function Requests() {
             <form onSubmit={handleDispatchSubmit}>
               <div className="form-row-2 gap-16 mb-16">
                 <div className="form-group flex-1 mb-0">
-                  <label>Звідки (Склад відправник)</label>
-                  <select className="erp-input" value={dispatchForm.from_warehouse_id} onChange={e => setDispatchForm({...dispatchForm, from_warehouse_id: e.target.value})} required>
-                    <option value="" disabled>Оберіть склад...</option>
+                  <label>Звідки відправляємо <span className="required">*</span></label>
+                  <select 
+                    className="erp-input" 
+                    value={dispatchForm.from_warehouse_id} 
+                    onChange={(e) => setDispatchForm(prev => ({ ...prev, from_warehouse_id: e.target.value }))}
+                    required
+                  >
+                    <option value="">Оберіть склад-відправника</option>
                     {allowedSourceWarehouses.map(w => {
                       const u = units.find(unit => unit.id === w.unit_id);
                       return <option key={w.id} value={w.id}>{w.name} ({u?.name})</option>
                     })}
                   </select>
-                  {allowedSourceWarehouses.length === 0 && <span className="error-text" style={{marginTop: '4px'}}>Немає доступних складів вище по ієрархії або на них недостатньо майна!</span>}
+                  <div style={{ marginTop: '4px', fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                    � Оберіть склад, з якого відправляти ресурси
+                  </div>
                 </div>
                 <div className="form-group flex-1 mb-0">
                   <label>Куди (Заблоковано системою)</label>
@@ -823,7 +885,7 @@ export default function Requests() {
                     </td>
                   )}
                   <td className="font-medium">
-                    {resources.find((res) => res.id === r.resource_id)?.name || r.resource_id}
+                    {r.resource_name || 'Невідомий ресурс'}
                     <div style={{fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px', fontWeight: 'normal'}}>
                       ID: {r.id.split('-')[0].toUpperCase()}
                     </div>
@@ -895,23 +957,35 @@ export default function Requests() {
             <h3 className="modal-title">Нова заявка на постачання</h3>
             <form onSubmit={handleCreate}>
               <div className="form-group">
-                <label>Ресурс</label>
+                <label>Ресурс <span className="required">*</span></label>
                 <select 
                   className="erp-input" 
-                  value={newReq.resource_id} 
-                  onChange={(e) => setNewReq({ ...newReq, resource_id: e.target.value })} 
+                  value={newReq.resource_name} 
+                  onChange={(e) => {
+                    const selectedResource = uniqueResources.find(r => r.name === e.target.value);
+                    setNewReq({ 
+                      ...newReq, 
+                      resource_name: e.target.value,
+                      resource_category_id: selectedResource?.category_id || '',
+                      target_warehouse_id: '' // Скидаємо склад при зміні ресурсу
+                    })
+                  }} 
                   onClick={(e) => {
                     console.log('Select clicked!', e);
                     e.stopPropagation();
                   }}
                   required
                 >
-                  {!newReq.resource_id && <option value="" disabled>Оберіть ресурс</option>}
-                  {resources.map((r) => <option key={r.id} value={r.id}>{r.name} (залишок: {r.quantity})</option>)}
+                  {!newReq.resource_name && <option value="" disabled>Оберіть ресурс</option>}
+                  {uniqueResources.map((r, idx) => (
+                    <option key={idx} value={r.name}>
+                      {r.name}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div className="form-group">
-                <label>Кількість</label>
+                <label>Кількість <span className="required">*</span></label>
                 <input 
                   className="erp-input" 
                   type="number" 
@@ -925,7 +999,7 @@ export default function Requests() {
                 />
               </div>
               <div className="form-group">
-                <label>На який склад доставити?</label>
+                <label>Куди доставити? <span className="required">*</span></label>
                 <select 
                   className="erp-input" 
                   value={newReq.target_warehouse_id} 
@@ -935,32 +1009,25 @@ export default function Requests() {
                     e.stopPropagation();
                   }}
                   required
+                  disabled={!newReq.resource_name}
                 >
-                  {!newReq.target_warehouse_id && <option value="" disabled>Оберіть ваш склад...</option>}
-                  {warehouses.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  {!newReq.target_warehouse_id && <option value="" disabled>
+                    {newReq.resource_name ? 'Оберіть склад призначення...' : 'Спочатку оберіть ресурс'}
+                  </option>}
+                  {warehouses.map((w) => {
+                      const u = units.find(unit => unit.id === w.unit_id);
+                      return (
+                        <option key={w.id} value={w.id}>
+                          {w.name} {u ? `(${u.name})` : ''}
+                        </option>
+                      );
+                    })}
                 </select>
               </div>
 
-              {localAlternatives.length > 0 && (
-                <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '8px', fontSize: '13px', color: '#b45309' }}>
-                  <strong style={{ display: 'block', marginBottom: '6px' }}>💡 Знайдено внутрішні резерви!</strong>
-                  У вашій орг. структурі вже є цей ресурс на сусідніх складах:
-                  <ul style={{ margin: '6px 0 0 20px', padding: 0 }}>
-                    {localAlternatives.map(alt => (
-                      <li key={alt.warehouse.id} style={{ marginBottom: '4px' }}>
-                        {alt.warehouse.name} — <strong>{alt.availableQty} шт.</strong>
-                      </li>
-                    ))}
-                  </ul>
-                  <div style={{ marginTop: '8px', fontSize: '11px', fontStyle: 'italic', color: '#92400e', lineHeight: '1.4' }}>
-                    * Замість того, щоб замовляти майно з центрального складу, можливо, варто попросити завідувача цього складу просто перемістити його вам.
-                  </div>
-                </div>
-              )}
-
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowForm(false)}>Скасувати</button>
-                <button type="submit" className="btn btn-primary">Створити</button>
+                <button type="submit" className="btn btn-primary" disabled={!newReq.resource_name || !newReq.target_warehouse_id || newReq.quantity < 1}>Створити</button>
               </div>
             </form>
           </div>

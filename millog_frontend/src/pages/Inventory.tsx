@@ -501,7 +501,7 @@ export default function Inventory() {
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowCategoryForm(false)}>Скасувати</button>
-                <button type="submit" className="btn btn-primary">Створити</button>
+                <button type="submit" className="btn btn-primary" disabled={!newCat.name?.trim()}>Створити</button>
               </div>
             </form>
           </div>
@@ -523,7 +523,7 @@ export default function Inventory() {
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setEditingCategory(null)}>Скасувати</button>
-                <button type="submit" className="btn btn-primary">Зберегти</button>
+                <button type="submit" className="btn btn-primary" disabled={!editCategoryForm.name?.trim()}>Зберегти</button>
               </div>
             </form>
           </div>
@@ -623,7 +623,7 @@ export default function Inventory() {
               
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowResourceForm(false)}>Скасувати</button>
-                <button type="submit" className="btn btn-primary" disabled={!newRes.unit_id}>Створити запис</button>
+                <button type="submit" className="btn btn-primary" disabled={!newRes.unit_id || !newRes.name?.trim() || !newRes.category_id || !newRes.warehouse_id}>Створити запис</button>
               </div>
             </form>
           </div>
@@ -655,7 +655,7 @@ export default function Inventory() {
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => { setAssignModalData(null); setAssignError(null); }}>Скасувати</button>
-                <button type="submit" className="btn btn-primary" disabled={allowedUsersForAssignment.length === 0}>Видати</button>
+                <button type="submit" className="btn btn-primary" disabled={allowedUsersForAssignment.length === 0 || !assignModalData.user_id}>Видати</button>
               </div>
             </form>
           </div>
@@ -691,7 +691,7 @@ export default function Inventory() {
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setEditModalId(null)}>Скасувати</button>
-                <button type="submit" className="btn btn-primary">Зберегти зміни</button>
+                <button type="submit" className="btn btn-primary" disabled={!editForm.name?.trim()}>Зберегти зміни</button>
               </div>
             </form>
           </div>
@@ -710,7 +710,7 @@ export default function Inventory() {
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => { setWriteOffModalData(null); setWriteOffError(null); }}>Скасувати</button>
-                <button type="submit" className="btn btn-danger">Списати</button>
+                <button type="submit" className="btn btn-danger" disabled={!writeOffModalData.quantity || writeOffModalData.quantity < 1}>Списати</button>
               </div>
             </form>
           </div>

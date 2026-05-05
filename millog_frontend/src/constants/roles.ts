@@ -127,7 +127,7 @@ export const ROLE_GROUPS = {
     ROLES.DEPT_MANAGER,
     ROLES.DEPT_SUPERVISOR,
     ROLES.TEAM_LEAD,
-    ROLES.EMPLOYEE,
+    // EMPLOYEE прибрано - вони працюють з рейсами, а не заявками
   ],
   contractorRequestsView: [
     ROLES.SYSTEM_ADMIN,

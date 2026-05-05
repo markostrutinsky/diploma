@@ -25,6 +25,7 @@ import KPIDashboard from './pages/KPIDashboard'
 import GPSTracking from './pages/GPSTracking'
 import MaintenanceSchedule from './pages/MaintenanceSchedule'
 import FuelAnomalies from './pages/FuelAnomalies'
+import MyShipments from './pages/MyShipments'
 import { Toaster } from 'react-hot-toast'
 import { ROLE_GROUPS } from './constants/roles'
 
@@ -74,6 +75,10 @@ function App() {
           <Route 
             path="/requests" 
             element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.requests]}><Requests /></ProtectedRoute>} 
+          />
+          <Route 
+            path="/my-shipments" 
+            element={<ProtectedRoute allowedRoles={['EMPLOYEE']}><MyShipments /></ProtectedRoute>} 
           />
           <Route 
             path="/units" 

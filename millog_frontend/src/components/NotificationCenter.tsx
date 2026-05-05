@@ -42,6 +42,51 @@ export default function NotificationCenter() {
     const load = async () => {
       const next: NotificationItem[] = []
 
+      // 0. Personal notifications (shipment assignments, etc.) - для всіх користувачів
+      try {
+        const notifData = await api.notifications.list(10)
+        if (notifData?.notifications && Array.isArray(notifData.notifications)) {
+          notifData.notifications
+            .filter((n: any) => !n.is_read) // Тільки непрочитані
+            .forEach((n: any) => {
+              let icon = '🔔'
+              let severity: Severity = 'info'
+              
+              switch (n.type) {
+                case 'SHIPMENT_ASSIGNED':
+                  icon = '🚚'
+                  severity = 'warning'
+                  break
+                case 'REQUEST_APPROVED':
+                  icon = '✅'
+                  severity = 'info'
+                  break
+                case 'REQUEST_REJECTED':
+                  icon = '❌'
+                  severity = 'danger'
+                  break
+                case 'SHIPMENT_DELIVERED':
+                  icon = '📦'
+                  severity = 'info'
+                  break
+                case 'LOW_STOCK':
+                  icon = '⚠️'
+                  severity = 'warning'
+                  break
+              }
+              
+              next.push({
+                id: `personal:${n.id}`,
+                icon,
+                title: n.title || 'Сповіщення',
+                message: n.message || '',
+                severity,
+                timestamp: new Date(n.created_at).getTime(),
+              })
+            })
+        }
+      } catch { /* ignore */ }
+
       // 1. Pending approvals
       if (canApproveRequests) {
         try {
@@ -151,6 +196,12 @@ export default function NotificationCenter() {
     next.add(id)
     setDismissed(next)
     try { localStorage.setItem('notif:dismissed', JSON.stringify([...next])) } catch { /* ignore */ }
+    
+    // Якщо це персональне сповіщення, позначити як прочитане на сервері
+    if (id.startsWith('personal:')) {
+      const notifId = id.replace('personal:', '')
+      api.notifications.markAsRead(notifId).catch(() => { /* ignore */ })
+    }
   }
 
   const clearDismissed = () => {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"sort"
 	"time"
 
@@ -30,14 +31,15 @@ func CanApproveRequest(creatorRole models.UserRole, approverRole models.UserRole
 }
 
 type RequestService struct {
-	requestRepo  *repositories.SupplyRequestRepository
-	resourceRepo *repositories.ResourceRepository
-	userRepo     *repositories.UserRepository
-	dbPool       *pgxpool.Pool
+	requestRepo         *repositories.SupplyRequestRepository
+	resourceRepo        *repositories.ResourceRepository
+	userRepo            *repositories.UserRepository
+	dbPool              *pgxpool.Pool
+	notificationService *NotificationService
 }
 
-func NewRequestService(reqRepo *repositories.SupplyRequestRepository, resRepo *repositories.ResourceRepository, userRepo *repositories.UserRepository, db *pgxpool.Pool) *RequestService {
-	return &RequestService{requestRepo: reqRepo, resourceRepo: resRepo, userRepo: userRepo, dbPool: db}
+func NewRequestService(reqRepo *repositories.SupplyRequestRepository, resRepo *repositories.ResourceRepository, userRepo *repositories.UserRepository, db *pgxpool.Pool, notifService *NotificationService) *RequestService {
+	return &RequestService{requestRepo: reqRepo, resourceRepo: resRepo, userRepo: userRepo, dbPool: db, notificationService: notifService}
 }
 
 func (s *RequestService) Create(ctx context.Context, userID string, req *models.CreateSupplyRequest) (*models.SupplyRequest, error) {
@@ -55,11 +57,13 @@ func (s *RequestService) Create(ctx context.Context, userID string, req *models.
 	}
 
 	sr := &models.SupplyRequest{
-		CreatedBy:         userID,
-		ResourceID:        req.ResourceID,
-		Quantity:          req.Quantity,
-		Status:            initialStatus,
-		TargetWarehouseID: req.TargetWarehouseID,
+		CreatedBy:          userID,
+		ResourceID:         req.ResourceID,
+		ResourceName:       req.ResourceName,
+		ResourceCategoryID: req.ResourceCategoryID,
+		Quantity:           req.Quantity,
+		Status:             initialStatus,
+		TargetWarehouseID:  req.TargetWarehouseID,
 	}
 
 	if creator.Role == models.RoleTenantAdmin || creator.Role == models.RoleSystemAdmin || creator.Role == models.RoleAdmin {
@@ -281,8 +285,27 @@ func (s *RequestService) ConfirmSmartDispatch(ctx context.Context, req *models.S
 		for _, rid := range route.RequestIDs {
 			d := details[rid]
 			reqID := d.ID
+
+			// Якщо в заявці не вказано конкретний resource_id (новий підхід - тільки назва),
+			// знаходимо цей ресурс на складі відправника
+			var actualResourceID string
+			if d.ResourceID != nil && *d.ResourceID != "" {
+				// Старий підхід - є конкретний resource_id
+				actualResourceID = *d.ResourceID
+			} else {
+				// Новий підхід - шукаємо ресурс за назвою на складі відправника
+				foundRes, err := s.resourceRepo.GetByNameAndWarehouse(ctx, s.dbPool, d.ResourceName, req.FromWarehouseID)
+				if err != nil {
+					return successfulShipments, fmt.Errorf("не знайдено ресурс '%s' на складі відправника: %w", d.ResourceName, err)
+				}
+				if foundRes.Quantity < d.Quantity {
+					return successfulShipments, fmt.Errorf("на складі недостатньо '%s': потрібно %d, є %d", d.ResourceName, d.Quantity, foundRes.Quantity)
+				}
+				actualResourceID = foundRes.ID
+			}
+
 			items = append(items, models.ShipmentItemRequest{
-				ResourceID: d.ResourceID,
+				ResourceID: actualResourceID,
 				Quantity:   d.Quantity,
 				RequestID:  &reqID,
 			})
@@ -300,6 +323,39 @@ func (s *RequestService) ConfirmSmartDispatch(ctx context.Context, req *models.S
 			return successfulShipments, fmt.Errorf("рейс #%d (машина %s): %w", idx+1, route.VehicleID, err)
 		}
 		successfulShipments++
+
+		// Відправляємо повідомлення водію про новий рейс
+		if s.notificationService != nil {
+			// Отримуємо інформацію про водія машини
+			var driverID *string
+			err := s.dbPool.QueryRow(ctx, "SELECT driver_id FROM vehicles WHERE id = $1", route.VehicleID).Scan(&driverID)
+
+			if err == nil && driverID != nil && *driverID != "" {
+				// Отримуємо tenant_id водія
+				var driverTenantID string
+				err = s.dbPool.QueryRow(ctx, "SELECT tenant_id FROM users WHERE id = $1", *driverID).Scan(&driverTenantID)
+
+				log.Printf("DEBUG: Smart Dispatch - driverID=%s, tenantID=%s, err=%v", *driverID, driverTenantID, err)
+
+				if err == nil && driverTenantID != "" {
+					// Отримуємо назви складів
+					var fromWarehouse, toWarehouse string
+					_ = s.dbPool.QueryRow(ctx, "SELECT name FROM warehouses WHERE id = $1", req.FromWarehouseID).Scan(&fromWarehouse)
+					_ = s.dbPool.QueryRow(ctx, "SELECT name FROM warehouses WHERE id = $1", toWarehouseID).Scan(&toWarehouse)
+
+					// Отримуємо ID щойно створеного shipment
+					var shipmentID string
+					_ = s.dbPool.QueryRow(ctx, "SELECT id FROM shipments WHERE vehicle_id = $1 ORDER BY created_at DESC LIMIT 1", route.VehicleID).Scan(&shipmentID)
+
+					if shipmentID != "" {
+						// Створюємо контекст з tenant_id водія
+						driverCtx := context.WithValue(ctx, "tenant_id", driverTenantID)
+						notifErr := s.notificationService.NotifyDriverAboutShipment(driverCtx, *driverID, shipmentID, fromWarehouse, toWarehouse)
+						log.Printf("DEBUG: Smart Dispatch notification result for driver %s - err=%v", *driverID, notifErr)
+					}
+				}
+			}
+		}
 	}
 	return successfulShipments, nil
 }

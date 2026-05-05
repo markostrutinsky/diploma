@@ -109,7 +109,7 @@ func (h *AnalyticsHandler) ExportInventory(c *gin.Context) {
 	fileName := fmt.Sprintf("Inventory_Report_%s.xlsx", time.Now().Format("2006-01-02"))
 
 	c.Header("Content-Description", "File Transfer")
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", fileName))
 	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 	c.Data(http.StatusOK, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileBytes)
 }
@@ -147,7 +147,7 @@ func (h *AnalyticsHandler) ExportFuel(c *gin.Context) {
 
 	fileName := fmt.Sprintf("Fuel_Report_%s.xlsx", time.Now().Format("2006-01-02"))
 
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", fileName))
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", fileName))
 	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 	c.Data(http.StatusOK, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileBytes)
 }

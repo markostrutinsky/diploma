@@ -50,6 +50,7 @@ type Resource struct {
 	CategoryID     string            `json:"category_id"`
 	UnitID         int64             `json:"unit_id"`
 	WarehouseID    *string           `json:"warehouse_id"`
+	WarehouseName  string            `json:"warehouse_name"` // 🆕 Назва складу для UI
 	Name           string            `json:"name"`
 	Description    string            `json:"description"`
 	Quantity       int               `json:"quantity"`

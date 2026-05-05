@@ -148,6 +148,7 @@ export default function Layout({ children }: LayoutProps) {
               </>
             )}
 
+
             {/* 5. Заявки */}
             {canSeeRequests && (
               <Link 
@@ -164,6 +165,16 @@ export default function Layout({ children }: LayoutProps) {
                     {pendingCount}
                   </span>
                 )}
+              </Link>
+            )}
+
+            {/* 5.1 Мої Рейси - тільки для співробітників (водіїв та складських) */}
+            {userRole === 'EMPLOYEE' && (
+              <Link 
+                to="/my-shipments" 
+                className={location.pathname === '/my-shipments' ? 'active' : ''}
+              >
+                🚚 Мої Рейси
               </Link>
             )}
 

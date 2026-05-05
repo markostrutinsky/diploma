@@ -63,7 +63,8 @@ func (r *VehicleRepository) GetAll(ctx context.Context, db DBExecutor) ([]models
             GROUP BY vehicle_id
         )
         SELECT 
-            v.id, v.brand, v.model, v.plate_number, v.type, v.capacity_kg, v.status, v.driver_id, u.full_name as driver_name, v.tank_capacity, v.fuel_norm, 
+            v.id, v.brand, v.model, v.plate_number, v.type, v.capacity_kg, v.status, v.driver_id, u.full_name as driver_name, 
+            v.current_warehouse_id, v.tank_capacity, v.fuel_norm, 
             v.maintenance_interval_km, v.last_maintenance_odometer, v.created_at, v.updated_at,
             COALESCE((
                 SELECT odometer_km FROM fuel_records 
@@ -93,7 +94,7 @@ func (r *VehicleRepository) GetAll(ctx context.Context, db DBExecutor) ([]models
 		// Додали &v.AvgKmPerDay в Scan
 		err := rows.Scan(
 			&v.ID, &v.Brand, &v.Model, &v.PlateNumber, &v.Type, &v.CapacityKg, &v.Status, &v.DriverID, &v.DriverName,
-			&v.TankCapacity, &v.FuelNorm, &v.MaintenanceIntervalKm, &v.LastMaintenanceOdometer,
+			&v.CurrentWarehouseID, &v.TankCapacity, &v.FuelNorm, &v.MaintenanceIntervalKm, &v.LastMaintenanceOdometer,
 			&v.CreatedAt, &v.UpdatedAt, &v.CurrentOdometer, &v.AvgKmPerDay,
 		)
 		if err != nil {
@@ -144,7 +145,8 @@ func (r *VehicleRepository) GetByID(ctx context.Context, id string, db DBExecuto
             GROUP BY vehicle_id
         )
         SELECT 
-            v.id, v.brand, v.model, v.plate_number, v.type, v.capacity_kg, v.status, v.driver_id, u.full_name as driver_name, v.tank_capacity, v.fuel_norm, 
+            v.id, v.brand, v.model, v.plate_number, v.type, v.capacity_kg, v.status, v.driver_id, u.full_name as driver_name, 
+            v.current_warehouse_id, v.tank_capacity, v.fuel_norm, 
             v.maintenance_interval_km, v.last_maintenance_odometer, v.created_at, v.updated_at,
             COALESCE((
                 SELECT odometer_km FROM fuel_records 
@@ -164,7 +166,7 @@ func (r *VehicleRepository) GetByID(ctx context.Context, id string, db DBExecuto
 	var v models.Vehicle
 	err := db.QueryRow(ctx, query, args...).Scan(
 		&v.ID, &v.Brand, &v.Model, &v.PlateNumber, &v.Type, &v.CapacityKg, &v.Status, &v.DriverID, &v.DriverName,
-		&v.TankCapacity, &v.FuelNorm, &v.MaintenanceIntervalKm, &v.LastMaintenanceOdometer,
+		&v.CurrentWarehouseID, &v.TankCapacity, &v.FuelNorm, &v.MaintenanceIntervalKm, &v.LastMaintenanceOdometer,
 		&v.CreatedAt, &v.UpdatedAt, &v.CurrentOdometer, &v.AvgKmPerDay,
 	)
 

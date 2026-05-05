@@ -187,9 +187,9 @@ func (h *AuthHandler) SetupPassword(c *gin.Context) {
 		return
 	}
 
-	go func(token string) {
-		_ = h.auditService.LogAction(context.Background(), "SYSTEM", "UPDATE", "USER", "", "Встановлення пароля за токеном: "+token)
-	}(request.Token)
+	go func() {
+		_ = h.auditService.LogAction(context.Background(), "SYSTEM", "UPDATE", "USER", "", "Встановлення пароля за invite-токеном (токен не логується)")
+	}()
 
 	c.JSON(http.StatusOK, gin.H{"message": "Password set successfully. You can now log in."})
 }

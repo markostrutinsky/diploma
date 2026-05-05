@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -151,6 +152,84 @@ func (h *InventoryHandler) ListResources(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, list)
+}
+
+// GetUniqueResourceNames повертає унікальні назви ресурсів (без дублювання по складах)
+// для використання у формі створення заявки
+func (h *InventoryHandler) GetUniqueResourceNames(c *gin.Context) {
+	fmt.Println("🔍 GetUniqueResourceNames викликано")
+
+	claims, exists := c.Get("claims")
+	if !exists {
+		fmt.Println("❌ User claims not found")
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	userClaims := claims.(*middleware.Claims)
+	userRole := string(userClaims.Role)
+	userUnitID := userClaims.UnitID
+
+	fmt.Printf("✅ User: role=%s, unitID=%d\n", userRole, userUnitID)
+
+	var finalUnitID *int64
+	var requestedUnitID *int64
+	if s := c.Query("unit_id"); s != "" {
+		if id, err := strconv.ParseInt(s, 10, 64); err == nil {
+			requestedUnitID = &id
+		}
+	}
+
+	isOwner := userRole == string(models.RoleAdmin) ||
+		userRole == string(models.RoleTenantAdmin) ||
+		userRole == string(models.RoleSystemAdmin)
+
+	if isOwner {
+		finalUnitID = requestedUnitID
+	} else {
+		if requestedUnitID != nil {
+			finalUnitID = requestedUnitID
+		} else {
+			finalUnitID = &userUnitID
+		}
+	}
+
+	// Отримуємо всі ресурси
+	list, err := h.invService.ListResources(c.Request.Context(), finalUnitID)
+	if err != nil {
+		fmt.Printf("❌ Error loading resources: %v\n", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	fmt.Printf("📦 Loaded %d resources from DB\n", len(list))
+
+	// Групуємо по назвах - зберігаємо тільки унікальні назви з їх категоріями
+	type UniqueResource struct {
+		Name       string `json:"name"`
+		CategoryID string `json:"category_id"`
+	}
+
+	uniqueMap := make(map[string]UniqueResource)
+	for _, res := range list {
+		fmt.Printf("  - Resource: %s (category: %s)\n", res.Name, res.CategoryID)
+		if _, exists := uniqueMap[res.Name]; !exists {
+			uniqueMap[res.Name] = UniqueResource{
+				Name:       res.Name,
+				CategoryID: res.CategoryID,
+			}
+		}
+	}
+
+	fmt.Printf("✨ Found %d unique resource names\n", len(uniqueMap))
+
+	// Перетворюємо map у slice
+	unique := make([]UniqueResource, 0, len(uniqueMap))
+	for _, ur := range uniqueMap {
+		unique = append(unique, ur)
+	}
+
+	c.JSON(http.StatusOK, unique)
 }
 
 func (h *InventoryHandler) WriteOff(c *gin.Context) {
@@ -366,6 +445,18 @@ func (h *InventoryHandler) ListShipments(c *gin.Context) {
 	c.JSON(http.StatusOK, list)
 }
 
+func (h *InventoryHandler) ListMyShipments(c *gin.Context) {
+	userID := c.GetString("user_id")
+
+	list, err := h.invService.ListMyShipments(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, list)
+}
+
 func (h *InventoryHandler) ReceiveShipment(c *gin.Context) {
 	userID := c.GetString("user_id")
 	shipmentID := c.Param("id")
@@ -380,6 +471,23 @@ func (h *InventoryHandler) ReceiveShipment(c *gin.Context) {
 	}(userID, shipmentID)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Вантаж успішно прийнято на склад!"})
+}
+
+func (h *InventoryHandler) StartShipment(c *gin.Context) {
+	userID := c.GetString("user_id")
+	shipmentID := c.Param("id")
+
+	err := h.invService.StartShipment(c.Request.Context(), shipmentID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	go func(uID string, sID string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "UPDATE", "SHIPMENT", sID, "Рейс розпочато (виїзд підтверджено)")
+	}(userID, shipmentID)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Рейс розпочато! Гарної дороги 🚚"})
 }
 
 func (h *InventoryHandler) DownloadShipmentPDF(c *gin.Context) {
@@ -397,7 +505,7 @@ func (h *InventoryHandler) DownloadShipmentPDF(c *gin.Context) {
 	}(userID, shipmentID)
 
 	filename := fmt.Sprintf("Waybill_%s.pdf", shipmentID)
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
 	c.Header("Content-Type", "application/pdf")
 	c.Data(http.StatusOK, "application/pdf", pdfBytes)
 }
@@ -548,6 +656,20 @@ func (h *InventoryHandler) ImportExcel(c *gin.Context) {
 	fileHeader, err := c.FormFile("file")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Файл не знайдено"})
+		return
+	}
+
+	// 🛡️ Ліміт розміру Excel: 5 МБ
+	const maxExcelSize = 5 << 20 // 5 MB
+	if fileHeader.Size > maxExcelSize {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Файл занадто великий. Максимальний розмір для імпорту — 5 МБ."})
+		return
+	}
+
+	// 🛡️ Валідація розширення
+	ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
+	if ext != ".xlsx" && ext != ".xls" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Дозволяються лише файли .xlsx або .xls"})
 		return
 	}
 

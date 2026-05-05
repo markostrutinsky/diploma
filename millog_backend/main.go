@@ -95,16 +95,21 @@ func main() {
 	analyticsRepo := repositories.NewAnalyticsRepository()
 	auditRepo := repositories.NewAuditLogRepository()
 	tenantRepo := repositories.NewTenantRepository()
+	notificationRepo := repositories.NewNotificationRepository()
 
-	invService := services.NewInventoryService(catRepo, resRepo, userRepo, dbPool)
-	reqService := services.NewRequestService(reqRepo, resRepo, userRepo, dbPool)
+	// Спочатку створюємо базові сервіси
+	notificationService := services.NewNotificationService(notificationRepo, dbPool)
+	auditService := services.NewAuditService(auditRepo, dbPool)
 	unitService := services.NewUnitService(unitRepo, userRepo, dbPool)
-	volReqService := services.NewContractorRequestService(volReqRepo, dbPool)
 	warehouseService := services.NewWarehouseService(warehouseRepo, dbPool)
 	analyticsService := services.NewAnalyticsService(analyticsRepo, dbPool)
-	auditService := services.NewAuditService(auditRepo, dbPool)
-	slaMonitor := services.NewSLAMonitor(dbPool, reqRepo, auditRepo, emailService)
 	limitationService := services.NewLimitationService(dbPool)
+	slaMonitor := services.NewSLAMonitor(dbPool, reqRepo, auditRepo, emailService)
+
+	// Тепер створюємо сервіси, які залежать від notificationService
+	invService := services.NewInventoryService(catRepo, resRepo, userRepo, dbPool, notificationService)
+	reqService := services.NewRequestService(reqRepo, resRepo, userRepo, dbPool, notificationService)
+	volReqService := services.NewContractorRequestService(volReqRepo, dbPool)
 
 	authService := services.NewAuthService(userRepo, unitRepo, tokenRepo, refreshTokenRepo, dbPool, emailService, jwtSecret)
 	invHandler := handlers.NewInventoryHandler(invService, auditService, limitationService, authService)
@@ -121,25 +126,40 @@ func main() {
 	vehicleService := services.NewVehicleService(vehicleRepo, dbPool)
 	vehicleHandler := handlers.NewVehicleHandler(vehicleService, auditService)
 	auditHandler := handlers.NewAuditHandler(auditService)
+	notificationHandler := handlers.NewNotificationHandler(notificationService)
 
 	slaMonitor.Start(context.Background())
 
 	r := gin.Default()
 
+	// === SECURITY MIDDLEWARE ===
+	allowedOrigins := []string{
+		os.Getenv("FRONTEND_URL"),
+		"http://localhost:5173",
+		"http://localhost:3000",
+		"https://localhost",
+	}
+	r.Use(middleware.SecurityHeaders())
+	r.Use(middleware.CORSMiddleware(allowedOrigins))
+
+	// Rate limiter для auth endpoints: 10 спроб за 5 хвилин з однієї IP
+	authRateLimiter := middleware.NewRateLimiter(10, 5*time.Minute)
+
 	os.MkdirAll("uploads/maintenance", os.ModePerm)
 
-	r.Static("/uploads", "./uploads")
+	// /uploads доступний лише через автентифікований proxy-endpoint
+	// НЕ виставляємо r.Static("/uploads", "./uploads") публічно
 
 	api := r.Group("/api")
 	{
 		auth := api.Group("/auth")
 		{
-			auth.POST("/login", authHandler.Login)
+			auth.POST("/login", middleware.RateLimitMiddleware(authRateLimiter), authHandler.Login)
 			auth.POST("/refresh", authHandler.Refresh)
-			auth.POST("/register", authHandler.RegisterContractor)
+			auth.POST("/register", middleware.RateLimitMiddleware(authRateLimiter), authHandler.RegisterContractor)
 			auth.POST("/setup-password", authHandler.SetupPassword)
-			auth.POST("/forgot-password", authHandler.RequestPasswordReset)
-			auth.POST("/tenants/signup", authHandler.SignupTenant)
+			auth.POST("/forgot-password", middleware.RateLimitMiddleware(authRateLimiter), authHandler.RequestPasswordReset)
+			auth.POST("/tenants/signup", middleware.RateLimitMiddleware(authRateLimiter), authHandler.SignupTenant)
 			auth.GET("/me", middleware.AuthMiddleware(jwtSecret, dbPool), authHandler.Me)
 		}
 
@@ -199,6 +219,7 @@ func main() {
 		{
 			inv.GET("/categories", invHandler.ListCategories)
 			inv.GET("/resources", invHandler.ListResources)
+			inv.GET("/resources/unique-names", invHandler.GetUniqueResourceNames) // Унікальні назви для форми заявки
 			inv.GET("/resources/:id", invHandler.GetResource)
 			inv.POST("/categories", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.CreateCategory)
 			inv.POST("/resources", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.CreateResource)
@@ -210,8 +231,10 @@ func main() {
 			inv.POST("/issue", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.IssueResource)
 			inv.POST("/shipments", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.CreateShipment)
 			inv.GET("/warehouse/:id", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.GetByWarehouse)
+			inv.POST("/shipments/:id/start", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.StartShipment)
 			inv.POST("/shipments/:id/receive", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.ReceiveShipment)
 			inv.GET("/shipments", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.ListShipments)
+			inv.GET("/shipments/my", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.ListMyShipments)
 			inv.GET("/shipments/:id/pdf", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.DownloadShipmentPDF)
 			inv.GET("/resources/:id/qr", invHandler.DownloadResourceQR)
 			inv.PATCH("/categories/:id", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.UpdateCategory)
@@ -278,8 +301,23 @@ func main() {
 			vehicleGroup.PATCH("/:id", vehicleHandler.Update)
 			vehicleGroup.DELETE("/:id", vehicleHandler.Delete)
 			vehicleGroup.GET("/available-for-route", vehicleHandler.GetAvailableForShipment)
-
 		}
+
+		// Захищений endpoint для скачування файлів ТО (лише для авторизованих)
+		r.GET("/uploads/maintenance/:filename",
+			middleware.AuthMiddleware(jwtSecret, dbPool),
+			func(c *gin.Context) {
+				filename := c.Param("filename")
+				// Захист від path traversal — лише ім'я файлу без слешів
+				for _, ch := range filename {
+					if ch == '/' || ch == '\\' || ch == '.' && filename[0] == '.' {
+						c.AbortWithStatus(http.StatusBadRequest)
+						return
+					}
+				}
+				c.File("./uploads/maintenance/" + filename)
+			},
+		)
 
 		warehouseGroup := api.Group("/warehouses")
 		warehouseGroup.Use(middleware.AuthMiddleware(jwtSecret, dbPool), middleware.RequireAnyRole(models.WarehouseManagerRoles))
@@ -307,6 +345,17 @@ func main() {
 			analyticsGroup.GET("/fuel-anomalies", middleware.RequireSubscriptionTier("PRO", dbPool), analyticsHandler.GetFuelAnomalyDetection)
 			analyticsGroup.GET("/export/inventory", analyticsHandler.ExportInventory)
 			analyticsGroup.GET("/export/fuel", analyticsHandler.ExportFuel)
+		}
+
+		// Notifications
+		notificationsGroup := api.Group("/notifications")
+		notificationsGroup.Use(middleware.AuthMiddleware(jwtSecret, dbPool))
+		{
+			notificationsGroup.GET("", notificationHandler.ListNotifications)
+			notificationsGroup.GET("/unread-count", notificationHandler.GetUnreadCount)
+			notificationsGroup.PATCH("/:id/read", notificationHandler.MarkAsRead)
+			notificationsGroup.POST("/mark-all-read", notificationHandler.MarkAllAsRead)
+			notificationsGroup.DELETE("/:id", notificationHandler.DeleteNotification)
 		}
 
 		// 🚀 GPS TRACKING & GEOFENCING (PRO FEATURE #5)

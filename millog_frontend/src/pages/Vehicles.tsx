@@ -469,7 +469,7 @@ export default function Vehicles() {
 
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowVehicleForm(false)} disabled={isProcessing}>Скасувати</button>
-                <button type="submit" className="btn btn-primary" disabled={isProcessing}>Створити</button>
+                <button type="submit" className="btn btn-primary" disabled={isProcessing || !newVehicle.brand?.trim() || !newVehicle.plate_number?.trim() || !newVehicle.capacity_kg || !newVehicle.tank_capacity || !newVehicle.fuel_norm}>Створити</button>
               </div>
             </form>
           </div>
@@ -541,7 +541,7 @@ export default function Vehicles() {
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setStatusModalVehicle(null)} disabled={isProcessing}>Скасувати</button>
-                <button type="submit" className="btn btn-danger" disabled={isProcessing}>Підтвердити дію</button>
+                <button type="submit" className="btn btn-danger" disabled={isProcessing || !statusForm.reason?.trim()}>Підтвердити дію</button>
               </div>
             </form>
           </div>
@@ -563,7 +563,7 @@ export default function Vehicles() {
   </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setDriverModalVehicle(null)} disabled={isProcessing}>Скасувати</button>
-                <button type="submit" className="btn btn-primary" disabled={isProcessing}>Зберегти зміни</button>
+                <button type="submit" className="btn btn-primary" disabled={isProcessing || !driverForm.driver_id}>Зберегти зміни</button>
               </div>
             </form>
           </div>
@@ -595,7 +595,7 @@ export default function Vehicles() {
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setFuelModalVehicle(null)} disabled={isProcessing}>Скасувати</button>
-                <button type="submit" className={fuelForm.record_type === 'REFUEL' ? "btn btn-success" : "btn btn-danger"} disabled={isProcessing}>{fuelForm.record_type === 'REFUEL' ? 'Заправити' : 'Списати'}</button>
+                <button type="submit" className={fuelForm.record_type === 'REFUEL' ? "btn btn-success" : "btn btn-danger"} disabled={isProcessing || !fuelForm.liters || fuelForm.liters <= 0 || (fuelForm.record_type === 'EXPENSE' && !fuelForm.odometer_km)}>{fuelForm.record_type === 'REFUEL' ? 'Заправити' : 'Списати'}</button>
               </div>
             </form>
           </div>
@@ -636,7 +636,7 @@ export default function Vehicles() {
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setMaintenanceModalVehicle(null)} disabled={isProcessing}>Скасувати</button>
-                <button type="submit" className={maintenanceModalVehicle.status === 'IN_REPAIR' ? "btn btn-success" : "btn btn-primary"} disabled={isProcessing}>{maintenanceModalVehicle.status === 'IN_REPAIR' ? 'Повернути на лінію' : 'Зафіксувати ТО'}</button>
+                <button type="submit" className={maintenanceModalVehicle.status === 'IN_REPAIR' ? "btn btn-success" : "btn btn-primary"} disabled={isProcessing || !maintenanceForm.description?.trim() || !maintenanceForm.performed_by?.trim() || maintenanceForm.odometer_km <= 0}>{maintenanceModalVehicle.status === 'IN_REPAIR' ? 'Повернути на лінію' : 'Зафіксувати ТО'}</button>
               </div>
             </form>
           </div>

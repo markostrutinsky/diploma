@@ -307,7 +307,7 @@ export default function ContractorRequests() {
                 <button type="button" className="btn btn-secondary" onClick={() => setShowCreateForm(false)}>
                   Скасувати
                 </button>
-                <button type="submit" className="btn btn-primary">Опублікувати</button>
+                <button type="submit" className="btn btn-primary" disabled={!createForm.title?.trim()}>Опублікувати</button>
               </div>
             </form>
           </div>
@@ -449,7 +449,10 @@ export default function ContractorRequests() {
                 <button 
                   type="submit" 
                   className="btn btn-primary" 
-                  disabled={acceptMode === 'EXISTING' && !acceptForm.resource_id}
+                  disabled={
+                    (acceptMode === 'EXISTING' && !acceptForm.resource_id) ||
+                    (acceptMode === 'NEW' && (!acceptForm.category_id || !acceptForm.name?.trim()))
+                  }
                 >
                   {nameMismatchWarning ? 'Підтвердити і прийняти' : 'Прийняти на баланс'}
                 </button>

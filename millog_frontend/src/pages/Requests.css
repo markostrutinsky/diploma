@@ -288,6 +288,12 @@
   margin-bottom: 8px;
 }
 
+.form-group label .required {
+  color: #ef4444;
+  font-weight: 700;
+  margin-left: 2px;
+}
+
 .form-row-2 {
   display: flex;
   gap: 16px;
@@ -308,6 +314,16 @@
   background-color: var(--bg-input);
   transition: border-color 0.2s, box-shadow 0.2s;
   box-sizing: border-box;
+  min-height: 40px; /* Мінімальна висота замість фіксованої */
+  line-height: 1.5;
+  vertical-align: middle; /* Вирівнювання по центру */
+  display: inline-block; /* Для правильного vertical-align */
+}
+
+/* Специфічно для select - забезпечуємо однакову висоту */
+select.erp-input {
+  height: 40px;
+  padding: 9px 12px; /* Трохи менший padding для select */
 }
 
 .erp-input:focus {

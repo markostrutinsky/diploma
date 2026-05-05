@@ -212,7 +212,7 @@ export default function Units() {
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowForm(false)} disabled={isProcessing}>Скасувати</button>
-                <button type="submit" className="btn btn-primary" disabled={isProcessing}>{isProcessing ? 'Збереження...' : (editingUnit ? 'Оновити' : 'Створити')}</button>
+                <button type="submit" className="btn btn-primary" disabled={isProcessing || !form.name?.trim() || !form.unit_type}>{isProcessing ? 'Збереження...' : (editingUnit ? 'Оновити' : 'Створити')}</button>
               </div>
             </form>
           </div>

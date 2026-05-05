@@ -58,15 +58,28 @@ func (r *WarehouseRepository) ListByUnit(ctx context.Context, db DBExecutor, uni
 		args := []any{unitID}
 		tFilter := tenantFilter(ctx, "w", "AND", &args)
 		query := `
-            WITH RECURSIVE unit_hierarchy AS (
+            WITH RECURSIVE 
+            -- Нащадки (вниз по ієрархії)
+            descendants AS (
                 SELECT id FROM units WHERE id = $1
                 UNION ALL
                 SELECT u.id FROM units u
-                JOIN unit_hierarchy uh ON u.parent_id = uh.id
+                JOIN descendants d ON u.parent_id = d.id
+            ),
+            -- Предки (вгору по ієрархії) 
+            ancestors AS (
+                SELECT id, parent_id FROM units WHERE id = $1
+                UNION ALL
+                SELECT u.id, u.parent_id FROM units u
+                JOIN ancestors a ON u.id = a.parent_id
             )
             SELECT w.id, w.unit_id, w.name, w.location_type, w.latitude, w.longitude, w.created_at, w.updated_at
             FROM warehouses w
-            WHERE w.unit_id IN (SELECT id FROM unit_hierarchy)` + tFilter + `
+            WHERE w.unit_id IN (
+                SELECT id FROM descendants
+                UNION
+                SELECT id FROM ancestors
+            )` + tFilter + `
             ORDER BY w.name`
 
 		rows, err := db.Query(ctx, query, args...)

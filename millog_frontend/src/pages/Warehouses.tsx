@@ -124,6 +124,8 @@ export default function Warehouses() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const [auditWarehouse, setAuditWarehouse] = useState<Warehouse | null>(null);
+  const [viewInventoryItems, setViewInventoryItems] = useState<InventoryItem[]>([]);
+  const [viewInventoryLoading, setViewInventoryLoading] = useState(false);
 
   const perms = usePermissions();
   const canManageWarehouses = perms.can('warehouse_manage');
@@ -179,8 +181,32 @@ export default function Warehouses() {
       currentParentId = parentNode?.parent_id;
       depth++;
     }
+    // Збираємо нащадків (для UPSTREAM рейсів)
+    const collectDescendants = (parentId: number, maxDepth = 20, currentDepth = 0) => {
+      if (currentDepth >= maxDepth) return;
+      const children = units.filter(u => u.parent_id === parentId);
+      children.forEach(child => {
+        allowedUnitIds.add(child.id);
+        collectDescendants(child.id, maxDepth, currentDepth + 1);
+      });
+    };
+    collectDescendants(targetUnit.id);
     return warehouses.filter(w => allowedUnitIds.has(w.unit_id) && w.id !== dispatchTargetWarehouse.id);
   }, [dispatchTargetWarehouse, warehouses, units]);
+
+  const handleViewInventory = async (warehouse: Warehouse) => {
+    setViewInventoryWarehouse(warehouse);
+    setViewInventoryItems([]);
+    setViewInventoryLoading(true);
+    try {
+      const items = await api.inventory.getByWarehouse(warehouse.id);
+      setViewInventoryItems(Array.isArray(items) ? items : []);
+    } catch (err) {
+      console.error('Помилка завантаження залишків:', err);
+    } finally {
+      setViewInventoryLoading(false);
+    }
+  };
 
   const handleOpenDispatch = (targetWarehouse: Warehouse) => {
     setDispatchTargetWarehouse(targetWarehouse);
@@ -190,26 +216,32 @@ export default function Warehouses() {
     setQtyToAdd(''); 
     setItemToAdd('');
     setActiveRoadRoute(null);
+    setVehicles([]); // Скидаємо транспорт - завантажиться після вибору складу-відправника
   };
 
   const handleSourceChange = async (sourceId: string) => {
     const sourceW = warehouses.find(w => w.id === sourceId);
     setDispatchParentWarehouse(sourceW || null);
-    setManifest([]); 
+    setManifest([]);
+    setSelectedVehicleId('');
     if (sourceW && dispatchTargetWarehouse) {
       try {
-        const invRes = await api.inventory.getByWarehouse(sourceW.id);
+        const [invRes, vehiclesRes] = await Promise.all([
+          api.inventory.getByWarehouse(sourceW.id),
+          api.vehicles.getAvailableForRoute(sourceW.unit_id, dispatchTargetWarehouse.unit_id).catch(() => [])
+        ]);
         const fetchedInventory = Array.isArray(invRes) ? invRes : [];
         setWarehouseInventory(fetchedInventory);
         if (fetchedInventory.length > 0) setItemToAdd(fetchedInventory[0].id);
-      } catch (err) { console.error("Помилка завантаження залишків:", err); }
+        setVehicles(Array.isArray(vehiclesRes) ? vehiclesRes : []);
+      } catch (err) { console.error("Помилка завантаження:", err); }
       await buildRoute(sourceW, dispatchTargetWarehouse);
     }
   };
 
-  const handleCloseDispatch = () => { setDispatchTargetWarehouse(null); setDispatchParentWarehouse(null); setActiveRoadRoute(null); setSelectedVehicleId(''); };
+  const handleCloseDispatch = () => { setDispatchTargetWarehouse(null); setDispatchParentWarehouse(null); setActiveRoadRoute(null); setSelectedVehicleId(''); loadData(); };
 
-  const availableVehicles = vehicles.filter(v => v.status === 'ACTIVE' && (v.type === 'VAN' || v.type === 'TRUCK' || v.type === 'PICKUP'));
+  const availableVehicles = vehicles.filter(v => v.type === 'VAN' || v.type === 'TRUCK' || v.type === 'PICKUP');
   const selectedVehicle = availableVehicles.find(v => v.id === selectedVehicleId);
   
   const getSafeAvailable = (item: any) => item.available ?? item.quantity ?? 0;
@@ -295,6 +327,22 @@ export default function Warehouses() {
       loadData(); 
     } catch (err: any) {
       toast.error(err.message || 'Не вдалося прийняти вантаж', { id: 'receive' });
+    }
+  };
+
+  const handleStartShipment = async (shipmentId: string) => {
+    try {
+      toast.loading('Підтверджуємо відправку...', { id: 'start' });
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/inventory/shipments/${shipmentId}/start`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Помилка сервера');
+      }
+      toast.success('Рейс відправлено! 🚚', { id: 'start' });
+      loadData(); 
+    } catch (err: any) {
+      toast.error(err.message || 'Не вдалося відправити рейс', { id: 'start' });
     }
   };
 
@@ -456,13 +504,43 @@ export default function Warehouses() {
 
       {viewInventoryWarehouse && (
         <div className="modal-overlay" onClick={() => setViewInventoryWarehouse(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth: '600px', width: '100%' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h3 style={{ margin: 0, color: 'var(--text-bright)' }}>📦 Залишки: {viewInventoryWarehouse.name}</h3>
               <button onClick={() => setViewInventoryWarehouse(null)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: 'var(--text-muted)' }}>&times;</button>
             </div>
-            <div style={{ padding: '20px 0', color: 'var(--text-muted)' }}>
-              <p>Функціонал перегляду в розробці...</p>
+            <div style={{ padding: '4px 0', color: 'var(--text-muted)', minHeight: '80px' }}>
+              {viewInventoryLoading ? (
+                <div style={{ textAlign: 'center', padding: '32px' }}>
+                  <div className="spinner" style={{ margin: '0 auto' }} />
+                  <p style={{ marginTop: '12px' }}>Завантаження залишків...</p>
+                </div>
+              ) : viewInventoryItems.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>
+                  <p>На цьому складі немає майна.</p>
+                </div>
+              ) : (
+                <table className="data-table" style={{ width: '100%' }}>
+                  <thead>
+                    <tr>
+                      <th>Назва</th>
+                      <th>Категорія</th>
+                      <th style={{ textAlign: 'right' }}>Кількість</th>
+                      <th style={{ textAlign: 'right' }}>Вага, кг</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {viewInventoryItems.map(item => (
+                      <tr key={item.id}>
+                        <td className="font-medium">{item.name}</td>
+                        <td style={{ color: 'var(--text-muted)', fontSize: '13px' }}>{(item as any).category || '—'}</td>
+                        <td style={{ textAlign: 'right' }}><strong>{item.available ?? (item as any).quantity ?? 0}</strong></td>
+                        <td style={{ textAlign: 'right', color: 'var(--text-muted)' }}>{item.weight_kg ?? '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </div>
             <div className="modal-actions">
               <button className="btn btn-primary" onClick={() => { handleOpenDispatch(viewInventoryWarehouse); setViewInventoryWarehouse(null); }}>🚚 Сформувати рейс сюди</button>
@@ -483,7 +561,7 @@ export default function Warehouses() {
                 <div className="form-group"><label>Широта</label><input className="erp-input" type="number" step="0.000001" value={newWarehouse.latitude} onChange={(e) => setNewWarehouse({ ...newWarehouse, latitude: e.target.value })} /></div>
                 <div className="form-group"><label>Довгота</label><input className="erp-input" type="number" step="0.000001" value={newWarehouse.longitude} onChange={(e) => setNewWarehouse({ ...newWarehouse, longitude: e.target.value })} /></div>
               </div>
-              <div className="modal-actions"><button type="button" className="btn btn-secondary cancel-margin" onClick={() => setShowForm(false)}>Скасувати</button><button type="submit" className="btn btn-primary" disabled={!newWarehouse.unit_id}>Створити</button></div>
+              <div className="modal-actions"><button type="button" className="btn btn-secondary cancel-margin" onClick={() => setShowForm(false)}>Скасувати</button><button type="submit" className="btn btn-primary" disabled={!newWarehouse.unit_id || !newWarehouse.name?.trim()}>Створити</button></div>
             </form>
           </div>
         </div>
@@ -632,13 +710,18 @@ export default function Warehouses() {
                       {s.priority === 'URGENT' ? <span className="badge badge-critical">🔴 Терміново</span> : <span className="badge badge-neutral">🟢 Плановий</span>}
                     </td>
                     <td className="text-center">
-                      {s.status === 'DISPATCHED' ? <span className="badge badge-warning">🚛 В дорозі</span> : <span className="badge badge-success">✅ Доставлено</span>}
+                      {s.status === 'PENDING' ? <span className="badge badge-neutral">⏳ Очікує</span> :
+                       s.status === 'IN_TRANSIT' ? <span className="badge badge-warning">🚛 В дорозі</span> : 
+                       <span className="badge badge-success">✅ Доставлено</span>}
                     </td>
                     {canManageWarehouses && (
                       <td>
                         <div className="actions-flex">
                           <button className="btn btn-secondary btn-sm" onClick={() => handleDownloadPDF(s.id)} title="Завантажити накладну">📄 Друк ТТН</button>
-                          {s.status === 'DISPATCHED' && (
+                          {s.status === 'PENDING' && (
+                            <button className="btn btn-info btn-sm" onClick={() => handleStartShipment(s.id)} title="Підтвердити виїзд">🚀 Відправити</button>
+                          )}
+                          {s.status === 'IN_TRANSIT' && (
                             <button className="btn btn-primary btn-sm" onClick={() => handleReceiveShipment(s.id)}>📦 Прийняти</button>
                           )}
                         </div>
@@ -689,7 +772,7 @@ export default function Warehouses() {
                 })}
 
                 {warehousesWithCoords.map((w) => (
-                  <DraggableMarker key={w.id} warehouse={w} icon={w.location_type === 'MOBILE' ? mobileIcon : stationaryIcon} unitName={units.find(u => u.id === w.unit_id)?.name || 'Невідомо'} onDragEnd={handleMarkerDragEnd} onViewInventory={setViewInventoryWarehouse} onDispatchTrip={handleOpenDispatch} onHover={setHoveredUnitId} />
+                  <DraggableMarker key={w.id} warehouse={w} icon={w.location_type === 'MOBILE' ? mobileIcon : stationaryIcon} unitName={units.find(u => u.id === w.unit_id)?.name || 'Невідомо'} onDragEnd={handleMarkerDragEnd} onViewInventory={handleViewInventory} onDispatchTrip={handleOpenDispatch} onHover={setHoveredUnitId} />
                 ))}
               </MapContainer>
 
@@ -727,10 +810,13 @@ export default function Warehouses() {
 
                     <div className="form-group">
                       <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)', marginBottom: '6px', display: 'block' }}>Транспорт та Водій</label>
-                      <select className="erp-input" value={selectedVehicleId} onChange={e => setSelectedVehicleId(e.target.value)}>
-                        <option value="" disabled>Оберіть вільний ТЗ...</option>
+                      <select className="erp-input" value={selectedVehicleId} onChange={e => setSelectedVehicleId(e.target.value)} disabled={!dispatchParentWarehouse}>
+                        <option value="" disabled>{dispatchParentWarehouse ? 'Оберіть вільний ТЗ...' : 'Спочатку оберіть склад-відправника'}</option>
                         {availableVehicles.map(v => <option key={v.id} value={v.id}>{v.brand} ({v.plate_number}) • {v.capacity_kg} кг</option>)}
                       </select>
+                      {dispatchParentWarehouse && availableVehicles.length === 0 && (
+                        <span style={{ fontSize: '11px', color: 'var(--warning)', marginTop: '4px', display: 'block' }}>⚠️ Немає доступного транспорту для цього маршруту</span>
+                      )}
                     </div>
 
                     {selectedVehicle && activeRoadRoute && !activeRoadRoute.error && (
@@ -774,7 +860,7 @@ export default function Warehouses() {
 
                   <div className="dispatch-footer">
                     <button className="btn btn-secondary" style={{flex: 1}} onClick={handleCloseDispatch}>Скасувати</button>
-                    <button className="btn btn-primary" style={{flex: 1}} onClick={handleDispatchSubmit} disabled={isOverweight || manifest.length === 0}>Відправити 🚀</button>
+                    <button className="btn btn-primary" style={{flex: 1}} onClick={handleDispatchSubmit} disabled={isOverweight || manifest.length === 0 || !selectedVehicleId}>Відправити 🚀</button>
                   </div>
                 </div>
               )}

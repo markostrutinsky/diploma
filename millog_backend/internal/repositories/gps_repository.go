@@ -133,7 +133,7 @@ func (r *GPSRepository) GetFleetLocations(ctx context.Context, db DBExecutor, un
 			WHERE EXISTS (
 				SELECT 1 FROM shipments s
 				WHERE s.vehicle_id = ll.vehicle_id
-				  AND s.status = 'DISPATCHED'
+				  AND s.status = 'IN_TRANSIT'
 			)
 		`, unitArgN, tFilter)
 	} else {
@@ -153,7 +153,7 @@ func (r *GPSRepository) GetFleetLocations(ctx context.Context, db DBExecutor, un
 			WHERE EXISTS (
 				SELECT 1 FROM shipments s
 				WHERE s.vehicle_id = ll.vehicle_id
-				  AND s.status = 'DISPATCHED'
+				  AND s.status = 'IN_TRANSIT'
 			)
 		`, whereBase)
 	}

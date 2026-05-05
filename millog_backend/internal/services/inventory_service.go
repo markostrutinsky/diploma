@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -18,14 +19,15 @@ import (
 )
 
 type InventoryService struct {
-	categoryRepo *repositories.CategoryRepository
-	resourceRepo *repositories.ResourceRepository
-	dbPool       *pgxpool.Pool
-	userRepo     *repositories.UserRepository
+	categoryRepo        *repositories.CategoryRepository
+	resourceRepo        *repositories.ResourceRepository
+	dbPool              *pgxpool.Pool
+	userRepo            *repositories.UserRepository
+	notificationService *NotificationService
 }
 
-func NewInventoryService(catRepo *repositories.CategoryRepository, resRepo *repositories.ResourceRepository, userRepo *repositories.UserRepository, db *pgxpool.Pool) *InventoryService {
-	return &InventoryService{categoryRepo: catRepo, resourceRepo: resRepo, userRepo: userRepo, dbPool: db}
+func NewInventoryService(catRepo *repositories.CategoryRepository, resRepo *repositories.ResourceRepository, userRepo *repositories.UserRepository, db *pgxpool.Pool, notifService *NotificationService) *InventoryService {
+	return &InventoryService{categoryRepo: catRepo, resourceRepo: resRepo, userRepo: userRepo, dbPool: db, notificationService: notifService}
 }
 
 func (s *InventoryService) CreateCategory(ctx context.Context, req *models.CreateCategoryRequest) (*models.ResourceCategory, error) {
@@ -148,7 +150,50 @@ func (s *InventoryService) IssueResource(ctx context.Context, commanderUnitID *i
 
 func (s *InventoryService) CreateShipment(ctx context.Context, req models.CreateShipmentRequest) error {
 	// Передаємо весь об'єкт req напряму в репозиторій для виконання транзакції
-	return s.resourceRepo.CreateShipment(ctx, s.dbPool, req)
+	err := s.resourceRepo.CreateShipment(ctx, s.dbPool, req)
+	if err != nil {
+		return err
+	}
+
+	// Отримуємо інформацію про водія машини для сповіщення
+	var driverID *string
+	err = s.dbPool.QueryRow(ctx, "SELECT driver_id FROM vehicles WHERE id = $1", req.VehicleID).Scan(&driverID)
+
+	log.Printf("DEBUG: CreateShipment - vehicle_id=%s, err=%v, driverID=%v", req.VehicleID, err, driverID)
+
+	// Якщо є водій, створюємо сповіщення
+	if err == nil && driverID != nil && *driverID != "" {
+		// Отримуємо tenant_id водія для коректного створення повідомлення
+		var driverTenantID string
+		err = s.dbPool.QueryRow(ctx, "SELECT tenant_id FROM users WHERE id = $1", *driverID).Scan(&driverTenantID)
+
+		log.Printf("DEBUG: Driver info - driverID=%s, tenantID=%s, err=%v", *driverID, driverTenantID, err)
+
+		if err == nil && driverTenantID != "" {
+			// Отримуємо назви складів для повідомлення
+			var fromWarehouse, toWarehouse string
+			_ = s.dbPool.QueryRow(ctx, "SELECT name FROM warehouses WHERE id = $1", req.FromWarehouseID).Scan(&fromWarehouse)
+			_ = s.dbPool.QueryRow(ctx, "SELECT name FROM warehouses WHERE id = $1", req.ToWarehouseID).Scan(&toWarehouse)
+
+			// Отримуємо ID щойно створеного shipment (останній створений для цього транспорту)
+			var shipmentID string
+			_ = s.dbPool.QueryRow(ctx, "SELECT id FROM shipments WHERE vehicle_id = $1 ORDER BY created_at DESC LIMIT 1", req.VehicleID).Scan(&shipmentID)
+
+			log.Printf("DEBUG: NotifyDriver - driverID=%s, shipmentID=%s, from=%s, to=%s", *driverID, shipmentID, fromWarehouse, toWarehouse)
+
+			// Створюємо новий контекст з tenant_id водія
+			if s.notificationService != nil && shipmentID != "" {
+				// Імпортуємо функцію WithTenant з repositories
+				driverCtx := context.WithValue(ctx, "tenant_id", driverTenantID)
+				notifErr := s.notificationService.NotifyDriverAboutShipment(driverCtx, *driverID, shipmentID, fromWarehouse, toWarehouse)
+				log.Printf("DEBUG: Notification result - err=%v", notifErr)
+			} else {
+				log.Printf("DEBUG: Skipping notification - service=%v, shipmentID=%s", s.notificationService != nil, shipmentID)
+			}
+		}
+	}
+
+	return nil
 }
 
 func (s *InventoryService) GetByWarehouse(ctx context.Context, warehouseID string) ([]models.InventoryItem, error) {
@@ -162,8 +207,16 @@ func (s *InventoryService) ListShipments(ctx context.Context) ([]repositories.Sh
 	return s.resourceRepo.ListShipments(ctx, s.dbPool)
 }
 
+func (s *InventoryService) ListMyShipments(ctx context.Context, userID string) ([]repositories.ShipmentRecord, error) {
+	return s.resourceRepo.ListMyShipments(ctx, s.dbPool, userID)
+}
+
 func (s *InventoryService) ReceiveShipment(ctx context.Context, shipmentID string) error {
 	return s.resourceRepo.ReceiveShipment(ctx, s.dbPool, shipmentID)
+}
+
+func (s *InventoryService) StartShipment(ctx context.Context, shipmentID string) error {
+	return s.resourceRepo.StartShipment(ctx, s.dbPool, shipmentID)
 }
 
 // --- НОВИЙ МЕТОД ГЕНЕРАЦІЇ PDF ---

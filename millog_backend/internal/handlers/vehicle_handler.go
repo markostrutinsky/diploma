@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -154,15 +155,22 @@ func (h *VehicleHandler) PerformMaintenance(c *gin.Context) {
 
 	file, err := c.FormFile("document")
 	if err == nil {
-		// 🛡️ ДОДАНО: Валідація розширення файлу
-		ext := filepath.Ext(file.Filename)
+		// 🛡️ Ліміт розміру файлу: 10 МБ
+		const maxFileSizeBytes = 10 << 20 // 10 MB
+		if file.Size > maxFileSizeBytes {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Файл занадто великий. Максимум 10 МБ."})
+			return
+		}
+
+		// 🛡️ Валідація розширення файлу
+		ext := strings.ToLower(filepath.Ext(file.Filename))
 		allowedExts := map[string]bool{".pdf": true, ".jpg": true, ".jpeg": true, ".png": true}
 		if !allowedExts[ext] {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Допускаються тільки PDF, JPG та PNG"})
 			return
 		}
 
-		// 🛡️ ДОДАНО: Генеруємо безпечне ім'я без user-input
+		// 🛡️ Генеруємо безпечне ім'я без user-input
 		newFileName := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
 		savePath := filepath.Join("uploads", "maintenance", newFileName)
 
