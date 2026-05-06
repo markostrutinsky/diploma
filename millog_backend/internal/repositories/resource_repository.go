@@ -688,7 +688,9 @@ type ShipmentRecord struct {
 }
 
 func (r *ResourceRepository) ListShipments(ctx context.Context, db DBExecutor) ([]ShipmentRecord, error) {
-	query := `
+	var args []any
+	tFilter := tenantFilter(ctx, "s", "WHERE", &args)
+	query := fmt.Sprintf(`
 		SELECT 
 			s.id, w1.name as from_warehouse, w2.name as to_warehouse, 
 			v.brand || ' (' || v.plate_number || ')' as vehicle, 
@@ -697,9 +699,10 @@ func (r *ResourceRepository) ListShipments(ctx context.Context, db DBExecutor) (
 		JOIN warehouses w1 ON s.from_warehouse_id = w1.id
 		JOIN warehouses w2 ON s.to_warehouse_id = w2.id
 		JOIN vehicles v ON s.vehicle_id = v.id
+		%s
 		ORDER BY s.created_at DESC
-	`
-	rows, err := db.Query(ctx, query)
+	`, tFilter)
+	rows, err := db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

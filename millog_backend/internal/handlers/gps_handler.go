@@ -127,7 +127,13 @@ func (h *GPSTrackingHandler) RecordVehicleLocation(c *gin.Context) {
 // GetFleetMap returns real-time positions of all vehicles (for live tracking dashboard)
 // GET /api/gps/fleet-map
 func (h *GPSTrackingHandler) GetFleetMap(c *gin.Context) {
+	role := models.UserRole(c.GetString("user_role"))
 	unitID := c.GetInt64("unit_id")
+
+	// Tenant admins and system admins see all vehicles in their tenant, not just their unit
+	if role == models.RoleTenantAdmin || role == models.RoleAdmin || role == models.RoleSystemAdmin {
+		unitID = 0
+	}
 
 	locations, err := h.gpsService.GetFleetLocations(c.Request.Context(), unitID)
 	if err != nil {

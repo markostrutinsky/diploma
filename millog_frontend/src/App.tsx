@@ -28,10 +28,12 @@ import FuelAnomalies from './pages/FuelAnomalies'
 import MyShipments from './pages/MyShipments'
 import { Toaster } from 'react-hot-toast'
 import { ROLE_GROUPS } from './constants/roles'
+import { GPSProvider } from './contexts/GPSContext'
 
 function App() {
   return (
     <AuthProvider>
+      <GPSProvider>
       <Toaster 
         position="top-right" 
         toastOptions={{
@@ -150,6 +152,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>
+      </GPSProvider>
     </AuthProvider>
   )
 }

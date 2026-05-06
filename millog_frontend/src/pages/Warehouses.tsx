@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { api, type Warehouse, type Unit } from '../api/client';
+import { api, getInMemoryToken, type Warehouse, type Unit } from '../api/client';
 import { usePermissions } from '../hooks/usePermissions';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
@@ -136,13 +136,12 @@ export default function Warehouses() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token'); 
-      
+      const token = getInMemoryToken();
       const [wRes, uRes, vRes, sRes] = await Promise.all([
-        api.warehouses.list().catch(() => []), 
+        api.warehouses.list().catch(() => []),
         api.units.list().catch(() => []),
         api.vehicles.list().catch(() => []) || [],
-        fetch('/api/inventory/shipments', { headers: { 'Authorization': `Bearer ${token}` } }).then(res => res.ok ? res.json() : [])
+        fetch('/api/inventory/shipments', { headers: { 'Authorization': `Bearer ${token}` }, credentials: 'include' }).then(res => res.ok ? res.json() : [])
       ]);
       setWarehouses(Array.isArray(wRes) ? wRes : []); 
       setUnits(Array.isArray(uRes) ? uRes : []);
@@ -296,10 +295,11 @@ export default function Warehouses() {
         items: manifest.map(m => ({ resource_id: m.item.id, quantity: m.quantity }))
       };
       
-      const token = localStorage.getItem('token');
+      const token = getInMemoryToken();
       const response = await fetch('/api/inventory/shipments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        credentials: 'include',
         body: JSON.stringify(payload)
       });
       
@@ -319,8 +319,8 @@ export default function Warehouses() {
   const handleReceiveShipment = async (shipmentId: string) => {
     try {
       toast.loading('Приймаємо вантаж на склад...', { id: 'receive' });
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/inventory/shipments/${shipmentId}/receive`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+      const token = getInMemoryToken();
+      const res = await fetch(`/api/inventory/shipments/${shipmentId}/receive`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, credentials: 'include' });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || 'Помилка сервера (500)');
@@ -335,8 +335,8 @@ export default function Warehouses() {
   const handleStartShipment = async (shipmentId: string) => {
     try {
       toast.loading('Підтверджуємо відправку...', { id: 'start' });
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/inventory/shipments/${shipmentId}/start`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+      const token = getInMemoryToken();
+      const res = await fetch(`/api/inventory/shipments/${shipmentId}/start`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, credentials: 'include' });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || 'Помилка сервера');

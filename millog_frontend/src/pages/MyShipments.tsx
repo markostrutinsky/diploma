@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useGPS } from '../contexts/GPSContext';
 import { getInMemoryToken } from '../api/client';
 import toast from 'react-hot-toast';
 import './MyShipments.css';
@@ -16,44 +17,21 @@ interface Shipment {
   created_at: string;
   started_at?: string;
   delivered_at?: string;
-  items?: Array<{
-    resource_name: string;
-    quantity: number;
-    unit: string;
-  }>;
+  items?: Array<{ resource_name: string; quantity: number; unit: string }>;
 }
-
-// ─── GPS стан ───────────────────────────────────────────────
-type GpsStatus = 'idle' | 'active' | 'error' | 'no_permission' | 'unavailable' | 'no_shipment';
 
 export default function MyShipments() {
   const { token } = useAuth();
+  // GPS тепер глобальний — живе в GPSContext, не залежить від цієї сторінки
+  const { gpsStatus, lastCoords, hasActiveShipment } = useGPS();
+
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'pending' | 'in_transit' | 'delivered'>('pending');
 
-  // GPS
-  const [gpsStatus, setGpsStatus] = useState<GpsStatus>('idle');
-  const [lastCoords, setLastCoords] = useState<{ lat: number; lng: number; speed: number | null } | null>(null);
-  const watchIdRef = useRef<number | null>(null);
-  const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const lastPositionRef = useRef<GeolocationPosition | null>(null);
-
-  const hasActiveShipment = shipments.some(s => s.status === 'IN_TRANSIT');
-
   useEffect(() => {
     loadMyShipments();
   }, [token]);
-
-  // Автоматично запускаємо/зупиняємо GPS залежно від наявності IN_TRANSIT рейсу
-  useEffect(() => {
-    if (hasActiveShipment) {
-      startGpsTracking();
-    } else {
-      stopGpsTracking();
-    }
-    return () => stopGpsTracking();
-  }, [hasActiveShipment]);
 
   const loadMyShipments = async () => {
     const authToken = token || getInMemoryToken();
@@ -73,80 +51,6 @@ export default function MyShipments() {
       setLoading(false);
     }
   };
-
-  // ── GPS tracking ─────────────────────────────────────────
-  const sendPing = async (pos: GeolocationPosition) => {
-    const authToken = getInMemoryToken() || token;
-    if (!authToken) return;
-    try {
-      const res = await fetch('/api/gps/driver/ping', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
-        credentials: 'include',
-        body: JSON.stringify({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-          altitude: pos.coords.altitude ?? 0,
-          speed: pos.coords.speed ?? 0,
-          heading: pos.coords.heading ?? 0,
-          accuracy: pos.coords.accuracy,
-        }),
-      });
-      if (res.ok) {
-        setGpsStatus('active');
-        setLastCoords({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          speed: pos.coords.speed !== null ? Math.round((pos.coords.speed ?? 0) * 3.6) : null, // m/s → km/h
-        });
-      } else if (res.status === 403) {
-        setGpsStatus('no_shipment');
-        stopGpsTracking();
-      }
-    } catch {
-      // мовчки ігноруємо мережеву помилку пінгу
-    }
-  };
-
-  const startGpsTracking = () => {
-    if (!navigator.geolocation) {
-      setGpsStatus('error');
-      return;
-    }
-    setGpsStatus('idle');
-    // Перший пінг одразу — перевіряємо дозвіл
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        lastPositionRef.current = pos;
-        sendPing(pos);
-        // watchPosition — браузер сам слідкує і кличе callback при русі
-        watchIdRef.current = navigator.geolocation.watchPosition(
-          (p) => { lastPositionRef.current = p; },
-          (e) => setGpsStatus(e.code === 1 ? 'no_permission' : 'unavailable'),
-          { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
-        );
-        // Надсилаємо пінг кожні 10 секунд
-        pingIntervalRef.current = setInterval(() => {
-          if (lastPositionRef.current) sendPing(lastPositionRef.current);
-        }, 10_000);
-      },
-      (e) => setGpsStatus(e.code === 1 ? 'no_permission' : 'unavailable'),
-      { enableHighAccuracy: true, timeout: 15000 }
-    );
-  };
-
-  const stopGpsTracking = () => {
-    if (watchIdRef.current !== null) {
-      navigator.geolocation.clearWatch(watchIdRef.current);
-      watchIdRef.current = null;
-    }
-    if (pingIntervalRef.current !== null) {
-      clearInterval(pingIntervalRef.current);
-      pingIntervalRef.current = null;
-    }
-    setGpsStatus('idle');
-  };
-  // ─────────────────────────────────────────────────────────
 
   const handleStartShipment = async (shipmentId: string) => {
     const authToken = token || getInMemoryToken();
@@ -195,15 +99,15 @@ export default function MyShipments() {
     if (!dateStr) return '-';
     return new Date(dateStr).toLocaleString('uk-UA', {
       day: '2-digit', month: '2-digit', year: 'numeric',
-      hour: '2-digit', minute: '2-digit'
+      hour: '2-digit', minute: '2-digit',
     });
   };
 
   const getStatusBadge = (status: string) => {
     const badges: Record<string, { text: string; class: string }> = {
-      'PENDING':    { text: '⏳ Очікує',    class: 'status-pending' },
-      'IN_TRANSIT': { text: '🚚 В дорозі',  class: 'status-in-transit' },
-      'DELIVERED':  { text: '✅ Доставлено', class: 'status-delivered' },
+      PENDING:    { text: '⏳ Очікує',    class: 'status-pending' },
+      IN_TRANSIT: { text: '🚚 В дорозі',  class: 'status-in-transit' },
+      DELIVERED:  { text: '✅ Доставлено', class: 'status-delivered' },
     };
     const badge = badges[status] || { text: status, class: '' };
     return <span className={`status-badge ${badge.class}`}>{badge.text}</span>;
@@ -212,7 +116,7 @@ export default function MyShipments() {
   if (loading) {
     return (
       <div className="my-shipments-page">
-        <div className="loading-state"><div className="spinner"></div><p>Завантаження рейсів...</p></div>
+        <div className="loading-state"><div className="spinner" /><p>Завантаження рейсів...</p></div>
       </div>
     );
   }
@@ -227,7 +131,7 @@ export default function MyShipments() {
         <button className="btn-refresh" onClick={loadMyShipments}>🔄 Оновити</button>
       </div>
 
-      {/* ── GPS статус-банер ── */}
+      {/* ── GPS статус-банер (дані з глобального GPSContext) ── */}
       {hasActiveShipment && (
         <div className={`gps-banner gps-banner--${gpsStatus}`}>
           {gpsStatus === 'active' && (
@@ -245,13 +149,13 @@ export default function MyShipments() {
             </>
           )}
           {gpsStatus === 'no_permission' && (
-            <span>🔒 Геолокацію заблоковано. Дозвольте доступ у браузері та <button className="gps-retry-btn" onClick={startGpsTracking}>спробуйте знову</button></span>
+            <span>🔒 Геолокацію заблоковано. Дозвольте доступ у браузері та оновіть сторінку.</span>
           )}
           {gpsStatus === 'unavailable' && (
-            <span>📡 Геолокація недоступна на цьому пристрої (немає GPS/WiFi-позиціонування). GPS трекінг вимкнено. <button className="gps-retry-btn" onClick={startGpsTracking}>повторити</button></span>
+            <span>📡 Геолокація недоступна на цьому пристрої. GPS трекінг вимкнено.</span>
           )}
           {gpsStatus === 'error' && <span>❌ Геолокація не підтримується цим браузером</span>}
-          {gpsStatus === 'idle' && <span>⏳ Очікуємо GPS сигнал...</span>}
+          {(gpsStatus === 'idle' || gpsStatus === 'no_shipment') && <span>⏳ Очікуємо GPS сигнал...</span>}
         </div>
       )}
 
@@ -325,24 +229,3 @@ export default function MyShipments() {
     </div>
   );
 }
-
-
-interface Shipment {
-  id: string;
-  vehicle_id: string;
-  vehicle_plate?: string;
-  from_warehouse_id: string;
-  from_warehouse_name?: string;
-  to_warehouse_id: string;
-  to_warehouse_name?: string;
-  status: 'PENDING' | 'IN_TRANSIT' | 'DELIVERED';
-  created_at: string;
-  started_at?: string;
-  delivered_at?: string;
-  items?: Array<{
-    resource_name: string;
-    quantity: number;
-    unit: string;
-  }>;
-}
-
