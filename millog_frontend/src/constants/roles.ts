@@ -402,8 +402,12 @@ export function hasFeature(
   userRole: string | undefined,
   feature: FeatureKey,
 ): boolean {
-  // Адмін системи завжди має доступ (для демо й підтримки)
-  if (userRole === ROLES.ADMIN) return true
+  // SYSTEM_ADMIN, TENANT_ADMIN та legacy ADMIN завжди мають доступ до всіх фіч
+  if (
+    userRole === ROLES.SYSTEM_ADMIN ||
+    userRole === ROLES.TENANT_ADMIN ||
+    userRole === ROLES.ADMIN
+  ) return true
   const { minTier } = FEATURES[feature]
   return tierAtLeast(userTier, minTier)
 }

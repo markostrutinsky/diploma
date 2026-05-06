@@ -54,11 +54,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshUser = async () => {
     try {
-      const res = await api.auth.refresh()
-      setInMemoryToken(res.token)
-      setToken(res.token)
-      setUser(res.user)
-    } catch { /* ігноруємо */ }
+      // Просто оновлюємо user об'єкт з /auth/me без ротації токена
+      const freshUser = await api.auth.me()
+      setUser(freshUser)
+    } catch {
+      // Якщо /auth/me недоступний — пробуємо через refresh
+      try {
+        const res = await api.auth.refresh()
+        setInMemoryToken(res.token)
+        setToken(res.token)
+        setUser(res.user)
+      } catch { /* ігноруємо */ }
+    }
   }
 
   return (
