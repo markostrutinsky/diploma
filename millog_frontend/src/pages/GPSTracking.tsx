@@ -1,8 +1,49 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet'
+import L from 'leaflet'
+import 'leaflet/dist/leaflet.css'
 import { api } from '../api/client'
 import { usePermissions } from '../hooks/usePermissions'
 import { PaywallScreen } from '../components/FeatureGate'
 import './GPSTracking.css'
+
+// Leaflet default icon fix (Vite/webpack asset issue)
+delete (L.Icon.Default.prototype as any)._getIconUrl
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl:       'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+})
+
+const makeVehicleIcon = (speed: number, heading: number) => {
+  const color = speed === 0 ? '#6b7280' : speed < 20 ? '#f59e0b' : speed < 60 ? '#3b82f6' : '#10b981'
+  const arrow = speed > 0 ? `<div style="transform:rotate(${heading}deg);font-size:14px;line-height:1;">➤</div>` : `<div style="font-size:14px;">◼</div>`
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      background:${color};color:#fff;border-radius:50%;
+      width:36px;height:36px;display:flex;align-items:center;
+      justify-content:center;border:2px solid #fff;
+      box-shadow:0 2px 8px rgba(0,0,0,0.35);">${arrow}</div>`,
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
+    popupAnchor: [0, -20],
+  })
+}
+
+// Компонент що переміщує камеру до всіх маркерів
+const FitBounds: React.FC<{ vehicles: Vehicle[] }> = ({ vehicles }) => {
+  const map = useMap()
+  const fitted = useRef(false)
+  useEffect(() => {
+    if (!fitted.current && vehicles.length > 0) {
+      const bounds = L.latLngBounds(vehicles.map(v => [v.latitude, v.longitude]))
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 13 })
+      fitted.current = true
+    }
+  }, [vehicles])
+  return null
+}
 
 interface Vehicle {
   vehicle_id: number
@@ -88,17 +129,6 @@ const GPSTracking: React.FC = () => {
     }
   }
 
-  const getSpeedColor = (speed: number): string => {
-    if (speed === 0) return '#999' // Parked
-    if (speed < 20) return '#ffc107' // Slow
-    if (speed < 60) return '#17a2b8' // Normal
-    return '#28a745' // Fast
-  }
-
-  const getHeadingRotation = (heading?: number | null): number => {
-    return heading ?? 0
-  }
-
   if (!hasAccess) {
     return (
       <PaywallScreen
@@ -165,86 +195,58 @@ const GPSTracking: React.FC = () => {
         </button>
       </div>
 
-      <div className="vehicles-grid">
-        {(fleetData.vehicles?.length ?? 0) > 0 ? (
-          (fleetData.vehicles ?? []).map((vehicle) => (
-            <div key={vehicle.vehicle_id} className="vehicle-card">
-              <div 
-                className="vehicle-marker"
-                style={{
-                  backgroundColor: getSpeedColor(vehicle.speed),
-                  transform: `rotate(${getHeadingRotation(vehicle.heading)}deg)`
-                }}
-              >
-                {vehicle.speed > 0 ? '▶' : '◼'}
-              </div>
-              
-              <div className="vehicle-info">
-                <div className="vehicle-plate">
-                  {vehicle.plate_number || `Авто №${vehicle.vehicle_id}`}
+      {/* ── Головна карта флоту ── */}
+      <div className="fleet-map-wrapper">
+        <MapContainer
+          center={[50.4501, 30.5234]}
+          zoom={10}
+          style={{ height: '100%', width: '100%', borderRadius: '12px' }}
+        >
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          />
+          {(fleetData.vehicles ?? []).map(vehicle => (
+            <Marker
+              key={vehicle.vehicle_id}
+              position={[vehicle.latitude, vehicle.longitude]}
+              icon={makeVehicleIcon(vehicle.speed, vehicle.heading ?? 0)}
+              eventHandlers={{ click: () => openDetail(vehicle) }}
+            >
+              <Popup>
+                <div className="fleet-popup">
+                  <strong>{vehicle.plate_number || `Авто №${vehicle.vehicle_id}`}</strong>
+                  <div>🏎 {Number(vehicle.speed).toFixed(1)} км/год</div>
+                  <div>📍 {Number(vehicle.latitude).toFixed(4)}°, {Number(vehicle.longitude).toFixed(4)}°</div>
+                  <div>🕐 {new Date(vehicle.timestamp).toLocaleTimeString('uk-UA')}</div>
+                  <button className="popup-detail-btn" onClick={() => openDetail(vehicle)}>
+                    Детальніше →
+                  </button>
                 </div>
-                
-                <div className="vehicle-location">
-                  <span className="coord lat">
-                    {Number(vehicle.latitude).toFixed(4)}°N
-                  </span>
-                  <span className="coord lon">
-                    {Number(vehicle.longitude).toFixed(4)}°E
-                  </span>
-                </div>
-
-                <div className="vehicle-status">
-                  <div className="speed-box">
-                    <span className="speed-value">{Number(vehicle.speed).toFixed(1)}</span>
-                    <span className="speed-unit">км/год</span>
-                  </div>
-                  
-                  <div className="status-box">
-                    <span className="status-label">
-                      {vehicle.speed === 0 ? '🛑 Припинена' : '🚗 Рухається'}
-                    </span>
-                    <span className="updated-time">
-                      {vehicle.updated_seconds_ago ?? 0}с тому
-                    </span>
-                  </div>
-                </div>
-
-                <button 
-                  className="btn-detail"
-                  onClick={() => openDetail(vehicle)}
-                >
-                  Деталі
-                </button>
-              </div>
-            </div>
-          ))
-        ) : (
-          <div className="no-vehicles">Немає машин онлайн</div>
-        )}
+              </Popup>
+            </Marker>
+          ))}
+          {(fleetData.vehicles?.length ?? 0) > 0 && (
+            <FitBounds vehicles={fleetData.vehicles} />
+          )}
+        </MapContainer>
       </div>
+
+      {(fleetData.vehicles?.length ?? 0) === 0 && (
+        <div className="no-vehicles">🚫 Немає машин у дорозі зараз</div>
+      )}
 
       <div className="gps-legend">
-        <div className="legend-item">
-          <div className="legend-color" style={{ backgroundColor: '#999' }}>◼</div>
-          <span>Припинена (0 км/год)</span>
-        </div>
-        <div className="legend-item">
-          <div className="legend-color" style={{ backgroundColor: '#ffc107' }}>▶</div>
-          <span>Низька швидкість (&lt;20 км/год)</span>
-        </div>
-        <div className="legend-item">
-          <div className="legend-color" style={{ backgroundColor: '#17a2b8' }}>▶</div>
-          <span>Нормальна швидкість (20-60 км/год)</span>
-        </div>
-        <div className="legend-item">
-          <div className="legend-color" style={{ backgroundColor: '#28a745' }}>▶</div>
-          <span>Висока швидкість (&gt;60 км/год)</span>
-        </div>
+        <div className="legend-item"><span className="legend-dot" style={{ background: '#6b7280' }} />Стоїть</div>
+        <div className="legend-item"><span className="legend-dot" style={{ background: '#f59e0b' }} />&lt;20 км/год</div>
+        <div className="legend-item"><span className="legend-dot" style={{ background: '#3b82f6' }} />20–60 км/год</div>
+        <div className="legend-item"><span className="legend-dot" style={{ background: '#10b981' }} />&gt;60 км/год</div>
       </div>
 
+      {/* ── Модалка з деталями + траса ── */}
       {detailVehicle && (
         <div className="gps-modal-overlay" onClick={closeDetail}>
-          <div className="gps-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="gps-modal gps-modal--wide" onClick={(e) => e.stopPropagation()}>
             <div className="gps-modal-header">
               <h2>🚗 {detailVehicle.plate_number || `Машина #${detailVehicle.vehicle_id}`}</h2>
               <button className="gps-modal-close" onClick={closeDetail}>✕</button>
@@ -273,36 +275,60 @@ const GPSTracking: React.FC = () => {
                 </div>
                 <div className="gps-detail-item">
                   <span className="gps-detail-label">Статус</span>
-                  <span className="gps-detail-value">
-                    {detailVehicle.speed === 0 ? '🛑 Стоїть' : '🚗 Рухається'}
-                  </span>
+                  <span className="gps-detail-value">{detailVehicle.speed === 0 ? '🛑 Стоїть' : '🚗 Рухається'}</span>
                 </div>
               </div>
 
               <h3 className="gps-traj-title">📍 Маршрут за останні 24 години</h3>
+
               {trajectoryLoading ? (
                 <p className="gps-traj-empty">Завантаження маршруту...</p>
               ) : trajectory.length === 0 ? (
                 <p className="gps-traj-empty">Немає даних маршруту за вказаний період.</p>
               ) : (
-                <div className="gps-traj-stats">
-                  <div className="gps-detail-item">
-                    <span className="gps-detail-label">Точок зафіксовано</span>
-                    <span className="gps-detail-value">{trajectory.length}</span>
+                <>
+                  <div className="gps-traj-stats">
+                    <div className="gps-detail-item">
+                      <span className="gps-detail-label">Точок зафіксовано</span>
+                      <span className="gps-detail-value">{trajectory.length}</span>
+                    </div>
+                    <div className="gps-detail-item">
+                      <span className="gps-detail-label">Перша точка</span>
+                      <span className="gps-detail-value">{new Date(trajectory[0]?.timestamp).toLocaleString('uk-UA')}</span>
+                    </div>
+                    <div className="gps-detail-item">
+                      <span className="gps-detail-label">Остання точка</span>
+                      <span className="gps-detail-value">{new Date(trajectory[trajectory.length - 1]?.timestamp).toLocaleString('uk-UA')}</span>
+                    </div>
                   </div>
-                  <div className="gps-detail-item">
-                    <span className="gps-detail-label">Перша точка</span>
-                    <span className="gps-detail-value">
-                      {new Date(trajectory[0]?.timestamp).toLocaleString('uk-UA')}
-                    </span>
+
+                  {/* Міні-карта маршруту */}
+                  <div className="traj-map-wrapper">
+                    <MapContainer
+                      center={[detailVehicle.latitude, detailVehicle.longitude]}
+                      zoom={12}
+                      style={{ height: '100%', width: '100%', borderRadius: '8px' }}
+                    >
+                      <TileLayer
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        attribution='&copy; OpenStreetMap'
+                      />
+                      <Polyline
+                        positions={trajectory.map((p: any) => [p.latitude, p.longitude])}
+                        color="#3b82f6"
+                        weight={3}
+                        opacity={0.8}
+                      />
+                      <Marker position={[trajectory[0]?.latitude, trajectory[0]?.longitude]}>
+                        <Popup>🚀 Старт: {new Date(trajectory[0]?.timestamp).toLocaleTimeString('uk-UA')}</Popup>
+                      </Marker>
+                      <Marker position={[detailVehicle.latitude, detailVehicle.longitude]}
+                        icon={makeVehicleIcon(detailVehicle.speed, detailVehicle.heading ?? 0)}>
+                        <Popup>📍 Поточна позиція</Popup>
+                      </Marker>
+                    </MapContainer>
                   </div>
-                  <div className="gps-detail-item">
-                    <span className="gps-detail-label">Остання точка</span>
-                    <span className="gps-detail-value">
-                      {new Date(trajectory[trajectory.length - 1]?.timestamp).toLocaleString('uk-UA')}
-                    </span>
-                  </div>
-                </div>
+                </>
               )}
             </div>
             <div className="gps-modal-footer">
@@ -313,6 +339,7 @@ const GPSTracking: React.FC = () => {
       )}
     </div>
   )
+
 }
 
 export default GPSTracking
