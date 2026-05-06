@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { api } from '../api/client'
+import { useAuth } from '../contexts/AuthContext'
 import './PlatformAdmin.css'
 
 type Tenant = {
@@ -19,6 +20,7 @@ type Tenant = {
 const TIERS = ['BASIC', 'PRO', 'ENTERPRISE'] as const
 
 export default function PlatformAdmin() {
+  const { refreshUser } = useAuth()
   const [stats, setStats] = useState<any>(null)
   const [tenants, setTenants] = useState<Tenant[]>([])
   const [search, setSearch] = useState('')
@@ -47,6 +49,8 @@ export default function PlatformAdmin() {
       await api.platform.updateTier(t.id, tier)
       toast.success(`Тариф "${t.name}" → ${tier}`)
       load()
+      // Оновлюємо user в AuthContext — щоб платні фічи відразу відкрились
+      await refreshUser()
     } catch (e: any) {
       toast.error(e?.message || 'Не вдалось змінити тариф')
     }
