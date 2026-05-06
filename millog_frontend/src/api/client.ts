@@ -713,6 +713,7 @@ export interface User {
   created_at: string;            
   updated_at: string;
   effective_subscription_tier?: SubscriptionTier;
+  subscription_expires_at?: string | null;  // ISO-8601, null = безстрокова
   unit?: {
     subscription_tier?: string;
   };

@@ -41,12 +41,13 @@ const KPIDashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (perms.authLoading) return
     if (!hasAccess) {
       setLoading(false)
       return
     }
     fetchKPIData()
-  }, [hasAccess])
+  }, [hasAccess, perms.authLoading])
 
   const fetchKPIData = async () => {
     try {
@@ -67,7 +68,7 @@ const KPIDashboard: React.FC = () => {
     }
   }
 
-  if (!hasAccess) {
+  if (!hasAccess || error) {
     return (
       <PaywallScreen
         feature="advanced_analytics"
@@ -78,15 +79,6 @@ const KPIDashboard: React.FC = () => {
 
   if (loading) {
     return <div className="loading">Завантаження KPI даних...</div>
-  }
-
-  if (error) {
-    return (
-      <div className="error-message">
-        <p>{error}</p>
-        <a href="/billing" className="btn-upgrade">Оновити план</a>
-      </div>
-    )
   }
 
   if (!kpiData) {

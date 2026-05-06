@@ -586,6 +586,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 
 		// T15. Перенести subscription_tier з units на tenants.
 		// Беремо найвищий тариф серед units tenant-у (якщо був) і ставимо на tenant.
+		// Умова: оновлюємо тільки якщо tenant ще має BASIC (не перезаписуємо вручну встановлений тариф).
 		`DO $$
 		DECLARE r RECORD;
 		BEGIN
@@ -597,6 +598,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 						ELSE 0 END), 0) AS lvl
 				FROM tenants t
 				LEFT JOIN units u ON u.tenant_id = t.id
+				WHERE t.subscription_tier = 'BASIC'
 				GROUP BY t.id
 			LOOP
 				UPDATE tenants SET subscription_tier = CASE r.lvl
@@ -604,7 +606,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 					WHEN 2 THEN 'PRO'
 					WHEN 1 THEN 'BASIC'
 					ELSE subscription_tier END
-				WHERE id = r.tenant_id AND r.lvl > 0;
+				WHERE id = r.tenant_id AND r.lvl > 1;
 			END LOOP;
 		END $$;`,
 

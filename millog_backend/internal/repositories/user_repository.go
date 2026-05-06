@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"Omnilog_backend/internal/models"
 
@@ -144,39 +145,60 @@ func (r *UserRepository) GetCommanders(ctx context.Context, db DBExecutor) ([]*m
 }
 
 func (r *UserRepository) GetByEmail(ctx context.Context, db DBExecutor, email string) (*models.User, error) {
-	query := `SELECT id, tenant_id, username, email, full_name, phone, password_hash, role, status, unit_id, created_at, updated_at
-	FROM users WHERE email = $1`
-	var u models.User
-	err := db.QueryRow(ctx, query, email).Scan(
-		&u.ID, &u.TenantID, &u.Username, &u.Email, &u.FullName, &u.Phone, &u.PasswordHash,
-		&u.Role, &u.Status, &u.UnitID, &u.CreatedAt, &u.UpdatedAt,
-	)
-	if err != nil {
-		return nil, err
-	}
-	return &u, nil
-}
-
-func (r *UserRepository) GetByID(ctx context.Context, db DBExecutor, id string) (*models.User, error) {
-	// Тариф беремо з tenants.subscription_tier. SYSTEM_ADMIN завжди ENTERPRISE.
 	query := `
 		SELECT u.id, u.tenant_id, u.username, u.email, u.full_name, u.phone, u.password_hash,
 			u.role, u.status, u.unit_id, u.created_at, u.updated_at,
-			COALESCE(t.subscription_tier, 'BASIC') AS effective_tier
+			COALESCE(t.subscription_tier, 'BASIC') AS effective_tier,
+			t.subscription_expires_at
 		FROM users u
 		LEFT JOIN tenants t ON t.id = u.tenant_id
-		WHERE u.id = $1`
+		WHERE u.email = $1`
 	var u models.User
-	err := db.QueryRow(ctx, query, id).Scan(
+	var expiresAt *time.Time
+	err := db.QueryRow(ctx, query, email).Scan(
 		&u.ID, &u.TenantID, &u.Username, &u.Email, &u.FullName, &u.Phone, &u.PasswordHash,
 		&u.Role, &u.Status, &u.UnitID, &u.CreatedAt, &u.UpdatedAt, &u.EffectiveSubscriptionTier,
+		&expiresAt,
 	)
 	if err != nil {
 		return nil, err
 	}
 	if u.Role == models.RoleSystemAdmin {
 		u.EffectiveSubscriptionTier = "ENTERPRISE"
+	} else if expiresAt != nil && time.Now().After(*expiresAt) {
+		u.EffectiveSubscriptionTier = "BASIC"
 	}
+	u.SubscriptionExpiresAt = expiresAt
+	return &u, nil
+}
+
+func (r *UserRepository) GetByID(ctx context.Context, db DBExecutor, id string) (*models.User, error) {
+	// Тариф беремо з tenants.subscription_tier. SYSTEM_ADMIN завжди ENTERPRISE.
+	// Якщо subscription_expires_at у минулому — ефективний тариф BASIC.
+	query := `
+		SELECT u.id, u.tenant_id, u.username, u.email, u.full_name, u.phone, u.password_hash,
+			u.role, u.status, u.unit_id, u.created_at, u.updated_at,
+			COALESCE(t.subscription_tier, 'BASIC') AS effective_tier,
+			t.subscription_expires_at
+		FROM users u
+		LEFT JOIN tenants t ON t.id = u.tenant_id
+		WHERE u.id = $1`
+	var u models.User
+	var expiresAt *time.Time
+	err := db.QueryRow(ctx, query, id).Scan(
+		&u.ID, &u.TenantID, &u.Username, &u.Email, &u.FullName, &u.Phone, &u.PasswordHash,
+		&u.Role, &u.Status, &u.UnitID, &u.CreatedAt, &u.UpdatedAt, &u.EffectiveSubscriptionTier,
+		&expiresAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if u.Role == models.RoleSystemAdmin {
+		u.EffectiveSubscriptionTier = "ENTERPRISE"
+	} else if expiresAt != nil && time.Now().After(*expiresAt) {
+		u.EffectiveSubscriptionTier = "BASIC"
+	}
+	u.SubscriptionExpiresAt = expiresAt
 	return &u, nil
 }
 

@@ -15,19 +15,48 @@ L.Icon.Default.mergeOptions({
   shadowUrl:     'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 })
 
-const makeVehicleIcon = (speed: number, heading: number) => {
-  const color = speed === 0 ? '#6b7280' : speed < 20 ? '#f59e0b' : speed < 60 ? '#3b82f6' : '#10b981'
-  const arrow = speed > 0 ? `<div style="transform:rotate(${heading}deg);font-size:14px;line-height:1;">➤</div>` : `<div style="font-size:14px;">◼</div>`
+const makeVehicleIcon = (speed: number, heading: number, plateNumber?: string) => {
+  const moving = speed > 0
+  const color   = !moving ? '#6b7280' : speed < 20 ? '#f59e0b' : speed < 60 ? '#3b82f6' : '#10b981'
+  const shadow  = !moving ? 'rgba(107,114,128,0.4)' : speed < 20 ? 'rgba(245,158,11,0.45)' : speed < 60 ? 'rgba(59,130,246,0.45)' : 'rgba(16,185,129,0.45)'
+  const label   = plateNumber ? plateNumber.slice(-4) : ''   // останні 4 символи номера
+
+  // SVG вантажівки (вид зверху) + стрілка напрямку + підпис номера
+  const truckSvg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <defs>
+    <filter id="sh" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2.5" flood-color="${shadow}"/>
+    </filter>
+  </defs>
+  <!-- пульсуюче кільце для рухомих машин -->
+  ${moving ? `<circle cx="24" cy="24" r="22" fill="none" stroke="${color}" stroke-width="2" opacity="0.35"><animate attributeName="r" values="18;24;18" dur="1.8s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.6;0;0" dur="1.8s" repeatCount="indefinite"/></circle>` : ''}
+  <!-- корпус вантажівки -->
+  <g transform="rotate(${heading},24,24)" filter="url(#sh)">
+    <!-- причіп -->
+    <rect x="12" y="18" width="16" height="20" rx="2" fill="${color}" opacity="0.85"/>
+    <!-- кабіна -->
+    <rect x="13" y="9" width="14" height="12" rx="3" fill="${color}"/>
+    <!-- лобове скло -->
+    <rect x="15" y="10" width="10" height="6" rx="1.5" fill="rgba(255,255,255,0.55)"/>
+    <!-- колеса -->
+    <rect x="10" y="21" width="4" height="6" rx="1" fill="rgba(0,0,0,0.5)"/>
+    <rect x="34" y="21" width="4" height="6" rx="1" fill="rgba(0,0,0,0.5)"/>
+    <rect x="10" y="30" width="4" height="6" rx="1" fill="rgba(0,0,0,0.5)"/>
+    <rect x="34" y="30" width="4" height="6" rx="1" fill="rgba(0,0,0,0.5)"/>
+    <!-- стрілка напрямку на даху кабіни -->
+    ${moving ? `<polygon points="20,6 24,2 28,6" fill="white" opacity="0.9"/>` : ''}
+  </g>
+  <!-- підпис номера -->
+  ${label ? `<text x="24" y="47" text-anchor="middle" font-family="monospace" font-size="7" font-weight="bold" fill="${color}">${label}</text>` : ''}
+</svg>`
+
   return L.divIcon({
-    className: '',
-    html: `<div style="
-      background:${color};color:#fff;border-radius:50%;
-      width:36px;height:36px;display:flex;align-items:center;
-      justify-content:center;border:2px solid #fff;
-      box-shadow:0 2px 8px rgba(0,0,0,0.35);">${arrow}</div>`,
-    iconSize: [36, 36],
-    iconAnchor: [18, 18],
-    popupAnchor: [0, -20],
+    className: 'vehicle-marker-icon',
+    html: truckSvg,
+    iconSize:   [48, 48],
+    iconAnchor: [24, 24],
+    popupAnchor: [0, -26],
   })
 }
 
@@ -99,6 +128,7 @@ const GPSTracking: React.FC = () => {
   }
 
   useEffect(() => {
+    if (perms.authLoading) return  // чекаємо поки AuthContext відновить сесію
     if (!hasAccess) {
       setLoading(false)
       return
@@ -109,7 +139,7 @@ const GPSTracking: React.FC = () => {
       const interval = setInterval(fetchFleetData, refreshInterval * 1000)
       return () => clearInterval(interval)
     }
-  }, [autoRefresh, refreshInterval, hasAccess])
+  }, [autoRefresh, refreshInterval, hasAccess, perms.authLoading])
 
   const fetchFleetData = async () => {
     try {
@@ -144,10 +174,10 @@ const GPSTracking: React.FC = () => {
 
   if (error) {
     return (
-      <div className="error-message">
-        <p>{error}</p>
-        <a href="/billing" className="btn-upgrade">Оновити план</a>
-      </div>
+      <PaywallScreen
+        feature="gps_tracking"
+        description="Real-time карта, історія маршрутів за 24 години, геозони та контроль швидкості — щоб диспетчер бачив усі машини в одному вікні."
+      />
     )
   }
 
@@ -210,7 +240,7 @@ const GPSTracking: React.FC = () => {
             <Marker
               key={vehicle.vehicle_id}
               position={[vehicle.latitude, vehicle.longitude]}
-              icon={makeVehicleIcon(vehicle.speed, vehicle.heading ?? 0)}
+              icon={makeVehicleIcon(vehicle.speed, vehicle.heading ?? 0, vehicle.plate_number)}
               eventHandlers={{ click: () => openDetail(vehicle) }}
             >
               <Popup>
@@ -323,7 +353,7 @@ const GPSTracking: React.FC = () => {
                         <Popup>🚀 Старт: {new Date(trajectory[0]?.timestamp).toLocaleTimeString('uk-UA')}</Popup>
                       </Marker>
                       <Marker position={[detailVehicle.latitude, detailVehicle.longitude]}
-                        icon={makeVehicleIcon(detailVehicle.speed, detailVehicle.heading ?? 0)}>
+                        icon={makeVehicleIcon(detailVehicle.speed, detailVehicle.heading ?? 0, detailVehicle.plate_number)}>
                         <Popup>📍 Поточна позиція</Popup>
                       </Marker>
                     </MapContainer>

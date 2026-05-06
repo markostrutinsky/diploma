@@ -5,6 +5,7 @@ import { api, ROLE_NAMES } from '../api/client'
 import toast from 'react-hot-toast'
 import { ROLE_GROUPS, ROLES, hasRole } from '../constants/roles'
 import NotificationCenter from './NotificationCenter'
+import { SubscriptionExpiryBanner } from './FeatureGate'
 import './Layout.css'
 
 interface LayoutProps {
@@ -249,7 +250,10 @@ export default function Layout({ children }: LayoutProps) {
             <Link to="/login" className="btn btn-primary">Увійти</Link>
           </header>
         )}
-        <main className="page-content">{children}</main>
+        <main className="page-content">
+          <SubscriptionExpiryBanner />
+          {children}
+        </main>
       </div>
     </div>
   )

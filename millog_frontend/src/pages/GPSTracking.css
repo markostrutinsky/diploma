@@ -494,3 +494,30 @@
   border: 1px solid var(--border-color, #e5e7eb);
   margin-top: 0.75rem;
 }
+
+/* ── Vehicle SVG marker ─────────────────────────────── */
+.vehicle-marker-icon {
+  background: none !important;
+  border: none !important;
+}
+.vehicle-marker-icon .ping-ring,
+.vehicle-marker-icon svg .ping-ring {
+  animation: marker-ping 1.8s ease-out infinite;
+  transform-origin: center;
+}
+@keyframes marker-ping {
+  0%   { r: 18; opacity: 0.6; }
+  70%  { r: 23; opacity: 0;   }
+  100% { r: 18; opacity: 0;   }
+}
+
+/* ── Vehicle SVG marker ─────────────────────────────── */
+.vehicle-marker-icon {
+  background: none !important;
+  border: none !important;
+}
+@keyframes marker-ping {
+  0%   { r: 18; opacity: 0.55; }
+  70%  { r: 23; opacity: 0;    }
+  100% { r: 18; opacity: 0;    }
+}

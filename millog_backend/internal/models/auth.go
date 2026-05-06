@@ -171,7 +171,8 @@ type User struct {
 
 	// Обчислюване поле (не зберігається в users): найвищий тариф у ієрархії unit.
 	// Заповнюється в UserRepository.GetByID, використовується фронтом для feature-gating.
-	EffectiveSubscriptionTier string `json:"effective_subscription_tier,omitempty" gorm:"-"`
+	EffectiveSubscriptionTier string     `json:"effective_subscription_tier,omitempty" gorm:"-"`
+	SubscriptionExpiresAt     *time.Time `json:"subscription_expires_at,omitempty" gorm:"-"`
 }
 
 type CreateUserRequest struct {

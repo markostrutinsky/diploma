@@ -37,12 +37,13 @@ export function FuelAnomalies() {
   const [alertsEnabled, setAlertsEnabled] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
+    if (perms.authLoading) return;
     if (!hasAccess) {
       setLoading(false);
       return;
     }
     fetchFuelAnomalies();
-  }, [hasAccess]);
+  }, [hasAccess, perms.authLoading]);
 
   const fetchFuelAnomalies = async () => {
     try {
@@ -100,7 +101,7 @@ export function FuelAnomalies() {
     filterLevel === 'ALL' || item.investigation_level === filterLevel
   );
 
-  if (!hasAccess) {
+  if (!hasAccess || error) {
     return (
       <PaywallScreen
         feature="fuel_antifraud"
@@ -111,10 +112,6 @@ export function FuelAnomalies() {
 
   if (loading) {
     return <div className="anomalies-container"><div className="loading">Завантаження анализу аномалій...</div></div>;
-  }
-
-  if (error) {
-    return <div className="anomalies-container"><div className="error-message">{error}</div></div>;
   }
 
   return (

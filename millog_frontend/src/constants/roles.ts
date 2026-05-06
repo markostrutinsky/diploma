@@ -397,10 +397,17 @@ export function tierAtLeast(userTier: Tier | undefined | null, required: Tier): 
   return TIER_WEIGHT[userTier] >= TIER_WEIGHT[required]
 }
 
+/** Перевіряє чи підписка ще діє (expiresAt = null → безстрокова) */
+export function isSubscriptionActive(expiresAt: string | null | undefined): boolean {
+  if (!expiresAt) return true  // null = безстрокова
+  return new Date(expiresAt) > new Date()
+}
+
 export function hasFeature(
   userTier: Tier | undefined | null,
   userRole: string | undefined,
   feature: FeatureKey,
+  subscriptionExpiresAt?: string | null,
 ): boolean {
   // SYSTEM_ADMIN, TENANT_ADMIN та legacy ADMIN завжди мають доступ до всіх фіч
   if (
@@ -408,6 +415,8 @@ export function hasFeature(
     userRole === ROLES.TENANT_ADMIN ||
     userRole === ROLES.ADMIN
   ) return true
+  // Якщо підписка прострочена — як BASIC
+  if (!isSubscriptionActive(subscriptionExpiresAt)) return false
   const { minTier } = FEATURES[feature]
   return tierAtLeast(userTier, minTier)
 }

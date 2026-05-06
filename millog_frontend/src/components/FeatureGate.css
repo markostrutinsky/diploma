@@ -225,3 +225,29 @@
   font-size: 9px;
   padding: 1px 6px;
 }
+
+/* Subscription expiry banner */
+.subscription-expiry-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #f59e0b22, #ef444422);
+  border: 1px solid #f59e0b55;
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+
+.subscription-expiry-banner__link {
+  color: #f59e0b;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.subscription-expiry-banner__link:hover {
+  text-decoration: underline;
+}

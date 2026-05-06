@@ -24,7 +24,7 @@ interface Shipment {
 }
 
 // ─── GPS стан ───────────────────────────────────────────────
-type GpsStatus = 'idle' | 'active' | 'error' | 'no_permission' | 'no_shipment';
+type GpsStatus = 'idle' | 'active' | 'error' | 'no_permission' | 'unavailable' | 'no_shipment';
 
 export default function MyShipments() {
   const { token } = useAuth();
@@ -113,23 +113,26 @@ export default function MyShipments() {
       setGpsStatus('error');
       return;
     }
-    // watchPosition — браузер сам слідкує і кличе callback при русі
-    watchIdRef.current = navigator.geolocation.watchPosition(
-      (pos) => { lastPositionRef.current = pos; },
-      () => setGpsStatus('no_permission'),
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
-    );
-    // Надсилаємо пінг кожні 10 секунд (щоб не бомбардувати сервер при кожному оновленні)
-    pingIntervalRef.current = setInterval(() => {
-      if (lastPositionRef.current) sendPing(lastPositionRef.current);
-    }, 10_000);
-    // Перший пінг одразу
+    setGpsStatus('idle');
+    // Перший пінг одразу — перевіряємо дозвіл
     navigator.geolocation.getCurrentPosition(
-      (pos) => { lastPositionRef.current = pos; sendPing(pos); },
-      () => setGpsStatus('no_permission'),
+      (pos) => {
+        lastPositionRef.current = pos;
+        sendPing(pos);
+        // watchPosition — браузер сам слідкує і кличе callback при русі
+        watchIdRef.current = navigator.geolocation.watchPosition(
+          (p) => { lastPositionRef.current = p; },
+          (e) => setGpsStatus(e.code === 1 ? 'no_permission' : 'unavailable'),
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 5000 }
+        );
+        // Надсилаємо пінг кожні 10 секунд
+        pingIntervalRef.current = setInterval(() => {
+          if (lastPositionRef.current) sendPing(lastPositionRef.current);
+        }, 10_000);
+      },
+      (e) => setGpsStatus(e.code === 1 ? 'no_permission' : 'unavailable'),
       { enableHighAccuracy: true, timeout: 15000 }
     );
-    setGpsStatus('active');
   };
 
   const stopGpsTracking = () => {
@@ -141,7 +144,7 @@ export default function MyShipments() {
       clearInterval(pingIntervalRef.current);
       pingIntervalRef.current = null;
     }
-    if (gpsStatus === 'active') setGpsStatus('idle');
+    setGpsStatus('idle');
   };
   // ─────────────────────────────────────────────────────────
 
@@ -243,6 +246,9 @@ export default function MyShipments() {
           )}
           {gpsStatus === 'no_permission' && (
             <span>🔒 Геолокацію заблоковано. Дозвольте доступ у браузері та <button className="gps-retry-btn" onClick={startGpsTracking}>спробуйте знову</button></span>
+          )}
+          {gpsStatus === 'unavailable' && (
+            <span>📡 Геолокація недоступна на цьому пристрої (немає GPS/WiFi-позиціонування). GPS трекінг вимкнено. <button className="gps-retry-btn" onClick={startGpsTracking}>повторити</button></span>
           )}
           {gpsStatus === 'error' && <span>❌ Геолокація не підтримується цим браузером</span>}
           {gpsStatus === 'idle' && <span>⏳ Очікуємо GPS сигнал...</span>}

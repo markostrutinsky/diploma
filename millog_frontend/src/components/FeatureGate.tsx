@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { FEATURES, type FeatureKey, TIER_NAMES } from '../constants/roles'
+import { FEATURES, type FeatureKey, TIER_NAMES, isSubscriptionActive } from '../constants/roles'
 import { usePermissions } from '../hooks/usePermissions'
 import './FeatureGate.css'
 
@@ -73,22 +73,31 @@ interface PaywallScreenProps {
 /**
  * Повноекранна заглушка для платних сторінок (GPS, KPI, Analytics, ТО, Антифрод).
  * Замість червоної плашки "error" показує елегантну картку з CTA.
+ * Якщо підписка прострочена — показує відповідне повідомлення.
  */
 export function PaywallScreen({ feature, description }: PaywallScreenProps) {
+  const perms = usePermissions()
   const meta = FEATURES[feature]
+  const isExpired = perms.expiresAt ? !isSubscriptionActive(perms.expiresAt) : false
+
   return (
     <div className="paywall-screen">
       <div className="paywall-screen__card">
-        <div className="paywall-screen__icon">🔒</div>
-        <div className="paywall-screen__title">{meta.label}</div>
-        <div className="paywall-screen__tier">
-          Доступно на тарифі <strong>{TIER_NAMES[meta.minTier]}</strong> і вище
+        <div className="paywall-screen__icon">{isExpired ? '⏰' : '🔒'}</div>
+        <div className="paywall-screen__title">
+          {isExpired ? 'Підписка закінчилась' : meta.label}
         </div>
-        {description && (
+        <div className="paywall-screen__tier">
+          {isExpired
+            ? 'Термін дії вашої підписки завершився. Оновіть план для продовження роботи.'
+            : <>Доступно на тарифі <strong>{TIER_NAMES[meta.minTier]}</strong> і вище</>
+          }
+        </div>
+        {!isExpired && description && (
           <p className="paywall-screen__description">{description}</p>
         )}
         <Link to="/billing" className="paywall-screen__cta">
-          Переглянути тарифи
+          {isExpired ? 'Поновити підписку' : 'Переглянути тарифи'}
         </Link>
       </div>
     </div>
@@ -110,5 +119,27 @@ export function PaywallBadge({ feature, compact }: PaywallBadgeProps) {
     >
       {meta.minTier === 'ENTERPRISE' ? '💎' : '✨'} {meta.minTier}
     </span>
+  )
+}
+
+/**
+ * Банер-попередження що відображається коли до кінця підписки < 7 днів.
+ * Рендерити в Layout або на Dashboard.
+ */
+export function SubscriptionExpiryBanner() {
+  const perms = usePermissions()
+  if (!perms.expiresAt) return null  // безстрокова
+  if (!isSubscriptionActive(perms.expiresAt)) return null  // вже прострочена — показує PaywallScreen
+
+  const daysLeft = Math.ceil(
+    (new Date(perms.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+  )
+  if (daysLeft > 7) return null
+
+  return (
+    <div className="subscription-expiry-banner">
+      <span>⚠️ Ваша підписка закінчується через <strong>{daysLeft} {daysLeft === 1 ? 'день' : 'дні(-в)'}</strong></span>
+      <Link to="/billing" className="subscription-expiry-banner__link">Поновити →</Link>
+    </div>
   )
 }

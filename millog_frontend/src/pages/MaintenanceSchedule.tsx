@@ -36,12 +36,13 @@ export function MaintenanceSchedule() {
   const [detailItem, setDetailItem] = useState<MaintenanceItem | null>(null);
 
   useEffect(() => {
+    if (perms.authLoading) return;
     if (!hasAccess) {
       setLoading(false);
       return;
     }
     fetchMaintenanceSchedule();
-  }, [hasAccess]);
+  }, [hasAccess, perms.authLoading]);
 
   const fetchMaintenanceSchedule = async () => {
     try {
@@ -103,7 +104,7 @@ export function MaintenanceSchedule() {
     filterPriority === 'ALL' || item.priority === filterPriority
   );
 
-  if (!hasAccess) {
+  if (!hasAccess || error) {
     return (
       <PaywallScreen
         feature="predictive_maintenance"
@@ -114,10 +115,6 @@ export function MaintenanceSchedule() {
 
   if (loading) {
     return <div className="maintenance-container"><div className="loading">Завантаження графіка ТО...</div></div>;
-  }
-
-  if (error) {
-    return <div className="maintenance-container"><div className="error-message">{error}</div></div>;
   }
 
   return (

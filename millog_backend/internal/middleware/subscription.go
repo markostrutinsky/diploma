@@ -77,13 +77,22 @@ func RequireSubscriptionTier(minTier string, dbPool *pgxpool.Pool) gin.HandlerFu
 }
 
 // getTenantSubscriptionTier бере тариф з tenants.subscription_tier.
+// Якщо subscription_expires_at у минулому — повертає BASIC (підписка прострочена).
 // Fallback на units.subscription_tier — сумісність зі старими даними, де tenant ще не виставлений.
 func getTenantSubscriptionTier(ctx context.Context, dbPool *pgxpool.Pool, tenantID string, unitID int64) (string, error) {
 	// 1. Основне джерело істини — tenants.
 	if tenantID != "" {
 		var tier string
-		err := dbPool.QueryRow(ctx, `SELECT subscription_tier FROM tenants WHERE id = $1`, tenantID).Scan(&tier)
+		var expiresAt *time.Time
+		err := dbPool.QueryRow(ctx,
+			`SELECT subscription_tier, subscription_expires_at FROM tenants WHERE id = $1`,
+			tenantID,
+		).Scan(&tier, &expiresAt)
 		if err == nil && tier != "" {
+			// Якщо термін підписки завершився — автоматично даємо BASIC
+			if expiresAt != nil && time.Now().After(*expiresAt) {
+				return "BASIC", nil
+			}
 			return tier, nil
 		}
 	}
