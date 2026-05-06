@@ -375,6 +375,10 @@ func main() {
 			gpsGroup.GET("/geofences", middleware.RequireSubscriptionTier("PRO", dbPool), gpsHandler.GetGeofences)
 			gpsGroup.GET("/geofence-alerts", middleware.RequireSubscriptionTier("PRO", dbPool), gpsHandler.GetGeofenceAlerts)
 			gpsGroup.GET("/fleet-status", middleware.RequireSubscriptionTier("PRO", dbPool), gpsHandler.GetFleetStatus)
+
+			// Ці два доступні без PRO: водій пінгує свій телефон та перевіряє статус рейсу
+			gpsGroup.POST("/driver/ping", gpsHandler.DriverPing)
+			gpsGroup.GET("/driver/active-shipment", gpsHandler.GetDriverActiveShipment)
 		}
 	}
 

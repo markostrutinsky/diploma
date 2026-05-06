@@ -615,6 +615,11 @@ export const api = {
     getGeofenceAlerts: (hours: number = 24) =>
       request<any>(`/gps/geofence-alerts?hours=${hours}`),
     getFleetStatus: () => request<any>('/gps/fleet-status'),
+    driverPing: (data: {
+      latitude: number; longitude: number; altitude: number;
+      speed: number; heading: number; accuracy: number;
+    }) => request<any>('/gps/driver/ping', { method: 'POST', body: JSON.stringify(data) }),
+    getDriverActiveShipment: () => request<any>('/gps/driver/active-shipment'),
   },
 
   notifications: {

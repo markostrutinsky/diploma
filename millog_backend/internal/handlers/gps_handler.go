@@ -24,6 +24,75 @@ func NewGPSTrackingHandler(gpsService *services.GPSTrackingService, auditSvc *se
 	}
 }
 
+// DriverPing — водій надсилає свої координати з телефону.
+// Бекенд сам знаходить транспортний засіб водія і перевіряє наявність активного рейсу (IN_TRANSIT).
+// Якщо рейсу немає — повертає 403. Якщо є — зберігає GPS точку.
+// POST /api/gps/driver/ping
+func (h *GPSTrackingHandler) DriverPing(c *gin.Context) {
+	userID := c.GetString("user_id")
+
+	var req struct {
+		Latitude  float64 `json:"latitude" binding:"required"`
+		Longitude float64 `json:"longitude" binding:"required"`
+		Altitude  float64 `json:"altitude"`
+		Speed     float64 `json:"speed"`
+		Heading   float64 `json:"heading"`
+		Accuracy  float64 `json:"accuracy"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	vehicleID, shipmentID, err := h.gpsService.GetActiveShipmentForDriver(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Немає активного рейсу. GPS не записується."})
+		return
+	}
+
+	unitID := c.GetInt64("unit_id")
+	location := &models.GPSLocation{
+		VehicleID: vehicleID,
+		UnitID:    unitID,
+		Latitude:  req.Latitude,
+		Longitude: req.Longitude,
+		Altitude:  req.Altitude,
+		Speed:     req.Speed,
+		Heading:   req.Heading,
+		Accuracy:  req.Accuracy,
+		Timestamp: time.Now(),
+	}
+
+	if err := h.gpsService.RecordVehicleLocation(c.Request.Context(), location); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"ok":          true,
+		"vehicle_id":  vehicleID,
+		"shipment_id": shipmentID,
+	})
+}
+
+// GetDriverActiveShipment — перевіряє чи є активний рейс у водія.
+// GET /api/gps/driver/active-shipment
+func (h *GPSTrackingHandler) GetDriverActiveShipment(c *gin.Context) {
+	userID := c.GetString("user_id")
+
+	vehicleID, shipmentID, err := h.gpsService.GetActiveShipmentForDriver(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"active": false})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"active":      true,
+		"vehicle_id":  vehicleID,
+		"shipment_id": shipmentID,
+	})
+}
+
 // RecordVehicleLocation handles GPS updates from IoT devices or mobile apps
 // POST /api/gps/locations
 func (h *GPSTrackingHandler) RecordVehicleLocation(c *gin.Context) {

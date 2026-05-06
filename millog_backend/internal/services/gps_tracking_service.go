@@ -198,6 +198,25 @@ func (s *GPSTrackingService) calculateHaversine(lat1, lon1, lat2, lon2 float64) 
 	return earthRadiusKm * c
 }
 
+// GetActiveShipmentForDriver знаходить активний рейс (IN_TRANSIT) для водія за user_id.
+// Повертає vehicle_id та shipment_id. Якщо активного рейсу немає — повертає помилку.
+func (s *GPSTrackingService) GetActiveShipmentForDriver(ctx context.Context, userID string) (vehicleID string, shipmentID string, err error) {
+	query := `
+		SELECT s.id, s.vehicle_id
+		FROM shipments s
+		JOIN vehicles v ON v.id = s.vehicle_id
+		WHERE v.driver_id = $1
+		  AND s.status = 'IN_TRANSIT'
+		ORDER BY s.started_at DESC
+		LIMIT 1
+	`
+	row := s.db.QueryRow(ctx, query, userID)
+	if scanErr := row.Scan(&shipmentID, &vehicleID); scanErr != nil {
+		return "", "", fmt.Errorf("no active shipment for driver %s: %w", userID, scanErr)
+	}
+	return vehicleID, shipmentID, nil
+}
+
 // GetDetailedFleetStatus returns comprehensive fleet information with location, speed, fuel
 func (s *GPSTrackingService) GetDetailedFleetStatus(ctx context.Context, unitID int64) (map[string]interface{}, error) {
 	locations, err := s.GetFleetLocations(ctx, unitID)
