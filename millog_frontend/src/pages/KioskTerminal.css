@@ -134,7 +134,7 @@
   margin: 0 0 20px 0;
   font-size: 1.25rem;
   color: var(--text-bright);
-  border-bottom: 2px solid #f1f5f9;
+  border-bottom: 2px solid var(--border);
   padding-bottom: 12px;
   text-align: left;
 }

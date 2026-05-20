@@ -92,6 +92,20 @@ type TopResourceStat struct {
 	TotalOrdered int    `json:"total_ordered"`
 }
 
+// Фінансова вартість залишків по складах
+type WarehouseValueStat struct {
+	WarehouseName string  `json:"warehouse_name"`
+	TotalValue    float64 `json:"total_value"`
+}
+
+// Найдорожчі позиції майна
+type TopCostlyResourceStat struct {
+	ResourceName string  `json:"resource_name"`
+	TotalValue   float64 `json:"total_value"`
+	Quantity     int     `json:"quantity"`
+	UnitPrice    float64 `json:"unit_price"`
+}
+
 // --- ГОЛОВНА СТРУКТУРА ДАШБОРДУ ---
 type DashboardAnalytics struct {
 	ActiveVehicles    int `json:"active_vehicles"`
@@ -103,9 +117,17 @@ type DashboardAnalytics struct {
 	InRepairVehicles    int `json:"in_repair_vehicles"`    // Машини в ремонті
 	InactiveVehicles    int `json:"inactive_vehicles"`
 
+	// Фінансові метрики
+	InventoryTotalValue float64 `json:"inventory_total_value"` // Загальна вартість залишків (грн)
+	WriteOffTotalValue  float64 `json:"write_off_total_value"` // Вартість списаного за період (грн)
+
 	// НОВЕ: Графіки для вкладки Логістика
 	WarehouseLoad []WarehouseLoadStat `json:"warehouse_load"`
 	TopResources  []TopResourceStat   `json:"top_resources"`
+
+	// Фінансові графіки
+	WarehouseValueStats []WarehouseValueStat    `json:"warehouse_value_stats"` // Вартість по складах
+	TopCostlyResources  []TopCostlyResourceStat `json:"top_costly_resources"`  // Найдорожчі позиції
 
 	PredictiveBurnRate []PredictStat            `json:"predictive_burn_rate"`
 	FleetRisk          []FleetRiskStat          `json:"fleet_risk"`

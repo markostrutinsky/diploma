@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { api, type Unit, type User, UNIT_TYPE_NAMES } from '../api/client' // 🔥 Додали UNIT_TYPE_NAMES
 import { useAuth } from '../contexts/AuthContext'
 import { usePermissions } from '../hooks/usePermissions'
-import toast, { Toaster } from 'react-hot-toast'
+import toast from 'react-hot-toast'
+import Pagination from '../components/Pagination'
 import './Units.css'
 
 const ROLE_UNIT_CREATION_MAP: Record<string, string[]> = {
@@ -40,6 +41,8 @@ export default function Units() {
   const [availableUsers, setAvailableUsers] = useState<User[]>([])
   const [newManagerId, setNewManagerId] = useState<string>('')
   const [isProcessing, setIsProcessing] = useState(false)
+  const [unitsPage, setUnitsPage] = useState(0)
+  const UNITS_PAGE_SIZE = 20
 
   const currentUserRole = user?.role || ''
   const perms = usePermissions()
@@ -181,7 +184,7 @@ export default function Units() {
 
   return (
     <div className="units-page">
-      <Toaster position="top-right" />
+
       <div className="page-header">
         <h1>Організаційна структура</h1>
         {canManageUnits && <button className="btn btn-primary" onClick={handleOpenCreate}>+ Додати одиницю</button>}
@@ -278,8 +281,11 @@ export default function Units() {
                   Жодної організаційної одиниці не створено. Натисніть кнопку "Додати одиницю", щоб почати.
                 </td>
               </tr>
-            ) : (
-              units.map((u) => {
+            ) : (() => {
+              const totalUnitPages = Math.max(1, Math.ceil(units.length / UNITS_PAGE_SIZE));
+              const safeUnitPage = Math.min(unitsPage, totalUnitPages - 1);
+              const pagedUnits = units.slice(safeUnitPage * UNITS_PAGE_SIZE, (safeUnitPage + 1) * UNITS_PAGE_SIZE);
+              return pagedUnits.map((u) => {
                 const manager = getManager(u.id);
                 return (
                 <tr key={u.id}>
@@ -310,7 +316,7 @@ export default function Units() {
                     <td style={{ width: '1%', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         <button 
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: 'rgba(59, 130, 246, 0.12)', color: '#2563eb', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}
+                          className="btn-unit-action btn-unit-edit"
                           onClick={() => handleOpenEdit(u)}
                           title="Редагувати"
                         >
@@ -319,7 +325,7 @@ export default function Units() {
                         </button>
                         
                         <button 
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: 'rgba(239, 68, 68, 0.12)', color: '#e11d48', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 500 }}
+                          className="btn-unit-action btn-unit-delete"
                           onClick={() => setUnitToDelete(u)}
                           title="Видалити"
                         >
@@ -332,9 +338,18 @@ export default function Units() {
                 </tr>
               )
             })
-            )}
+            })()}
           </tbody>
         </table>
+        {units.length > 0 && (
+          <Pagination
+            currentPage={Math.min(unitsPage, Math.max(0, Math.ceil(units.length / UNITS_PAGE_SIZE) - 1))}
+            totalPages={Math.max(1, Math.ceil(units.length / UNITS_PAGE_SIZE))}
+            onPageChange={setUnitsPage}
+            totalItems={units.length}
+            itemsPerPage={UNITS_PAGE_SIZE}
+          />
+        )}
       </div>
     </div>
   )

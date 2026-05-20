@@ -137,13 +137,16 @@
 .vehicles-modal .form-group select, 
 .vehicles-modal .form-group textarea, 
 .vehicles-modal .erp-input { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; background-color: var(--bg-card); color: var(--text-bright); font-family: inherit; }
+.vehicles-modal textarea.erp-input { resize: vertical; vertical-align: top; padding: 10px 12px; }
+.vehicles-modal .odometer-hint { display: block; font-size: 11px; color: #64748b; margin-top: 5px; }
 .vehicles-modal .form-group input:focus, 
 .vehicles-modal .form-group select:focus, 
 .vehicles-modal .form-group textarea:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
 
-.vehicles-modal .form-row-2 { display: flex; flex-direction: row; gap: 16px; width: 100%; box-sizing: border-box; margin-bottom: 20px; }
-.vehicles-modal .form-row-2 .form-group { flex: 1 1 50%; min-width: 0; margin-bottom: 0; }
-.vehicles-modal .form-row-bottom-align { align-items: flex-end; }
+.vehicles-modal .form-row-2 { display: flex; flex-direction: row; align-items: flex-start; gap: 16px; width: 100%; box-sizing: border-box; margin-bottom: 20px; }
+.vehicles-modal .form-row-2 .form-group { flex: 1 1 50%; min-width: 0; margin-bottom: 0; display: flex; flex-direction: column; justify-content: flex-start; }
+.vehicles-modal .form-row-2 .form-group label:first-child { display: block; min-height: 36px; margin-bottom: 6px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-muted, #94a3b8); line-height: 1.5; }
+.vehicles-modal .form-row-bottom-align { align-items: flex-start; }
 
 /* Кнопки в модалці */
 .vehicles-modal .modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); }
@@ -168,10 +171,10 @@
 .vehicles-modal .fuel-type-select.type-refuel { color: #16a34a; font-weight: 600; }
 .vehicles-modal .fuel-type-select.type-expense { color: #dc2626; font-weight: 600; }
 
-.vehicles-modal .file-upload-custom { display: flex; align-items: center; justify-content: center; height: 42px; padding: 0 12px; background-color: var(--bg-input); border: 1px dashed #94a3b8; border-radius: 6px; cursor: pointer; transition: all 0.2s ease; margin: 0; }
+.vehicles-modal .file-upload-custom { display: flex; align-items: center; justify-content: flex-start; height: 42px; padding: 0 12px; background-color: var(--bg-input); border: 1px dashed #94a3b8; border-radius: 6px; cursor: pointer; transition: all 0.2s ease; margin: 0; width: 100%; box-sizing: border-box; overflow: hidden; min-width: 0; }
 .vehicles-modal .file-upload-custom:hover { border-color: #3b82f6; background-color: rgba(59, 130, 246, 0.1); }
 .vehicles-modal .file-input-hidden { display: none; }
-.vehicles-modal .file-upload-text { color: var(--text); font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.vehicles-modal .file-upload-text { color: var(--text); font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
 
 /* =========================================
    МОДАЛКА ПАСПОРТА ТА ІСТОРІЇ (Широка)

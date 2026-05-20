@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useGPS } from '../contexts/GPSContext';
 import { getInMemoryToken } from '../api/client';
 import toast from 'react-hot-toast';
+import Pagination from '../components/Pagination';
 import './MyShipments.css';
 
 interface Shipment {
@@ -23,11 +24,15 @@ interface Shipment {
 export default function MyShipments() {
   const { token } = useAuth();
   // GPS тепер глобальний — живе в GPSContext, не залежить від цієї сторінки
-  const { gpsStatus, lastCoords, hasActiveShipment } = useGPS();
+  const { gpsStatus, lastCoords, hasActiveShipment, refreshActiveShipment } = useGPS();
 
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'pending' | 'in_transit' | 'delivered'>('pending');
+  const [shipmentsPage, setShipmentsPage] = useState(0);
+  const SHIPMENTS_PAGE_SIZE = 20;
+
+  useEffect(() => { setShipmentsPage(0); }, [activeTab]);
 
   useEffect(() => {
     loadMyShipments();
@@ -65,6 +70,8 @@ export default function MyShipments() {
       if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Помилка'); }
       toast.success('Рейс розпочато! 🚚', { id: toastId });
       await loadMyShipments();
+      // Негайно оновлюємо GPS-контекст — не чекаємо 30-секундного polling
+      await refreshActiveShipment();
     } catch (err: any) {
       toast.error(err.message || 'Помилка початку рейсу', { id: toastId });
     }
@@ -120,6 +127,10 @@ export default function MyShipments() {
       </div>
     );
   }
+
+  const shipmentsTotalPages = Math.max(1, Math.ceil(filteredShipments.length / SHIPMENTS_PAGE_SIZE));
+  const safeShipmentsPage = Math.min(shipmentsPage, shipmentsTotalPages - 1);
+  const pagedShipments = filteredShipments.slice(safeShipmentsPage * SHIPMENTS_PAGE_SIZE, (safeShipmentsPage + 1) * SHIPMENTS_PAGE_SIZE);
 
   return (
     <div className="my-shipments-page">
@@ -183,8 +194,9 @@ export default function MyShipments() {
             </p>
           </div>
         ) : (
+          <>
           <div className="shipments-grid">
-            {filteredShipments.map(shipment => (
+            {pagedShipments.map(shipment => (
               <div key={shipment.id} className={`shipment-card ${shipment.status === 'IN_TRANSIT' ? 'shipment-card--active' : ''}`}>
                 <div className="shipment-header">
                   <div className="shipment-id">
@@ -224,6 +236,14 @@ export default function MyShipments() {
               </div>
             ))}
           </div>
+          <Pagination
+            currentPage={safeShipmentsPage}
+            totalPages={shipmentsTotalPages}
+            onPageChange={setShipmentsPage}
+            totalItems={filteredShipments.length}
+            itemsPerPage={SHIPMENTS_PAGE_SIZE}
+          />
+          </>
         )}
       </div>
     </div>

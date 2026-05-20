@@ -35,10 +35,21 @@ function App() {
     <AuthProvider>
       <GPSProvider>
       <Toaster 
-        position="top-right" 
+        position="top-right"
+        containerStyle={{ zIndex: 9999 }}
         toastOptions={{
           duration: 4000,
-          style: { background: '#1e293b', color: '#fff', border: '1px solid #334155' }
+          style: {
+            background: '#1e293b',
+            color: '#f1f5f9',
+            border: '1px solid #334155',
+            maxWidth: '420px',
+            width: 'auto',
+            fontSize: '14px',
+            lineHeight: '1.5',
+            padding: '12px 16px',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+          }
         }} 
       />
       <Layout>

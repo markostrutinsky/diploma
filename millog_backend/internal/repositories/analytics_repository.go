@@ -335,6 +335,60 @@ func (r *AnalyticsRepository) GetDashboardStats(ctx context.Context, db DBExecut
 		stats.TopResources = append(stats.TopResources, tr)
 	}
 
+	// 14. ЗАГАЛЬНА ВАРТІСТЬ ЗАЛИШКІВ
+	queryInventoryValue := fmt.Sprintf(`
+		SELECT COALESCE(SUM(r.quantity * r.unit_price), 0)
+		FROM resources r
+		WHERE r.condition != 'WRITTEN_OFF' AND r.unit_price > 0 %s%s
+	`, resFilterPrefix, tcond("r"))
+	db.QueryRow(ctx, queryInventoryValue).Scan(&stats.InventoryTotalValue)
+
+	// 15. ВАРТІСТЬ СПИСАНОГО ЗА ПЕРІОД
+	queryWriteOffValue := fmt.Sprintf(`
+		SELECT COALESCE(SUM(r.quantity * r.unit_price), 0)
+		FROM resources r
+		WHERE r.condition = 'WRITTEN_OFF' AND r.unit_price > 0
+		  AND r.updated_at BETWEEN $1 AND $2 %s%s
+	`, resFilterPrefix, tcond("r"))
+	db.QueryRow(ctx, queryWriteOffValue, startDate, endDate).Scan(&stats.WriteOffTotalValue)
+
+	// 16. ВАРТІСТЬ ПО СКЛАДАХ (ТОП-5)
+	queryWarehouseValue := fmt.Sprintf(`
+		SELECT COALESCE(w.name, 'Без складу / В дорозі'), COALESCE(SUM(r.quantity * r.unit_price), 0) as total_value
+		FROM resources r
+		LEFT JOIN warehouses w ON r.warehouse_id = w.id
+		WHERE r.condition != 'WRITTEN_OFF' AND r.unit_price > 0 AND r.quantity > 0 %s%s
+		GROUP BY w.id, w.name
+		ORDER BY total_value DESC
+		LIMIT 5
+	`, resFilterPrefix, tcond("r"))
+
+	wvRows, _ := db.Query(ctx, queryWarehouseValue)
+	defer wvRows.Close()
+	for wvRows.Next() {
+		var wv models.WarehouseValueStat
+		wvRows.Scan(&wv.WarehouseName, &wv.TotalValue)
+		stats.WarehouseValueStats = append(stats.WarehouseValueStats, wv)
+	}
+
+	// 17. ТОП-5 НАЙДОРОЖЧИХ ПОЗИЦІЙ
+	queryTopCostly := fmt.Sprintf(`
+		SELECT r.name, COALESCE(SUM(r.quantity * r.unit_price), 0) as total_value, r.quantity, r.unit_price
+		FROM resources r
+		WHERE r.condition != 'WRITTEN_OFF' AND r.unit_price > 0 AND r.quantity > 0 %s%s
+		GROUP BY r.id, r.name, r.quantity, r.unit_price
+		ORDER BY total_value DESC
+		LIMIT 5
+	`, resFilterPrefix, tcond("r"))
+
+	tcRows, _ := db.Query(ctx, queryTopCostly)
+	defer tcRows.Close()
+	for tcRows.Next() {
+		var tc models.TopCostlyResourceStat
+		tcRows.Scan(&tc.ResourceName, &tc.TotalValue, &tc.Quantity, &tc.UnitPrice)
+		stats.TopCostlyResources = append(stats.TopCostlyResources, tc)
+	}
+
 	return &stats, nil
 }
 
@@ -345,12 +399,13 @@ func (r *AnalyticsRepository) ProcessSmartReplenish(ctx context.Context, db DBEx
 
 	for _, item := range req.Items {
 		if item.Target == "WAREHOUSE" {
-			// Створюємо офіційну заявку на забезпечення (на склад)
+			// Створюємо автоматичну заявку одразу зі статусом APPROVED —
+			// це системна дія адміна, не потребує ручного погодження.
 			_, err := db.Exec(ctx, `
-				INSERT INTO supply_requests (resource_id, quantity, status, created_by, comment, created_at, tenant_id)
-				VALUES ($1, $2, 'OPEN', $3, 'Автоматичне замовлення через Smart-модуль', NOW(),
-					COALESCE(NULLIF($4, '')::uuid, (SELECT tenant_id FROM users WHERE id = $3)))
-			`, item.ResourceID, item.Quantity, userID, tid)
+				INSERT INTO supply_requests (resource_id, resource_name, quantity, status, created_by, comment, created_at, tenant_id)
+				VALUES ($1, $2, $3, 'APPROVED', $4, 'Автоматичне замовлення через Smart-модуль', NOW(),
+					COALESCE(NULLIF($5, '')::uuid, (SELECT tenant_id FROM users WHERE id = $4)))
+			`, item.ResourceID, item.Name, item.Quantity, userID, tid)
 			if err == nil {
 				count++
 			}
@@ -376,13 +431,15 @@ func (r *AnalyticsRepository) ProcessSmartReplenish(ctx context.Context, db DBEx
 // --- СТРУКТУРИ ДЛЯ ЕКСПОРТУ ---
 
 type ExportInventoryRow struct {
-	Category  string
-	ItemName  string
-	UnitName  string // Філія / Підрозділ
-	Warehouse string
-	Quantity  int
-	UnitType  string
-	Condition string
+	Category   string
+	ItemName   string
+	UnitName   string // Філія / Підрозділ
+	Warehouse  string
+	Quantity   int
+	UnitType   string
+	Condition  string
+	UnitPrice  float64
+	TotalValue float64
 }
 
 type ExportFuelRow struct {
@@ -404,7 +461,9 @@ func (r *AnalyticsRepository) GetInventoryForExport(ctx context.Context, db DBEx
 			COALESCE(w.name, 'Без складу') as warehouse, 
 			r.quantity, 
 			r.unit_type, 
-			r.condition
+			r.condition,
+			r.unit_price,
+			r.quantity * r.unit_price as total_value
 		FROM resources r
 		JOIN resource_categories c ON r.category_id = c.id
 		LEFT JOIN units u ON r.unit_id = u.id
@@ -423,7 +482,7 @@ func (r *AnalyticsRepository) GetInventoryForExport(ctx context.Context, db DBEx
 	for rows.Next() {
 		var row ExportInventoryRow
 		// Тепер Scan ніколи не впаде, бо ми гарантовано отримаємо текст
-		if err := rows.Scan(&row.Category, &row.ItemName, &row.UnitName, &row.Warehouse, &row.Quantity, &row.UnitType, &row.Condition); err != nil {
+		if err := rows.Scan(&row.Category, &row.ItemName, &row.UnitName, &row.Warehouse, &row.Quantity, &row.UnitType, &row.Condition, &row.UnitPrice, &row.TotalValue); err != nil {
 			return nil, err
 		}
 		result = append(result, row)

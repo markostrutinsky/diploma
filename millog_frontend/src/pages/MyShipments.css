@@ -22,12 +22,18 @@
 .gps-banner--no_permission { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
 .gps-banner--no_shipment  { display: none; }
 
+/* Темна тема (CSS-змінні) */
 @media (prefers-color-scheme: dark) {
   .gps-banner--active   { background: #064e3b; color: #a7f3d0; border-color: #047857; }
   .gps-banner--idle     { background: #422006; color: #fde68a; border-color: #b45309; }
   .gps-banner--error,
   .gps-banner--no_permission { background: #450a0a; color: #fca5a5; border-color: #b91c1c; }
 }
+/* Примусові CSS-змінні для class-based dark theme */
+.gps-banner--active   { background: rgba(16,185,129,0.12); color: #6ee7b7; border-color: rgba(16,185,129,0.3); }
+.gps-banner--idle     { background: rgba(245,158,11,0.12); color: #fde68a; border-color: rgba(245,158,11,0.3); }
+.gps-banner--error,
+.gps-banner--no_permission { background: rgba(239,68,68,0.12); color: #fca5a5; border-color: rgba(239,68,68,0.3); }
 
 .gps-dot {
   width: 10px; height: 10px;
@@ -211,18 +217,18 @@
 }
 
 .status-pending {
-  background: #fff3cd;
-  color: #856404;
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
 }
 
 .status-in-transit {
-  background: #d1ecf1;
-  color: #0c5460;
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
 }
 
 .status-delivered {
-  background: #d4edda;
-  color: #155724;
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
 }
 
 .route-info {

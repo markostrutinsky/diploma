@@ -6,6 +6,7 @@ import './KPIDashboard.css'
 
 interface KPIDashboard {
   reporting_period: string
+  inventory_total_value: number
   sla: {
     on_time_percent: number
     total_requests: number
@@ -97,7 +98,7 @@ const KPIDashboard: React.FC = () => {
   return (
     <div className="kpi-dashboard">
       <div className="kpi-header">
-        <h1>🎯 Advanced KPI Dashboard</h1>
+        <h1>🎯 Розширена панель ефективності</h1>
         <p className="period">{kpiData.reporting_period}</p>
       </div>
 
@@ -118,6 +119,16 @@ const KPIDashboard: React.FC = () => {
               className="status-fill" 
               style={{ width: `${Math.min(kpiData.sla.on_time_percent, 100)}%` }}
             ></div>
+          </div>
+        </div>
+
+        {/* Inventory Value Metric */}
+        <div className="kpi-card metric-good">
+          <div className="kpi-icon">🏦</div>
+          <div className="kpi-content">
+            <h3>Вартість майна</h3>
+            <div className="kpi-value">{(kpiData.inventory_total_value || 0).toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₴</div>
+            <div className="kpi-meta">Загальна балансова вартість залишків</div>
           </div>
         </div>
 

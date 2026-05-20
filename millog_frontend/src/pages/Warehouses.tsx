@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup, Polyline, Tooltip } from 'react
 import L from 'leaflet';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+import Pagination from '../components/Pagination';
 import 'leaflet/dist/leaflet.css';
 import './Warehouses.css';
 import InventoryAuditModal from '../components/InventoryAuditModal';
@@ -128,6 +129,11 @@ export default function Warehouses() {
   const [auditWarehouse, setAuditWarehouse] = useState<Warehouse | null>(null);
   const [viewInventoryItems, setViewInventoryItems] = useState<InventoryItem[]>([]);
   const [viewInventoryLoading, setViewInventoryLoading] = useState(false);
+
+  const [warehousesPage, setWarehousesPage] = useState(0);
+  const [shipmentsPage, setShipmentsPage] = useState(0);
+  const WH_PAGE_SIZE = 20;
+  const SHIP_PAGE_SIZE = 20;
 
   const perms = usePermissions();
   const canManageWarehouses = perms.can('warehouse_manage');
@@ -634,7 +640,12 @@ export default function Warehouses() {
 
       {activeTab === 'list' && (
         <div className="card card-table">
-          {warehouses.length === 0 ? <p className="empty-state">Склади ще не створені.</p> : (
+          {warehouses.length === 0 ? <p className="empty-state">Склади ще не створені.</p> : (() => {
+            const totalWhPages = Math.max(1, Math.ceil(warehouses.length / WH_PAGE_SIZE));
+            const safeWhPage = Math.min(warehousesPage, totalWhPages - 1);
+            const pagedWarehouses = warehouses.slice(safeWhPage * WH_PAGE_SIZE, (safeWhPage + 1) * WH_PAGE_SIZE);
+            return (
+              <>
             <table className="data-table">
               <thead>
                 <tr>
@@ -646,7 +657,7 @@ export default function Warehouses() {
                 </tr>
               </thead>
               <tbody>
-                {warehouses.map((w) => (
+                {pagedWarehouses.map((w) => (
                   <tr key={w.id}>
                     <td className="font-bold">{w.name}</td>
                     <td>{units.find(u => u.id === w.unit_id)?.name || 'Невідомо'}</td>
@@ -680,7 +691,16 @@ export default function Warehouses() {
                 ))}
               </tbody>
             </table>
-          )}
+            <Pagination
+              currentPage={safeWhPage}
+              totalPages={totalWhPages}
+              onPageChange={setWarehousesPage}
+              totalItems={warehouses.length}
+              itemsPerPage={WH_PAGE_SIZE}
+            />
+              </>
+            );
+          })()}
         </div>
       )}
 
@@ -688,7 +708,12 @@ export default function Warehouses() {
         <div className="card card-table">
           {shipmentsList.length === 0 ? (
             <div className="empty-state"><h3>Немає активних або минулих рейсів</h3></div>
-          ) : (
+          ) : (() => {
+            const totalShipPages = Math.max(1, Math.ceil(shipmentsList.length / SHIP_PAGE_SIZE));
+            const safeShipPage = Math.min(shipmentsPage, totalShipPages - 1);
+            const pagedShipments = shipmentsList.slice(safeShipPage * SHIP_PAGE_SIZE, (safeShipPage + 1) * SHIP_PAGE_SIZE);
+            return (
+              <>
             <table className="data-table">
               <thead>
                 <tr>
@@ -702,7 +727,7 @@ export default function Warehouses() {
                 </tr>
               </thead>
               <tbody>
-                {shipmentsList.map(s => (
+                {pagedShipments.map(s => (
                   <tr key={s.id}>
                     <td>{new Date(s.created_at).toLocaleString('uk-UA')}</td>
                     <td className="font-bold">{s.from_warehouse}</td>
@@ -733,7 +758,16 @@ export default function Warehouses() {
                 ))}
               </tbody>
             </table>
-          )}
+            <Pagination
+              currentPage={safeShipPage}
+              totalPages={totalShipPages}
+              onPageChange={setShipmentsPage}
+              totalItems={shipmentsList.length}
+              itemsPerPage={SHIP_PAGE_SIZE}
+            />
+              </>
+            );
+          })()}
         </div>
       )}
 

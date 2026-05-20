@@ -39,7 +39,7 @@
   flex-direction: column;
   flex-shrink: 0;
   height: 100vh;
-  overflow-y: auto;
+  overflow: hidden;
   border-right: 1px solid var(--border-dark);
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.3);
 }
@@ -87,6 +87,22 @@
 .sidebar-nav {
   flex: 1;
   padding: 1rem 0;
+  overflow-y: auto;
+}
+
+/* Тонкий скролбар тільки для nav */
+.sidebar-nav::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+}
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.22);
 }
 
 .sidebar-nav a {

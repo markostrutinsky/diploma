@@ -155,21 +155,26 @@
   font-size: 13px;
 }
 
-.btn-action-small {
-  background-color: transparent;
-  color: #0056b3; /* Синій колір, як посилання або активна дія */
-  border: 1px solid #0056b3;
-  padding: 4px 10px;
-  border-radius: 4px;
+.admin-users .btn-action-small {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: rgba(59, 130, 246, 0.1) !important;
+  color: #60a5fa !important;
+  border: 1px solid rgba(59, 130, 246, 0.55) !important;
+  padding: 6px 14px;
+  border-radius: 6px;
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
-.btn-action-small:hover {
-  background-color: #0056b3;
-  color: white;
+.admin-users .btn-action-small:hover {
+  background-color: rgba(59, 130, 246, 0.2) !important;
+  color: #93c5fd !important;
+  border-color: rgba(59, 130, 246, 0.8) !important;
 }
 
 /* Стиль для заблокованого інпута (читання) */
@@ -179,15 +184,20 @@
 }
 
 /* Червона кнопка для блокування */
-.btn-danger-small {
-  background-color: #dc3545;
-  color: white;
-  border: 1px solid #dc3545;
+.admin-users .btn-danger-small {
+  background-color: rgba(239, 68, 68, 0.1) !important;
+  color: #f87171 !important;
+  border: 1px solid rgba(239, 68, 68, 0.55) !important;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
 }
 
-.btn-danger-small:hover {
-  background-color: #c82333;
-  border-color: #bd2130;
+.admin-users .btn-danger-small:hover {
+  background-color: rgba(239, 68, 68, 0.2) !important;
+  color: #fca5a5 !important;
+  border-color: rgba(239, 68, 68, 0.8) !important;
 }
 
 /* Обгортка для кнопок дій */
@@ -197,36 +207,38 @@
 }
 
 /* Стиль для будь-якої вимкненої кнопки */
-.btn-action-small:disabled {
-  background-color: var(--border) !important; /* Сірий колір */
-  color: #adb5bd !important;            /* Тьмяний текст */
+.admin-users .btn-action-small:disabled {
+  background-color: rgba(255,255,255,0.05) !important;
+  color: var(--text-muted) !important;
   border-color: var(--border) !important;
-  cursor: not-allowed;                  /* Курсор "заборонено" */
-  opacity: 0.7;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 /* Прибираємо ефекти наведення для вимкненої кнопки */
-.btn-action-small:disabled:hover {
-  background-color: var(--border) !important;
+.admin-users .btn-action-small:disabled:hover {
+  background-color: rgba(255,255,255,0.05) !important;
   box-shadow: none;
 }
 
-.btn-success-small {
-  background-color: #198754;
-  color: white;
-  border: 1px solid #198754;
+.admin-users .btn-success-small {
+  background-color: rgba(16, 185, 129, 0.12) !important;
+  color: #34d399 !important;
+  border: 1px solid rgba(16, 185, 129, 0.35) !important;
 }
 
-.btn-success-small:hover {
-  background-color: #157347;
-  border-color: #146c43;
+.admin-users .btn-success-small:hover {
+  background-color: rgba(16, 185, 129, 0.22) !important;
+  color: #6ee7b7 !important;
+  border-color: rgba(16, 185, 129, 0.5) !important;
 }
 
-.btn-success-small:disabled {
-  background-color: #a3cfbb !important;
-  color: #fff !important;
-  border-color: #a3cfbb !important;
+.admin-users .btn-success-small:disabled {
+  background-color: rgba(255,255,255,0.05) !important;
+  color: var(--text-muted) !important;
+  border-color: var(--border) !important;
   cursor: not-allowed;
+  opacity: 0.6;
 }
 
 /* =========================================

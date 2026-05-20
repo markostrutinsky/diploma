@@ -788,6 +788,7 @@ export interface Resource {
   assigned_to_user_id?: string;
   assigned_to_user_name?: string;
   weight_kg: number;
+  unit_price: number;
 }
 export interface AssignResourceRequest {
   quantity: number;
@@ -807,6 +808,7 @@ export interface CreateResourceRequest {
   condition?: 'NEW' | 'USED' | 'WRITTEN_OFF';
   min_quantity: number;
   weight_kg: number;
+  unit_price?: number;
 }
 export type RequestStatus = 'PENDING' | 'APPROVED' | 'DISPATCHED' | 'REJECTED' | 'COMPLETED' | 'OPEN';
 

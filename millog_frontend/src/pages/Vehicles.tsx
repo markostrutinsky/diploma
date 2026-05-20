@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react'
-import { api, type Vehicle, type FuelRecordType, type FuelRecord, type MaintenanceRecord, type SystemUser, type DriverHistoryRecord} from '../api/client'
+import React, { useEffect, useRef, useState } from 'react'
+import { api, ROLE_NAMES, type Vehicle, type FuelRecordType, type FuelRecord, type MaintenanceRecord, type SystemUser, type DriverHistoryRecord} from '../api/client'
 import { usePermissions } from '../hooks/usePermissions'
-import toast, { Toaster } from 'react-hot-toast'
+import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
+import Pagination from '../components/Pagination'
 import './Vehicles.css' 
 
 export default function Vehicles() {
@@ -53,6 +54,7 @@ export default function Vehicles() {
   
   const [driverModalVehicle, setDriverModalVehicle] = useState<Vehicle | null>(null)
   const [driverForm, setDriverForm] = useState({ driver_id: '' })
+  const maintenanceFileRef = useRef<HTMLInputElement>(null)
   
   const [newVehicle, setNewVehicle] = useState({
     brand: '',
@@ -334,6 +336,11 @@ export default function Vehicles() {
     return <span>{driver.full_name}</span>;
   }
 
+  // --- ПАГІНАЦІЯ (хуки мають бути до будь-якого раннього return) ---
+  const VEHICLES_PAGE_SIZE = 20;
+  const [vehiclesPage, setVehiclesPage] = useState(0);
+  React.useEffect(() => { setVehiclesPage(0); }, [searchQuery, viewTab]);
+
   if (loading) {
     return (
       <div className="page-loading">
@@ -364,6 +371,13 @@ export default function Vehicles() {
   const archivedVehicles = filteredVehicles.filter(v => v.status === 'INACTIVE')
   const displayedVehicles = viewTab === 'ACTIVE' ? activeVehicles : archivedVehicles
 
+  const vehiclesTotalPages = Math.max(1, Math.ceil(displayedVehicles.length / VEHICLES_PAGE_SIZE));
+  const safeVehiclesPage = Math.min(vehiclesPage, vehiclesTotalPages - 1);
+  const pagedVehicles = displayedVehicles.slice(
+    safeVehiclesPage * VEHICLES_PAGE_SIZE,
+    (safeVehiclesPage + 1) * VEHICLES_PAGE_SIZE
+  );
+
   const assignedDriverIds = vehicles
     .filter(v => v.status !== 'INACTIVE' && v.driver_id)
     .map(v => v.driver_id);
@@ -376,7 +390,7 @@ export default function Vehicles() {
 
   return (
     <div className="vehicles-page">
-      <Toaster position="top-right" />
+
       <div className="page-header">
         <h1>Автопарк та ПММ</h1>
         <div className="page-actions">
@@ -460,7 +474,7 @@ export default function Vehicles() {
     <label>Закріплений водій</label>
     <select value={newVehicle.driver_id} onChange={(e) => setNewVehicle({ ...newVehicle, driver_id: e.target.value })} className="erp-input">
       <option value="">-- Без закріплення --</option>
-      {availableDriversForNew.map(u => <option key={u.id} value={u.id}>{u.full_name} ({u.role})</option>)}
+      {availableDriversForNew.map(u => <option key={u.id} value={u.id}>{u.full_name} ({ROLE_NAMES[u.role] || u.role})</option>)}
     </select>
     <span style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', display: 'block' }}>
       У списку відображаються лише вільні співробітники.
@@ -558,7 +572,7 @@ export default function Vehicles() {
     <label>Відповідальний водій</label>
     <select value={driverForm.driver_id} onChange={(e) => setDriverForm({...driverForm, driver_id: e.target.value})} className="erp-input" disabled={isProcessing}>
       <option value="">-- Зняти закріплення (Без водія) --</option>
-      {availableDriversForAssign.map(u => <option key={u.id} value={u.id}>{u.full_name} ({u.role})</option>)}
+      {availableDriversForAssign.map(u => <option key={u.id} value={u.id}>{u.full_name} ({ROLE_NAMES[u.role] || u.role})</option>)}
     </select>
   </div>
               <div className="modal-actions">
@@ -611,6 +625,7 @@ export default function Vehicles() {
                 <div className="form-group">
                   <label>Одометр після ремонту (км) <span style={{color: '#ef4444'}}>*</span></label>
                   <input type="number" min={maintenanceModalVehicle.last_maintenance_odometer} value={maintenanceForm.odometer_km || ''} onChange={(e) => setMaintenanceForm({...maintenanceForm, odometer_km: parseInt(e.target.value, 10)})} required disabled={isProcessing} className="erp-input" />
+                  <span className="odometer-hint">Поточний: <strong>{maintenanceModalVehicle.current_odometer || 0}</strong> км</span>
                 </div>
                 <div className="form-group">
                   <label>Виконавець (Власний сервіс / СТО)</label>
@@ -629,7 +644,7 @@ export default function Vehicles() {
                 <div className="form-group" style={{marginBottom: 0}}>
                   <label>Скан Акту (PDF/Фото) <span style={{color: '#ef4444'}}>*</span></label>
                   <label className="file-upload-custom">
-                    <input type="file" className="file-input-hidden" accept="image/*,application/pdf" onChange={(e) => { if (e.target.files && e.target.files.length > 0) setMaintenanceForm({...maintenanceForm, document: e.target.files[0]}) }} disabled={isProcessing} />
+                  <input type="file" ref={maintenanceFileRef} className="file-input-hidden" accept="image/*,application/pdf" onChange={(e) => { if (e.target.files && e.target.files.length > 0) setMaintenanceForm({...maintenanceForm, document: e.target.files[0]}) }} disabled={isProcessing} />
                     <span className="file-upload-text">{maintenanceForm.document ? `📎 ${maintenanceForm.document.name}` : '📁 Натисніть, щоб вибрати...'}</span>
                   </label>
                 </div>
@@ -770,7 +785,7 @@ export default function Vehicles() {
                             <td>
                               {record.document_url ? (
                                 <a 
-                                  href={`http://localhost:8080${record.document_url}`} 
+                                  href={record.document_url} 
                                   target="_blank" 
                                   rel="noopener noreferrer" 
                                   className="document-link-btn"
@@ -869,6 +884,7 @@ export default function Vehicles() {
             {searchQuery ? `За запитом "${searchQuery}" нічого не знайдено` : (viewTab === 'ACTIVE' ? 'Активний автопарк порожній' : 'Немає списаної техніки')}
           </p>
         ) : (
+          <>
           <table className="data-table">
             <thead>
               <tr>
@@ -883,7 +899,7 @@ export default function Vehicles() {
               </tr>
             </thead>
             <tbody>
-              {displayedVehicles.map((v) => {
+              {pagedVehicles.map((v) => {
                 return (
                   <tr key={v.id} className={v.status === 'INACTIVE' ? 'row-inactive' : ''}>
                     <td className="vehicle-brand-cell">
@@ -966,11 +982,11 @@ export default function Vehicles() {
                                 )}
 
                                 {v.status === 'IN_REPAIR' ? (
-                                  <button className="text-success" onClick={() => { setMaintenanceModalVehicle(v); setMaintenanceForm({ odometer_km: v.current_odometer || 0, description: '', performed_by: '', cost_amount: 0, document: null }); setActiveMenuId(null); }}>
+                                  <button className="text-success" onClick={() => { setMaintenanceModalVehicle(v); setMaintenanceForm({ odometer_km: v.current_odometer || 0, description: '', performed_by: '', cost_amount: 0, document: null }); if (maintenanceFileRef.current) maintenanceFileRef.current.value = ''; setActiveMenuId(null); }}>
                                     ✅ Завершити ремонт
                                   </button>
                                 ) : (
-                                  <button onClick={() => { setMaintenanceModalVehicle(v); setMaintenanceForm({ odometer_km: v.current_odometer || 0, description: '', performed_by: '', cost_amount: 0, document: null }); setActiveMenuId(null); }}>
+                                  <button onClick={() => { setMaintenanceModalVehicle(v); setMaintenanceForm({ odometer_km: v.current_odometer || 0, description: '', performed_by: '', cost_amount: 0, document: null }); if (maintenanceFileRef.current) maintenanceFileRef.current.value = ''; setActiveMenuId(null); }}>
                                     🛠 Зафіксувати ТО
                                   </button>
                                 )}
@@ -998,6 +1014,14 @@ export default function Vehicles() {
               })}
             </tbody>
           </table>
+          <Pagination
+            currentPage={safeVehiclesPage}
+            totalPages={vehiclesTotalPages}
+            onPageChange={setVehiclesPage}
+            totalItems={displayedVehicles.length}
+            itemsPerPage={VEHICLES_PAGE_SIZE}
+          />
+          </>
         )}
       </div>
     </div>

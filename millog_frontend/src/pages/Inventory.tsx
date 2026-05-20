@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { api, type Resource, type ResourceCategory, type Unit, type Warehouse } from '../api/client';
 import { useAuth } from '../contexts/AuthContext';
 import { usePermissions } from '../hooks/usePermissions';
 import { PaywallBadge } from '../components/FeatureGate';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { Html5QrcodeScanner } from 'html5-qrcode';
+import Pagination from '../components/Pagination';
 import './Inventory.css';
 
 export default function Inventory() {
@@ -53,7 +54,8 @@ export default function Inventory() {
     quantity: 0, 
     unit_type: 'PCS' as 'PCS' | 'KIT' | 'KG' | 'L',
     min_quantity: 0,
-    weight_kg: 1
+    weight_kg: 1,
+    unit_price: 0
   });
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
@@ -63,6 +65,9 @@ export default function Inventory() {
   // НОВИЙ СТЕЙТ ДЛЯ ПОШУКУ
   // ---------------------------------------------------------
   const [searchQuery, setSearchQuery] = useState('');
+  // --- СТЕЙТ ПАГІНАЦІЇ ---
+  const [inventoryPage, setInventoryPage] = useState(0);
+  const INVENTORY_PAGE_SIZE = 25;
   // --- СТЕЙТ ДЛЯ ІМПОРТУ ЕКСЕЛЬ ---
   const [showImportModal, setShowImportModal] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -112,6 +117,11 @@ export default function Inventory() {
   useEffect(() => { 
     loadData(); 
   }, [filterUnitId]);
+
+  // Скидаємо на першу сторінку при зміні фільтрів/пошуку/вкладки
+  useEffect(() => {
+    setInventoryPage(0);
+  }, [searchQuery, selectedCategoryId, activeTab, filterUnitId]);
 
   useEffect(() => {
     if (isScannerOpen) {
@@ -226,7 +236,8 @@ export default function Inventory() {
         quantity: 0, 
         unit_type: 'PCS', 
         min_quantity: 0, 
-        weight_kg: 1 
+        weight_kg: 1,
+        unit_price: 0
       });
       toast.success('Ресурс успішно додано на склад');
       loadData();
@@ -382,15 +393,6 @@ export default function Inventory() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="page-loading">
-        <div className="spinner" />
-        <p>Завантаження інвентарю...</p>
-      </div>
-    );
-  }
-
   // ---------------------------------------------------------
   // ОНОВЛЕНА ЛОГІКА ФІЛЬТРАЦІЇ (Додано пошук)
   // ---------------------------------------------------------
@@ -424,15 +426,54 @@ export default function Inventory() {
     return indexA - indexB;
   });
 
+  // ---------------------------------------------------------
+  // ГРУПОВА ПАГІНАЦІЯ: кожна сторінка — набір цілих unit-секцій
+  // Секція ніколи не розривається між сторінками
+  // ---------------------------------------------------------
+  const inventoryPages = useMemo(() => {
+    const pages: number[][] = [];
+    let currentGroup: number[] = [];
+    let currentCount = 0;
+    for (const unitId of sortedUnitIds) {
+      const groupSize = groupedResources[unitId].length;
+      // Якщо поточна сторінка вже має елементи і додавання групи перевищує ліміт — починаємо нову
+      if (currentGroup.length > 0 && currentCount + groupSize > INVENTORY_PAGE_SIZE) {
+        pages.push(currentGroup);
+        currentGroup = [unitId];
+        currentCount = groupSize;
+      } else {
+        currentGroup.push(unitId);
+        currentCount += groupSize;
+      }
+    }
+    if (currentGroup.length > 0) pages.push(currentGroup);
+    return pages;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredResources.length, sortedUnitIds.join(',')]);
+
+  // Скидаємо сторінку при зміні фільтрів
+  const safeInventoryPage = Math.min(inventoryPage, Math.max(0, inventoryPages.length - 1));
+  const unitIdsOnPage = inventoryPages[safeInventoryPage] ?? [];
+  const itemsOnPage = unitIdsOnPage.reduce((s, id) => s + (groupedResources[id]?.length ?? 0), 0);
+
   const availableWarehousesForNew = warehouses.filter(w => Number(w.unit_id) === Number(newRes.unit_id));
   
   const allowedUsersForAssignment = assignModalData 
     ? usersList.filter(u => u.role !== 'CONTRACTOR' && u.unit_id === assignModalData.resource.unit_id)
     : [];
 
+  if (loading) {
+    return (
+      <div className="page-loading">
+        <div className="spinner" />
+        <p>Завантаження інвентарю...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="inventory-page">
-      <Toaster position="top-right" />
+
       
       <div className="page-header">
         <h1>Облік ресурсу</h1>
@@ -610,7 +651,7 @@ export default function Inventory() {
                 </div>
               </div>
               
-              <div className="form-row-2">
+              <div className="form-row-3">
                 <div className="form-group">
                   <label>Мін. залишок</label>
                   <input className="erp-input" type="number" min="0" value={newRes.min_quantity.toString()} onChange={(e) => { const val = parseInt(e.target.value, 10); setNewRes({ ...newRes, min_quantity: isNaN(val) ? 0 : val }) }} required />
@@ -618,6 +659,10 @@ export default function Inventory() {
                 <div className="form-group">
                   <label>Вага 1 од. (кг) <span style={{color: '#ef4444'}}>*</span></label>
                   <input className="erp-input" type="number" min="0.1" step="0.1" value={newRes.weight_kg || ''} onChange={(e) => setNewRes({ ...newRes, weight_kg: parseFloat(e.target.value) })} required />
+                </div>
+                <div className="form-group">
+                  <label>Ціна за одиницю (грн)</label>
+                  <input className="erp-input" type="number" min="0" step="0.01" placeholder="0.00" value={newRes.unit_price || ''} onChange={(e) => setNewRes({ ...newRes, unit_price: parseFloat(e.target.value) || 0 })} />
                 </div>
               </div>
               
@@ -1022,12 +1067,13 @@ export default function Inventory() {
                 <th>Склад (Локація)</th>
                 <th style={{textAlign: 'center'}}>Загальна кількість</th>
                 <th style={{textAlign: 'center'}}>Мін. залишок</th>
+                <th style={{textAlign: 'center'}}>Ціна / Вартість</th>
                 <th style={{textAlign: 'center'}}>Стан</th>
                 {canManageResources && <th className="col-actions-menu">Дії</th>}
               </tr>
             </thead>
             <tbody>
-                {sortedUnitIds.map(unitId => {
+                {unitIdsOnPage.map(unitId => {
                   const unitResources = groupedResources[unitId];
                   const isOrphan = unitId === 0;
                   const unitName = isOrphan ? (activeTab === 'active' ? '⚠️ НЕРОЗПОДІЛЕНИЙ ЗАЛИШОК' : '🗄️ Архів') : units.find((u) => u.id === unitId)?.name || 'Невідома орг. одиниця';
@@ -1037,7 +1083,7 @@ export default function Inventory() {
                   return (
                     <React.Fragment key={unitId}>
                       <tr className={`unit-header-row ${isMyUnit ? 'my-unit-header' : ''}`}>
-                        <td colSpan={canManageResources ? 6 : 5} style={{color: isDangerRow ? '#ef4444' : ''}}>
+                        <td colSpan={canManageResources ? 7 : 6} style={{color: isDangerRow ? '#ef4444' : ''}}>
                           {isDangerRow ? '🚨 ' : (isOrphan ? '' : '🏢 ')} {unitName} {isMyUnit && <span className="my-unit-badge">(Ваш)</span>}
                         </td>
                       </tr>
@@ -1071,6 +1117,14 @@ export default function Inventory() {
                               {totalQuantity} <small style={{color: 'var(--text-muted)', fontWeight: 'normal', marginLeft: '4px'}}>{formatUnitType(r.unit_type)}</small>
                             </td>
                             <td style={{textAlign: 'center'}}>{r.min_quantity}</td>
+                            <td style={{textAlign: 'center', fontSize: '0.8rem'}}>
+                              {r.unit_price > 0 ? (
+                                <>
+                                  <div style={{color: 'var(--text-secondary)'}}>{r.unit_price.toLocaleString('uk-UA', {minimumFractionDigits: 2})} ₴/од</div>
+                                  <div style={{fontWeight: 600, color: 'var(--primary)'}}>{(r.quantity * r.unit_price).toLocaleString('uk-UA', {minimumFractionDigits: 2})} ₴</div>
+                                </>
+                              ) : <span style={{color: 'var(--text-muted)'}}>—</span>}
+                            </td>
                             <td style={{textAlign: 'center'}}><span className={`badge badge-${status}`}>{statusText}</span></td>
                             
                             {canManageResources && (
@@ -1106,6 +1160,14 @@ export default function Inventory() {
               </tbody>
             </table>
           )}
+          <Pagination
+            currentPage={safeInventoryPage}
+            totalPages={inventoryPages.length}
+            onPageChange={setInventoryPage}
+            totalItems={filteredResources.length}
+            itemsPerPage={INVENTORY_PAGE_SIZE}
+            currentPageItems={itemsOnPage}
+          />
         </div>
       </div>
     </div>

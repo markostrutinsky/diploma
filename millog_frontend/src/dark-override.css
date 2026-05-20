@@ -17,7 +17,7 @@ body,
 .content,
 main,
 [class*="page"],
-[class*="container"]:not(.modal-overlay):not(.dropdown-container):not(.scroll-container):not(.chart-container):not(.profile-content) {
+[class*="container"]:not(.modal-overlay):not(.dropdown-container):not(.scroll-container):not(.chart-container):not(.profile-content):not([class*="go"]):not([data-hot-toast]) {
   background: var(--bg-body) !important;
   color: var(--text) !important;
 }
@@ -266,7 +266,7 @@ div[class*="footer"] {
 .predict-item,
 .fraud-stats,
 .metric-item,
-div[class*="item"]:not(.notif-item) {
+div[class*="item"]:not(.notif-item):not([class*="notif-"]) {
   background: var(--bg-card) !important;
   color: var(--text) !important;
   border-color: var(--border) !important;
@@ -1327,4 +1327,47 @@ button[class*="forgot-password"] {
   min-height: 0 !important;
   height: auto !important;
   width: auto !important;
+}
+
+/* ============================================
+   TOAST NOTIFICATIONS - ТЕМНА ТЕМА
+   ============================================ */
+/* Зовнішній позиційний wrapper тосту (left:0; right:0; flex) — НЕ чіпаємо ширину,
+   щоб justify-content: flex-end правильно вирівнював тост праворуч */
+/* Стилізація самого тост-бару (другий дочірній div усередині wrapper-а) */
+[data-rht-toaster] > div > div {
+  background: #1e293b !important;
+  color: #f1f5f9 !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4) !important;
+}
+
+/* ============================================
+   RECHARTS - ВИПРАВЛЕННЯ HOVER (ТЕМНА ТЕМА)
+   ============================================ */
+/* Прибираємо білий фон тултіп-курсора на графіках */
+.recharts-rectangle.recharts-tooltip-cursor {
+  fill: rgba(255, 255, 255, 0.04) !important;
+  stroke: rgba(255, 255, 255, 0.08) !important;
+}
+.recharts-sector.recharts-tooltip-cursor {
+  fill: rgba(255, 255, 255, 0.04) !important;
+}
+/* Тулбар підказки - темний фон */
+.recharts-default-tooltip {
+  background: #1e293b !important;
+  border: 1px solid rgba(255,255,255,0.12) !important;
+  color: #f1f5f9 !important;
+  border-radius: 6px !important;
+}
+.recharts-tooltip-label {
+  color: #94a3b8 !important;
+}
+.recharts-tooltip-item {
+  color: #f1f5f9 !important;
+}
+/* CartesianGrid лінії — темніші */
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: rgba(255,255,255,0.07) !important;
 }

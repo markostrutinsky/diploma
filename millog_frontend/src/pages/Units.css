@@ -98,28 +98,33 @@
 .unit-cmdr-wrapper {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 12px;
 }
 
 .cmdr-name-text {
   font-weight: 500;
   color: var(--text-bright);
+  flex: 1;
 }
 
 .btn-cmdr-change {
-  background-color: var(--bg-input);
-  color: var(--text-muted);
-  border: 1px solid var(--border);
+  background-color: rgba(59, 130, 246, 0.12);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.35);
   padding: 4px 10px;
   border-radius: 4px;
   font-size: 12px;
   cursor: pointer;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .btn-cmdr-change:hover {
-  background-color: var(--bg-input);
-  color: var(--text);
-  border-color: var(--border);
+  background-color: rgba(59, 130, 246, 0.22);
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.5);
 }
 
 /* Велика кнопка призначити */
@@ -165,22 +170,26 @@
 
 /* Синя кнопка Редагувати */
 .btn-unit-edit {
-  background-color: rgba(59, 130, 246, 0.1);
-  color: #2563eb;
+  background-color: rgba(59, 130, 246, 0.12);
+  color: #60a5fa;
   border-color: rgba(59, 130, 246, 0.3);
 }
 
 .btn-unit-edit:hover {
-  background-color: #dbeafe;
+  background-color: rgba(59, 130, 246, 0.22);
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.5);
 }
 
 /* Червона кнопка Видалити */
 .btn-unit-delete {
   background-color: rgba(239, 68, 68, 0.1);
-  color: #e11d48;
-  border-color: #ffe4e6;
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.3);
 }
 
 .btn-unit-delete:hover {
-  background-color: rgba(239, 68, 68, 0.15);
+  background-color: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.5);
 }

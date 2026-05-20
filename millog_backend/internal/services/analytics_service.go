@@ -49,7 +49,7 @@ func (s *AnalyticsService) GenerateInventoryExcel(ctx context.Context, unitID *i
 		Fill: excelize.Fill{Type: "pattern", Color: []string{"#4F81BD"}, Pattern: 1},
 	})
 
-	headers := []string{"Філія / Підрозділ", "Склад", "Категорія", "Найменування майна", "Кількість", "Од. вим.", "Стан"}
+	headers := []string{"Філія / Підрозділ", "Склад", "Категорія", "Найменування майна", "Кількість", "Од. вим.", "Стан", "Ціна, грн", "Вартість, грн"}
 	for col, header := range headers {
 		colName, _ := excelize.ColumnNumberToName(col + 1)
 		cell := fmt.Sprintf("%s1", colName)
@@ -90,10 +90,12 @@ func (s *AnalyticsService) GenerateInventoryExcel(ctx context.Context, unitID *i
 		f.SetCellValue(sheetName, fmt.Sprintf("E%d", rowIndex), row.Quantity)
 		f.SetCellValue(sheetName, fmt.Sprintf("F%d", rowIndex), unitType)
 		f.SetCellValue(sheetName, fmt.Sprintf("G%d", rowIndex), condition)
+		f.SetCellValue(sheetName, fmt.Sprintf("H%d", rowIndex), row.UnitPrice)
+		f.SetCellValue(sheetName, fmt.Sprintf("I%d", rowIndex), row.TotalValue)
 	}
 
 	// Додаємо автофільтр на всі дані
-	f.AutoFilter(sheetName, fmt.Sprintf("A1:G%d", len(data)+1), nil)
+	f.AutoFilter(sheetName, fmt.Sprintf("A1:I%d", len(data)+1), nil)
 
 	var buf bytes.Buffer
 	if err := f.Write(&buf); err != nil {
@@ -305,6 +307,21 @@ func (s *AnalyticsService) GetAdvancedKPIs(ctx context.Context, startDate, endDa
 		criticalPercent = float64(atRisk) * 100.0 / float64(totalResources)
 	}
 
+	// ---------- INVENTORY VALUE ----------
+	invArgs := []interface{}{}
+	invUnitFilter := ""
+	if unitID > 0 {
+		invUnitFilter = " AND unit_id = $1"
+		invArgs = append(invArgs, unitID)
+	}
+	invQuery := fmt.Sprintf(`
+		SELECT COALESCE(SUM(quantity * unit_price), 0)
+		FROM resources
+		WHERE condition != 'WRITTEN_OFF'%s
+	`, invUnitFilter)
+	var inventoryTotalValue float64
+	_ = s.db.QueryRow(ctx, invQuery, invArgs...).Scan(&inventoryTotalValue)
+
 	return map[string]interface{}{
 		"reporting_period": fmt.Sprintf("%s — %s", startDate, endDate),
 		"sla": map[string]interface{}{
@@ -332,6 +349,7 @@ func (s *AnalyticsService) GetAdvancedKPIs(ctx context.Context, startDate, endDa
 			"within_30_days":  within30,
 			"action_required": len(within7) > 0,
 		},
+		"inventory_total_value": inventoryTotalValue,
 	}, nil
 }
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { api } from '../api/client';
-import toast, { Toaster } from 'react-hot-toast';
+import { api, ROLE_NAMES } from '../api/client';
+import toast from 'react-hot-toast';
+import Pagination from '../components/Pagination';
 import './AuditLogs.css';
 
 interface AuditLog {
@@ -76,6 +77,8 @@ const AuditLogs = () => {
   const [actionFilter, setActionFilter] = useState('ALL');
   const [entityFilter, setEntityFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  const [logsPage, setLogsPage] = useState(0);
+  const LOGS_PAGE_SIZE = 50;
 
   const fetchLogs = async (showToast = false) => {
     if (showToast) setIsRefreshing(true);
@@ -95,6 +98,8 @@ const AuditLogs = () => {
   useEffect(() => {
     fetchLogs();
   }, []);
+
+  useEffect(() => { setLogsPage(0); }, [searchQuery, actionFilter, entityFilter]);
 
   // Генерація кольорових бейджів дій
   const getActionBadge = (action: string) => {
@@ -146,9 +151,13 @@ const AuditLogs = () => {
     );
   }
 
+  const logsTotalPages = Math.max(1, Math.ceil(filteredLogs.length / LOGS_PAGE_SIZE));
+  const safeLogsPage = Math.min(logsPage, logsTotalPages - 1);
+  const pagedLogs = filteredLogs.slice(safeLogsPage * LOGS_PAGE_SIZE, (safeLogsPage + 1) * LOGS_PAGE_SIZE);
+
   return (
     <div className="audit-page">
-      <Toaster position="top-right" />
+
       
       <div className="page-header">
         <div className="header-title-block">
@@ -238,6 +247,7 @@ const AuditLogs = () => {
             <p>Змініть параметри фільтрації або оновіть сторінку.</p>
           </div>
         ) : (
+          <>
           <table className="data-table table-audit">
             <thead>
               <tr>
@@ -249,7 +259,7 @@ const AuditLogs = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredLogs.map((log) => (
+              {pagedLogs.map((log) => (
                 <tr key={log.id}>
                   <td className="timestamp-cell">
                     {new Date(log.created_at).toLocaleString('uk-UA', {
@@ -264,7 +274,7 @@ const AuditLogs = () => {
                   <td>
                     <div className="user-info-stack">
                       <span className="user-email-main">{log.user_email}</span>
-                      <span className="user-role-sub">Роль: {log.user_role}</span>
+                      <span className="user-role-sub">Роль: {ROLE_NAMES[log.user_role as keyof typeof ROLE_NAMES] || log.user_role}</span>
                     </div>
                   </td>
                   <td>{getActionBadge(log.action_type)}</td>
@@ -283,6 +293,14 @@ const AuditLogs = () => {
               ))}
             </tbody>
           </table>
+          <Pagination
+            currentPage={safeLogsPage}
+            totalPages={logsTotalPages}
+            onPageChange={setLogsPage}
+            totalItems={filteredLogs.length}
+            itemsPerPage={LOGS_PAGE_SIZE}
+          />
+          </>
         )}
       </div>
 

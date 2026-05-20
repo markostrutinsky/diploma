@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { usePermissions } from '../hooks/usePermissions'
 import { PaywallBadge } from '../components/FeatureGate'
 import toast from 'react-hot-toast'
+import Pagination from '../components/Pagination'
 import './Requests.css'
 
 const APPROVAL_MATRIX: Record<string, string[]> = {
@@ -53,6 +54,8 @@ export default function Requests() {
   const [filterStatus, setFilterStatus] = useState<string>('ALL')
   const [filterWarehouseId, setFilterWarehouseId] = useState<string>('ALL')
   const [searchQuery, setSearchQuery] = useState('')
+  const [requestsPage, setRequestsPage] = useState(0)
+  const REQUESTS_PAGE_SIZE = 25
 
   const [selectedReqIds, setSelectedReqIds] = useState<Set<string>>(new Set())
   const [showDispatchModal, setShowDispatchModal] = useState(false)
@@ -152,6 +155,7 @@ export default function Requests() {
   }
 
   useEffect(() => { loadData() }, [])
+  useEffect(() => { setRequestsPage(0) }, [filterStatus, filterWarehouseId, searchQuery])
 
   const activeTargetWarehouseId = selectedReqIds.size > 0 
     ? requests.find(r => r.id === Array.from(selectedReqIds)[0])?.target_warehouse_id 
@@ -496,6 +500,10 @@ export default function Requests() {
   }, [vehicles])
 
   if (loading) return <div className="page-loading"><div className="spinner" /></div>
+
+  const reqTotalPages = Math.max(1, Math.ceil(filteredRequests.length / REQUESTS_PAGE_SIZE));
+  const safeReqPage = Math.min(requestsPage, reqTotalPages - 1);
+  const pagedRequests = filteredRequests.slice(safeReqPage * REQUESTS_PAGE_SIZE, (safeReqPage + 1) * REQUESTS_PAGE_SIZE);
 
   const showActionsColumn = canApprove || canCreate;
 
@@ -850,6 +858,7 @@ export default function Requests() {
             {searchQuery ? `За запитом "${searchQuery}" нічого не знайдено` : 'Заявок не знайдено'}
           </div>
         ) : (
+          <>
           <table className="data-table">
             <thead>
               <tr>
@@ -863,7 +872,7 @@ export default function Requests() {
               </tr>
             </thead>
             <tbody>
-              {filteredRequests.map((r) => {
+              {pagedRequests.map((r) => {
                 const isLocked = activeTargetWarehouseId !== null && activeTargetWarehouseId !== r.target_warehouse_id;
                 const isSelected = selectedReqIds.has(r.id);
                 const authorUser = users.find(u => u.id === r.created_by);
@@ -948,6 +957,14 @@ export default function Requests() {
               )})}
             </tbody>
           </table>
+          <Pagination
+            currentPage={safeReqPage}
+            totalPages={reqTotalPages}
+            onPageChange={setRequestsPage}
+            totalItems={filteredRequests.length}
+            itemsPerPage={REQUESTS_PAGE_SIZE}
+          />
+          </>
         )}
       </div>
 

@@ -491,7 +491,6 @@ func (h *InventoryHandler) StartShipment(c *gin.Context) {
 }
 
 func (h *InventoryHandler) DownloadShipmentPDF(c *gin.Context) {
-	userID := c.GetString("user_id")
 	shipmentID := c.Param("id")
 
 	pdfBytes, err := h.invService.GenerateShipmentPDF(c.Request.Context(), shipmentID)
@@ -500,10 +499,6 @@ func (h *InventoryHandler) DownloadShipmentPDF(c *gin.Context) {
 		return
 	}
 
-	go func(uID string, sID string) {
-		_ = h.auditService.LogAction(context.Background(), uID, "READ", "SHIPMENT", sID, "Завантажено ТТН рейсу")
-	}(userID, shipmentID)
-
 	filename := fmt.Sprintf("Waybill_%s.pdf", shipmentID)
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
 	c.Header("Content-Type", "application/pdf")
@@ -511,7 +506,6 @@ func (h *InventoryHandler) DownloadShipmentPDF(c *gin.Context) {
 }
 
 func (h *InventoryHandler) DownloadResourceQR(c *gin.Context) {
-	userID := c.GetString("user_id")
 	resourceID := c.Param("id")
 
 	pngBytes, err := h.invService.GenerateResourceQR(resourceID)
@@ -519,10 +513,6 @@ func (h *InventoryHandler) DownloadResourceQR(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-
-	go func(uID string, rID string) {
-		_ = h.auditService.LogAction(context.Background(), uID, "READ", "RESOURCE", rID, "Завантажено QR-код майна")
-	}(userID, resourceID)
 
 	fileName := fmt.Sprintf("QR_%s.png", resourceID)
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", fileName))

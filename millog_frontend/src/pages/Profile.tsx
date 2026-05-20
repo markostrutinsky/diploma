@@ -11,12 +11,12 @@ const STATUS_LABELS: Record<string, { label: string, color: string }> = {
 };
 
 const PERMISSIONS = {
-  manageWarehouses: ['ADMIN', 'REGION_DIRECTOR', 'REGION_LOGISTICIAN', 'BRANCH_MANAGER', 'BRANCH_LOGISTICIAN', 'DEPT_MANAGER', 'TEAM_LEAD'],
-  approveRequests: ['ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN'],
-  createRequests: ['ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'TEAM_LEAD', 'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN', 'DEPT_SUPERVISOR'],
-  manageInventory: ['ADMIN', 'REGION_STOREKEEPER', 'BRANCH_STOREKEEPER', 'DEPT_SUPERVISOR'],
-  manageUnits: ['ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN', 'REGION_STOREKEEPER', 'BRANCH_STOREKEEPER'],
-  createUsers: ['ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'TEAM_LEAD', 'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN', 'REGION_STOREKEEPER', 'BRANCH_STOREKEEPER', 'DEPT_SUPERVISOR'],
+  manageWarehouses: ['SYSTEM_ADMIN', 'TENANT_ADMIN', 'ADMIN', 'REGION_DIRECTOR', 'REGION_LOGISTICIAN', 'BRANCH_MANAGER', 'BRANCH_LOGISTICIAN', 'DEPT_MANAGER', 'TEAM_LEAD'],
+  approveRequests: ['SYSTEM_ADMIN', 'TENANT_ADMIN', 'ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN'],
+  createRequests: ['SYSTEM_ADMIN', 'TENANT_ADMIN', 'ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'TEAM_LEAD', 'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN', 'DEPT_SUPERVISOR'],
+  manageInventory: ['SYSTEM_ADMIN', 'TENANT_ADMIN', 'ADMIN', 'REGION_STOREKEEPER', 'BRANCH_STOREKEEPER', 'DEPT_SUPERVISOR'],
+  manageUnits: ['SYSTEM_ADMIN', 'TENANT_ADMIN', 'ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN', 'REGION_STOREKEEPER', 'BRANCH_STOREKEEPER'],
+  createUsers: ['SYSTEM_ADMIN', 'TENANT_ADMIN', 'ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'TEAM_LEAD', 'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN', 'REGION_STOREKEEPER', 'BRANCH_STOREKEEPER', 'DEPT_SUPERVISOR'],
 };
 
 export default function Profile() {
@@ -203,19 +203,19 @@ export default function Profile() {
               className={`ptab-btn ${activeTab === 'equipment' ? 'active' : ''}`}
               onClick={() => setActiveTab('equipment')}
             >
-              📦 Моє майно
+              Моє майно
             </button>
             <button 
               className={`ptab-btn ${activeTab === 'permissions' ? 'active' : ''}`}
               onClick={() => setActiveTab('permissions')}
             >
-              🔐 Повноваження
+              Повноваження
             </button>
             <button 
               className={`ptab-btn ${activeTab === 'settings' ? 'active' : ''}`}
               onClick={() => setActiveTab('settings')}
             >
-              ⚙️ Налаштування
+              Налаштування
             </button>
           </div>
 

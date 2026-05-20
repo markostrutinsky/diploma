@@ -292,6 +292,16 @@
 .inventory-modal .form-row-2 .form-group { 
   flex: 1 1 50%; min-width: 0; margin-bottom: 0; 
 }
+
+.inventory-modal .form-row-3 { 
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; 
+  width: 100%; box-sizing: border-box; margin-bottom: 24px; 
+  align-items: end;
+}
+
+.inventory-modal .form-row-3 .form-group { 
+  min-width: 0; margin-bottom: 0; display: flex; flex-direction: column; justify-content: flex-end;
+}
     
 .inventory-modal .modal-actions { 
   display: flex; justify-content: flex-end; gap: 12px; margin-top: 32px; 

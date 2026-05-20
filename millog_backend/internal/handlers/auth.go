@@ -459,7 +459,6 @@ func (h *AuthHandler) RequestPasswordReset(c *gin.Context) {
 
 // GetUserLimits returns subscription tier information and resource usage limits for the current user
 func (h *AuthHandler) GetUserLimits(c *gin.Context) {
-	userID := c.GetString("user_id")
 	unitIDVal, exists := c.Get("unit_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Не вдалося визначити підрозділ користувача"})
@@ -506,10 +505,6 @@ func (h *AuthHandler) GetUserLimits(c *gin.Context) {
 	if limits == nil {
 		limits = limitsByTier["BASIC"]
 	}
-
-	go func() {
-		_ = h.auditService.LogAction(context.Background(), userID, "READ", "USER_LIMITS", userID, fmt.Sprintf("Перегляд інформації про ліміти (tier: %s)", tier))
-	}()
 
 	c.JSON(http.StatusOK, gin.H{
 		"subscriptionTier": tier,

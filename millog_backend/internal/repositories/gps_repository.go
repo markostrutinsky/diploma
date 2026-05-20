@@ -118,12 +118,18 @@ func (r *GPSRepository) GetFleetLocations(ctx context.Context, db DBExecutor, un
 		args = append(args, unitID)
 		unitArgN := len(args)
 		query = fmt.Sprintf(`
-			WITH latest_locations AS (
+			WITH RECURSIVE unit_tree AS (
+				SELECT id FROM units WHERE id = $%d
+				UNION ALL
+				SELECT u.id FROM units u
+				JOIN unit_tree ut ON u.parent_id = ut.id
+			),
+			latest_locations AS (
 				SELECT DISTINCT ON (gl.vehicle_id)
 					gl.id, gl.vehicle_id, gl.unit_id, gl.latitude, gl.longitude, gl.altitude, gl.speed, gl.heading, gl.accuracy, gl.timestamp, gl.created_at
 				FROM gps_locations gl
-				WHERE gl.unit_id = $%d%s
-				  AND gl.timestamp > NOW() - INTERVAL '5 minutes'
+				WHERE gl.unit_id IN (SELECT id FROM unit_tree)%s
+				  AND gl.timestamp > NOW() - INTERVAL '1 hour'
 				ORDER BY gl.vehicle_id, gl.timestamp DESC
 			)
 			SELECT ll.id, ll.vehicle_id, ll.unit_id, ll.latitude, ll.longitude,
@@ -137,7 +143,7 @@ func (r *GPSRepository) GetFleetLocations(ctx context.Context, db DBExecutor, un
 			)
 		`, unitArgN, tFilter)
 	} else {
-		whereBase := "WHERE gl.timestamp > NOW() - INTERVAL '5 minutes'" + tFilter
+		whereBase := "WHERE gl.timestamp > NOW() - INTERVAL '1 hour'" + tFilter
 		query = fmt.Sprintf(`
 			WITH latest_locations AS (
 				SELECT DISTINCT ON (gl.vehicle_id)

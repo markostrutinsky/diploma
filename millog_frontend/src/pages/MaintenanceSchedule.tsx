@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import { api } from '../api/client';
 import { usePermissions } from '../hooks/usePermissions';
 import { PaywallScreen } from '../components/FeatureGate';
+import Pagination from '../components/Pagination';
 import './MaintenanceSchedule.css';
 
 interface MaintenanceItem {
@@ -34,6 +35,10 @@ export function MaintenanceSchedule() {
   const [error, setError] = useState<string | null>(null);
   const [filterPriority, setFilterPriority] = useState<'ALL' | 'LOW' | 'MEDIUM' | 'HIGH'>('ALL');
   const [detailItem, setDetailItem] = useState<MaintenanceItem | null>(null);
+  const [schedulePage, setSchedulePage] = useState(0);
+  const SCHEDULE_PAGE_SIZE = 12;
+
+  useEffect(() => { setSchedulePage(0); }, [filterPriority]);
 
   useEffect(() => {
     if (perms.authLoading) return;
@@ -117,6 +122,10 @@ export function MaintenanceSchedule() {
     return <div className="maintenance-container"><div className="loading">Завантаження графіка ТО...</div></div>;
   }
 
+  const scheduleTotalPages = Math.max(1, Math.ceil(filteredSchedules.length / SCHEDULE_PAGE_SIZE));
+  const safeSchedulePage = Math.min(schedulePage, scheduleTotalPages - 1);
+  const pagedSchedules = filteredSchedules.slice(safeSchedulePage * SCHEDULE_PAGE_SIZE, (safeSchedulePage + 1) * SCHEDULE_PAGE_SIZE);
+
   return (
     <div className="maintenance-container">
       <div className="maintenance-header">
@@ -166,7 +175,7 @@ export function MaintenanceSchedule() {
             <p>📭 Немає послуг технічного обслуговування для фільтра</p>
           </div>
         ) : (
-          filteredSchedules.map(item => (
+          pagedSchedules.map(item => (
             <div key={item.id} className={`maintenance-card ${getStatusColor(item.status, item.priority)}`}>
               <div className="card-header">
                 <div className="vehicle-info">
@@ -239,6 +248,13 @@ export function MaintenanceSchedule() {
           ))
         )}
       </div>
+      <Pagination
+        currentPage={safeSchedulePage}
+        totalPages={scheduleTotalPages}
+        onPageChange={setSchedulePage}
+        totalItems={filteredSchedules.length}
+        itemsPerPage={SCHEDULE_PAGE_SIZE}
+      />
 
       {detailItem && (
         <div className="maint-modal-overlay" onClick={() => setDetailItem(null)}>
@@ -294,7 +310,7 @@ export function MaintenanceSchedule() {
         </div>
       )}
 
-      <Toaster position="top-right" />
+
     </div>
   );
 }

@@ -28,11 +28,11 @@ func (r *ResourceRepository) Create(ctx context.Context, db DBExecutor, res *mod
 		return fmt.Errorf("tenant_id is required for creating resources")
 	}
 
-	query := `INSERT INTO resources (category_id, unit_id, name, description, quantity, unit_type, serial_number, barcode, warehouse_id, condition, min_quantity, weight_kg, tenant_id)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id, created_at, updated_at`
+	query := `INSERT INTO resources (category_id, unit_id, name, description, quantity, unit_type, serial_number, barcode, warehouse_id, condition, min_quantity, weight_kg, unit_price, tenant_id)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id, created_at, updated_at`
 	return db.QueryRow(ctx, query,
 		res.CategoryID, res.UnitID, res.Name, res.Description, res.Quantity, res.UnitType, res.SerialNumber,
-		res.Barcode, res.WarehouseID, res.Condition, res.MinQuantity, res.WeightKg, tid,
+		res.Barcode, res.WarehouseID, res.Condition, res.MinQuantity, res.WeightKg, res.UnitPrice, tid,
 	).Scan(&res.ID, &res.CreatedAt, &res.UpdatedAt)
 }
 
@@ -48,7 +48,7 @@ func (r *ResourceRepository) GetByID(ctx context.Context, db DBExecutor, id stri
             COALESCE(CAST(r.warehouse_id AS TEXT), ''),
             COALESCE(w.name, 'Без складу') as warehouse_name,
             r.condition, r.min_quantity, 
-			r.weight_kg,
+			r.weight_kg, r.unit_price,
             r.created_at, r.updated_at
         FROM resources r
         LEFT JOIN resource_assignments ra ON r.id = ra.resource_id
@@ -61,7 +61,7 @@ func (r *ResourceRepository) GetByID(ctx context.Context, db DBExecutor, id stri
 		&res.ID, &res.CategoryID, &res.UnitID, &res.Name, &res.Description,
 		&res.Quantity, &res.IssuedQuantity, &res.UnitType, &res.SerialNumber,
 		&res.Barcode,
-		&res.WarehouseID, &res.WarehouseName, &res.Condition, &res.MinQuantity, &res.WeightKg, &res.CreatedAt, &res.UpdatedAt,
+		&res.WarehouseID, &res.WarehouseName, &res.Condition, &res.MinQuantity, &res.WeightKg, &res.UnitPrice, &res.CreatedAt, &res.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -91,7 +91,7 @@ func (r *ResourceRepository) List(ctx context.Context, db DBExecutor, unitID *in
             COALESCE(CAST(r.warehouse_id AS TEXT), ''),
             COALESCE(w.name, 'Без складу') as warehouse_name,
             r.condition, r.min_quantity, 
-			r.weight_kg,
+			r.weight_kg, r.unit_price,
             r.created_at, r.updated_at
         FROM resources r
         LEFT JOIN resource_assignments ra ON r.id = ra.resource_id
@@ -110,7 +110,7 @@ func (r *ResourceRepository) List(ctx context.Context, db DBExecutor, unitID *in
             COALESCE(CAST(r.warehouse_id AS TEXT), ''),
             COALESCE(w.name, 'Без складу') as warehouse_name,
             r.condition, r.min_quantity, 
-			r.weight_kg,
+			r.weight_kg, r.unit_price,
             r.created_at, r.updated_at
         FROM resources r
         LEFT JOIN resource_assignments ra ON r.id = ra.resource_id
@@ -133,7 +133,7 @@ func (r *ResourceRepository) List(ctx context.Context, db DBExecutor, unitID *in
 			&res.ID, &res.CategoryID, &res.UnitID, &res.Name, &res.Description,
 			&res.Quantity,       // Це тепер складський залишок
 			&res.IssuedQuantity, // НОВЕ: Це скільки на руках
-			&res.UnitType, &res.SerialNumber, &res.Barcode, &res.WarehouseID, &res.WarehouseName, &res.Condition, &res.MinQuantity, &res.WeightKg,
+			&res.UnitType, &res.SerialNumber, &res.Barcode, &res.WarehouseID, &res.WarehouseName, &res.Condition, &res.MinQuantity, &res.WeightKg, &res.UnitPrice,
 			&res.CreatedAt, &res.UpdatedAt,
 		); err != nil {
 			fmt.Println("🚨 SCAN ERROR IN ListResources (Row Loop):", err)
@@ -260,6 +260,12 @@ func (r *ResourceRepository) Update(ctx context.Context, db DBExecutor, id strin
 	if req.WeightKg != nil {
 		query += fmt.Sprintf(", weight_kg = $%d", argID)
 		args = append(args, *req.WeightKg)
+		argID++
+	}
+
+	if req.UnitPrice != nil {
+		query += fmt.Sprintf(", unit_price = $%d", argID)
+		args = append(args, *req.UnitPrice)
 		argID++
 	}
 
@@ -600,24 +606,41 @@ func (r *ResourceRepository) CreateShipment(ctx context.Context, db *pgxpool.Poo
 		}
 	}
 
-	// 🔥 5. НОВИЙ КРОК: Закриваємо всі заявки, які увійшли в цей рейс
+	// 🔥 5. Переводимо заявки в DISPATCHED одразу при формуванні рейсу.
+	// Для заявок з явним request_id — пряме оновлення.
+	// Для рейсів без request_id (legacy або ручне створення) — шукаємо по resource_name + to_warehouse.
 	var requestIDs []string
 	for _, item := range req.Items {
-		// Перевіряємо, що вказівник не nil і саме значення не порожнє
 		if item.RequestID != nil && *item.RequestID != "" {
-			requestIDs = append(requestIDs, *item.RequestID) // <-- Додали зірочку тут!
+			requestIDs = append(requestIDs, *item.RequestID)
 		}
 	}
 
 	if len(requestIDs) > 0 {
-		// Змінюємо статус на PENDING (рейс створено, але ще не виїхав)
+		// Пряме оновлення по request_id
 		_, err = tx.Exec(ctx, `
-            UPDATE supply_requests 
-            SET status = 'PENDING', updated_at = CURRENT_TIMESTAMP 
-            WHERE id = ANY($1)
-        `, requestIDs)
+			UPDATE supply_requests
+			SET status = 'DISPATCHED', updated_at = CURRENT_TIMESTAMP
+			WHERE id = ANY($1) AND status IN ('PENDING', 'APPROVED')
+		`, requestIDs)
 		if err != nil {
 			return fmt.Errorf("помилка оновлення статусу заявок: %w", err)
+		}
+	} else {
+		// Legacy: рейс без request_id — знаходимо заявки по resource_name + to_warehouse
+		_, err = tx.Exec(ctx, `
+			UPDATE supply_requests sr
+			SET status = 'DISPATCHED', updated_at = CURRENT_TIMESTAMP
+			FROM shipment_items si
+			JOIN resources r ON r.id = si.resource_id
+			WHERE si.shipment_id = $1
+			  AND sr.resource_name = r.name
+			  AND sr.target_warehouse_id = $2
+			  AND sr.status IN ('PENDING', 'APPROVED')
+			  AND sr.tenant_id = $3
+		`, shipmentID, req.ToWarehouseID, tenantID)
+		if err != nil {
+			return fmt.Errorf("помилка оновлення статусу заявок (legacy): %w", err)
 		}
 	}
 
@@ -935,13 +958,33 @@ func (r *ResourceRepository) StartShipment(ctx context.Context, db *pgxpool.Pool
 		return fmt.Errorf("помилка оновлення статусу рейсу: %w", err)
 	}
 
-	// Оновлюємо статус пов'язаних заявок на DISPATCHED (тепер реально в дорозі)
+	// Оновлюємо статус пов'язаних заявок на DISPATCHED (тепер реально в дорозі).
+	// Спочатку — заявки з явним request_id у маніфесті,
+	// потім — заявки без прямого зв'язку, але які відповідають ресурсам рейсу
+	// (для shipment-ів створених до додавання request_id або через legacy-потік).
 	_, err = tx.Exec(ctx, `
-		UPDATE supply_requests 
-		SET status = 'DISPATCHED', updated_at = CURRENT_TIMESTAMP 
-		WHERE id IN (
-			SELECT request_id FROM shipment_items WHERE shipment_id = $1 AND request_id IS NOT NULL
-		)
+		UPDATE supply_requests
+		SET status = 'DISPATCHED', updated_at = CURRENT_TIMESTAMP
+		WHERE status = 'APPROVED'
+		  AND (
+		    -- Пряме посилання через shipment_items.request_id
+		    id IN (
+		      SELECT request_id FROM shipment_items
+		      WHERE shipment_id = $1 AND request_id IS NOT NULL
+		    )
+		    OR
+		    -- Непряме: збіг за resource_name та target_warehouse = to_warehouse рейсу
+		    id IN (
+		      SELECT sr.id
+		      FROM supply_requests sr
+		      JOIN shipments s ON s.id = $1
+		      JOIN shipment_items si ON si.shipment_id = s.id
+		      JOIN resources r ON r.id = si.resource_id
+		      WHERE sr.target_warehouse_id = s.to_warehouse_id
+		        AND sr.resource_name = r.name
+		        AND sr.tenant_id = s.tenant_id
+		    )
+		  )
 	`, shipmentID)
 	if err != nil {
 		return fmt.Errorf("помилка оновлення статусу заявок: %w", err)

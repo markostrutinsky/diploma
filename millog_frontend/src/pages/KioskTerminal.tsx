@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { api } from '../api/client';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import './KioskTerminal.css'; 
 
@@ -129,7 +129,7 @@ export default function KioskTerminal() {
 
   return (
     <div className="kiosk-mode">
-      <Toaster />
+
       <div className="kiosk-header">
         <h1>📦 Термінал Швидкої Видачі</h1>
         <p>Готовий до сканування. Використовуйте сканер, QR або введіть назву вручну.</p>

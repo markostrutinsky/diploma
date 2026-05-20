@@ -175,11 +175,6 @@ func (h *AnalyticsHandler) GetAdvancedKPIs(c *gin.Context) {
 		return
 	}
 
-	userID := c.GetString("user_id")
-	go func() {
-		_ = h.auditService.LogAction(context.Background(), userID, "VIEW", "KPI", "", "Переглянув розширену аналітику (KPI)")
-	}()
-
 	c.JSON(http.StatusOK, kpis)
 }
 
@@ -203,11 +198,6 @@ func (h *AnalyticsHandler) GetDemandForecast(c *gin.Context) {
 		return
 	}
 
-	userID := c.GetString("user_id")
-	go func() {
-		_ = h.auditService.LogAction(context.Background(), userID, "VIEW", "FORECAST", "", "Переглянув прогноз попиту")
-	}()
-
 	c.JSON(http.StatusOK, forecast)
 }
 
@@ -230,11 +220,6 @@ func (h *AnalyticsHandler) GetPredictiveMaintenanceSchedule(c *gin.Context) {
 		return
 	}
 
-	userID := c.GetString("user_id")
-	go func() {
-		_ = h.auditService.LogAction(context.Background(), userID, "VIEW", "MAINTENANCE_SCHEDULE", "", "Переглянув прогноз обслуговування машин")
-	}()
-
 	c.JSON(http.StatusOK, schedule)
 }
 
@@ -256,11 +241,6 @@ func (h *AnalyticsHandler) GetFuelAnomalyDetection(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка аналізу витрат палива"})
 		return
 	}
-
-	userID := c.GetString("user_id")
-	go func() {
-		_ = h.auditService.LogAction(context.Background(), userID, "VIEW", "FUEL_ANOMALIES", "", "Переглянув аналіз аномалій у витраті палива")
-	}()
 
 	c.JSON(http.StatusOK, anomalies)
 }

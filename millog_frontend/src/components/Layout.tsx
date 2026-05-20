@@ -114,7 +114,7 @@ export default function Layout({ children }: LayoutProps) {
                   Аналітика
                 </Link>
                 <Link to="/kpi" className={location.pathname === '/kpi' ? 'active' : ''}>
-                  📊 KPI (SLA / TCO / Ризики)
+                  Показники ефективності
                 </Link>
               </>
             )}
@@ -138,13 +138,13 @@ export default function Layout({ children }: LayoutProps) {
                   Автопарк
                 </Link>
                 <Link to="/gps" className={location.pathname === '/gps' ? 'active' : ''}>
-                  🌍 GPS Трекінг
+                  GPS Трекінг
                 </Link>
                 <Link to="/maintenance" className={location.pathname === '/maintenance' ? 'active' : ''}>
-                  🔮 Графік ТО
+                  Графік технічного обслуговування
                 </Link>
                 <Link to="/fuel-anomalies" className={location.pathname === '/fuel-anomalies' ? 'active' : ''}>
-                  🛡️ Антифрод пального
+                  Контроль витрат пального
                 </Link>
               </>
             )}
@@ -175,7 +175,7 @@ export default function Layout({ children }: LayoutProps) {
                 to="/my-shipments" 
                 className={location.pathname === '/my-shipments' ? 'active' : ''}
               >
-                🚚 Мої Рейси
+                Мої Рейси
               </Link>
             )}
 
@@ -202,7 +202,7 @@ export default function Layout({ children }: LayoutProps) {
             {/* 7. Термінал / Каса */}
             {canSeeKiosk && (
               <Link to="/kiosk" className={location.pathname === '/kiosk' ? 'active' : ''}>
-                📦 Термінал (Каса)
+                Термінал видачі майна
               </Link>
             )}
             
@@ -210,7 +210,7 @@ export default function Layout({ children }: LayoutProps) {
             {(isAdmin || isSystemAdmin || hasRole(userRole, ROLE_GROUPS.superAdmin)) && (
               <>
                 <Link to="/audit" className={location.pathname === '/audit' ? 'active' : ''}>
-                  🛡️ Журнал аудиту
+                  Журнал аудиту
                 </Link>
               </>
             )}
@@ -218,14 +218,14 @@ export default function Layout({ children }: LayoutProps) {
             {/* 9. Платформа (тільки власник SaaS) */}
             {isSystemAdmin && (
               <Link to="/platform" className={location.pathname === '/platform' ? 'active' : ''}>
-                🌐 Платформа (Tenants)
+                Адміністрування платформи
               </Link>
             )}
 
             {/* Тарифні плани — бачать ті, хто бачить аналітику (керівники) */}
             {canSeeAnalytics && (
               <Link to="/billing" className={location.pathname === '/billing' ? 'active' : ''}>
-                💎 Тарифні плани
+                Тарифні плани
               </Link>
             )}
 

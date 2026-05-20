@@ -61,6 +61,7 @@ type Resource struct {
 	MinQuantity    int               `json:"min_quantity"`
 	IssuedQuantity int               `json:"issued_quantity"`
 	WeightKg       float64           `json:"weight_kg"`
+	UnitPrice      float64           `json:"unit_price"` // Ціна за одиницю (грн)
 	CreatedAt      time.Time         `json:"created_at"`
 	UpdatedAt      time.Time         `json:"updated_at"`
 }
@@ -83,6 +84,7 @@ type CreateResourceRequest struct {
 	Condition    ResourceCondition `json:"condition" binding:"omitempty,oneof=NEW USED WRITTEN_OFF"`
 	MinQuantity  int               `json:"min_quantity"`
 	WeightKg     float64           `json:"weight_kg"`
+	UnitPrice    float64           `json:"unit_price"`
 }
 
 type UpdateResourceRequest struct {
@@ -94,6 +96,7 @@ type UpdateResourceRequest struct {
 	Condition    *ResourceCondition `json:"condition"`
 	MinQuantity  *int               `json:"min_quantity"`
 	WeightKg     *float64           `json:"weight_kg"`
+	UnitPrice    *float64           `json:"unit_price"`
 }
 
 type WriteOffResourceRequest struct {

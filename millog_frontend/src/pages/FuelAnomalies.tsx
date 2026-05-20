@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import { api } from '../api/client';
 import { usePermissions } from '../hooks/usePermissions';
 import { PaywallScreen } from '../components/FeatureGate';
+import Pagination from '../components/Pagination';
 import './FuelAnomalies.css';
 
 interface FuelAnomaly {
@@ -35,6 +36,10 @@ export function FuelAnomalies() {
   const [filterLevel, setFilterLevel] = useState<'ALL' | 'LOW' | 'MEDIUM' | 'HIGH'>('ALL');
   const [investigating, setInvestigating] = useState<FuelAnomaly | null>(null);
   const [alertsEnabled, setAlertsEnabled] = useState<Record<number, boolean>>({});
+  const [anomaliesPage, setAnomaliesPage] = useState(0);
+  const ANOMALIES_PAGE_SIZE = 12;
+
+  useEffect(() => { setAnomaliesPage(0); }, [filterLevel]);
 
   useEffect(() => {
     if (perms.authLoading) return;
@@ -114,6 +119,10 @@ export function FuelAnomalies() {
     return <div className="anomalies-container"><div className="loading">Завантаження анализу аномалій...</div></div>;
   }
 
+  const anomaliesTotalPages = Math.max(1, Math.ceil(filteredAnomalies.length / ANOMALIES_PAGE_SIZE));
+  const safeAnomaliesPage = Math.min(anomaliesPage, anomaliesTotalPages - 1);
+  const pagedAnomalies = filteredAnomalies.slice(safeAnomaliesPage * ANOMALIES_PAGE_SIZE, (safeAnomaliesPage + 1) * ANOMALIES_PAGE_SIZE);
+
   return (
     <div className="anomalies-container">
       <div className="anomalies-header">
@@ -161,7 +170,7 @@ export function FuelAnomalies() {
             <p>✅ Аномалій не виявлено! Всі автомобілі в нормі</p>
           </div>
         ) : (
-          filteredAnomalies.map(anomaly => (
+          pagedAnomalies.map(anomaly => (
             <div key={anomaly.id} className={`anomaly-card ${getLevelColor(anomaly.investigation_level)}`}>
               <div className="card-header">
                 <div className="vehicle-info">
@@ -244,6 +253,13 @@ export function FuelAnomalies() {
           ))
         )}
       </div>
+      <Pagination
+        currentPage={safeAnomaliesPage}
+        totalPages={anomaliesTotalPages}
+        onPageChange={setAnomaliesPage}
+        totalItems={filteredAnomalies.length}
+        itemsPerPage={ANOMALIES_PAGE_SIZE}
+      />
 
       {investigating && (
         <div className="fuel-modal-overlay" onClick={() => setInvestigating(null)}>
@@ -313,7 +329,7 @@ export function FuelAnomalies() {
         </div>
       )}
 
-      <Toaster position="top-right" />
+
     </div>
   );
 }

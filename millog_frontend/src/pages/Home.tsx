@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { usePermissions } from '../hooks/usePermissions'
-import { api } from '../api/client'
+import { api, ROLE_NAMES } from '../api/client'
 import './Home.css'
 
 export default function Home() {
@@ -131,7 +131,7 @@ export default function Home() {
     <div className="dashboard-container">
       <div className="page-header">
         <h1>Головна</h1>
-        <p className="page-subtitle">{user?.full_name} ({user?.role})</p>
+        <p className="page-subtitle">{user?.full_name} ({user?.role ? ROLE_NAMES[user.role] || user.role : ''})</p>
       </div>
 
       <div className="stats-grid">

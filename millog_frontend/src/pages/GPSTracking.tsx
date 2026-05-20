@@ -188,7 +188,7 @@ const GPSTracking: React.FC = () => {
   return (
     <div className="gps-tracking-container">
       <div className="gps-header">
-        <h1>🗺️ Real-Time Fleet Tracking</h1>
+        <h1>🗺️ Онлайн-відстеження транспорту</h1>
         <div className="header-stats">
           <span className="stat">
             Машин онлайн: <strong>{fleetData.count}</strong>

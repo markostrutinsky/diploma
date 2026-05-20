@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api, type ContractorRequest, type Unit } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import { usePermissions } from '../hooks/usePermissions'
+import Pagination from '../components/Pagination'
 import './VolunteerRequests.css'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -42,6 +43,8 @@ export default function ContractorRequests() {
   // НОВИЙ СТЕЙТ ДЛЯ ПОШУКУ
   // ---------------------------------------------------------
   const [searchQuery, setSearchQuery] = useState('')
+  const [volPage, setVolPage] = useState(0)
+  const VOL_PAGE_SIZE = 20
 
   const inventoryRoles = [
     'ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 
@@ -107,6 +110,8 @@ export default function ContractorRequests() {
     loadResources()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => { setVolPage(0) }, [searchQuery])
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -205,6 +210,10 @@ export default function ContractorRequests() {
 
   const myActiveTasks = filteredRequests.filter((r) => r.taken_by === user?.id && r.status === 'TAKEN');
   const displayedRequests = isCONTRACTOR ? filteredRequests.filter((r) => r.status === 'OPEN') : filteredRequests;
+
+  const volTotalPages = Math.max(1, Math.ceil(displayedRequests.length / VOL_PAGE_SIZE));
+  const safeVolPage = Math.min(volPage, volTotalPages - 1);
+  const pagedVolRequests = displayedRequests.slice(safeVolPage * VOL_PAGE_SIZE, (safeVolPage + 1) * VOL_PAGE_SIZE);
 
   const getBadgeClass = (status: string) => {
     switch(status?.toUpperCase()) {
@@ -495,8 +504,9 @@ export default function ContractorRequests() {
             {searchQuery ? `За запитом "${searchQuery}" нічого не знайдено` : 'Наразі немає записів'}
           </p>
         ) : (
+          <>
           <ul className="request-list">
-            {displayedRequests.map((r) => (
+            {pagedVolRequests.map((r) => (
               <li key={r.id}>
                 <div className="request-info">
                   <strong>{r.title}</strong>
@@ -574,6 +584,14 @@ export default function ContractorRequests() {
               </li>
             ))}
           </ul>
+          <Pagination
+            currentPage={safeVolPage}
+            totalPages={volTotalPages}
+            onPageChange={setVolPage}
+            totalItems={displayedRequests.length}
+            itemsPerPage={VOL_PAGE_SIZE}
+          />
+          </>
         )}
       </div>
     </div>

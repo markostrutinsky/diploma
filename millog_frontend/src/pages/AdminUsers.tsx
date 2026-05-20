@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api, type CreateUserRequest, type Unit, type User, ROLE_NAMES, UNIT_TYPE_NAMES, type UserRole } from '../api/client'
 import { usePermissions } from '../hooks/usePermissions'
 import { useNavigate } from 'react-router-dom'
+import Pagination from '../components/Pagination'
 import './AdminUsers.css'
 
 // Ролі власника організації — мають однакові права в UI (повний доступ в межах tenant).
@@ -293,6 +294,13 @@ export default function AdminUsers() {
     return true;
   })
 
+  const USERS_PAGE_SIZE = 20;
+  const [usersPage, setUsersPage] = useState(0);
+  useEffect(() => { setUsersPage(0); }, [searchQuery, activeTab]);
+  const usersTotalPages = Math.max(1, Math.ceil(filteredUsers.length / USERS_PAGE_SIZE));
+  const safeUsersPage = Math.min(usersPage, usersTotalPages - 1);
+  const pagedUsers = filteredUsers.slice(safeUsersPage * USERS_PAGE_SIZE, (safeUsersPage + 1) * USERS_PAGE_SIZE);
+
   return (
     <div className="admin-users">
       <div className="page-header page-header-flex">
@@ -511,6 +519,7 @@ export default function AdminUsers() {
             {searchQuery ? `За запитом "${searchQuery}" нічого не знайдено` : (activeTab === 'reserve' ? 'Кадровий резерв порожній' : 'Немає користувачів')}
           </p>
         ) : (
+          <>
           <table className="data-table">
             <thead>
               <tr>
@@ -522,7 +531,7 @@ export default function AdminUsers() {
               </tr>
             </thead>
             <tbody>
-              {filteredUsers.map(u => {
+              {pagedUsers.map(u => {
                 const roleLabel = u.role === 'CONTRACTOR' 
                   ? 'Підрядник' 
                   : ROLE_NAMES[u.role] || u.role;
@@ -572,6 +581,7 @@ export default function AdminUsers() {
                               disabled={isBlocked} 
                               title={isBlocked ? "Неможливо змінити посаду заблокованому користувачу" : "Перемістити або змінити посаду"}
                             >
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                               Змінити посаду
                             </button>
                             
@@ -582,6 +592,7 @@ export default function AdminUsers() {
                                 disabled={!canChangeStatus}
                                 title={!canChangeStatus ? "Немає прав: користувач у загальному резерві" : "Повернути до активного персоналу"}
                               >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"></path></svg>
                                 Розблокувати
                               </button>
                             ) : (
@@ -591,6 +602,7 @@ export default function AdminUsers() {
                                 disabled={!canChangeStatus}
                                 title={!canChangeStatus ? "Немає прав: користувач у загальному резерві" : "Заблокувати користувача"}
                               >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>
                                 Заблокувати
                               </button>
                             )}
@@ -603,6 +615,14 @@ export default function AdminUsers() {
               })}
             </tbody>
           </table>
+          <Pagination
+            currentPage={safeUsersPage}
+            totalPages={usersTotalPages}
+            onPageChange={setUsersPage}
+            totalItems={filteredUsers.length}
+            itemsPerPage={USERS_PAGE_SIZE}
+          />
+          </>
         )}
       </div>
     </div>

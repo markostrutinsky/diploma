@@ -179,7 +179,7 @@ func (h *VehicleHandler) PerformMaintenance(c *gin.Context) {
 			return
 		}
 
-		documentURL = "/" + filepath.ToSlash(savePath)
+		documentURL = "/api/" + filepath.ToSlash(savePath)
 	}
 
 	record := &models.MaintenanceRecord{

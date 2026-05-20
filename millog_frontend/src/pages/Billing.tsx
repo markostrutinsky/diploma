@@ -1,5 +1,5 @@
 import { useAuth } from '../contexts/AuthContext';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import './Billing.css';
 
 export default function Billing() {
@@ -17,7 +17,7 @@ export default function Billing() {
 
   return (
     <div className="billing-page">
-      <Toaster position="top-right" />
+
       <div className="page-header">
         <h1>Тарифні плани</h1>
         <p className="subtitle" style={{ color: '#64748b' }}>

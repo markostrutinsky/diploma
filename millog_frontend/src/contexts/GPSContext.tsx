@@ -13,12 +13,14 @@ interface GPSContextType {
   gpsStatus: GpsStatus;
   lastCoords: { lat: number; lng: number; speed: number | null } | null;
   hasActiveShipment: boolean;
+  refreshActiveShipment: () => Promise<void>;
 }
 
 const GPSContext = createContext<GPSContextType>({
   gpsStatus: 'idle',
   lastCoords: null,
   hasActiveShipment: false,
+  refreshActiveShipment: async () => {},
 });
 
 export function GPSProvider({ children }: { children: ReactNode }) {
@@ -152,7 +154,7 @@ export function GPSProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <GPSContext.Provider value={{ gpsStatus, lastCoords, hasActiveShipment }}>
+    <GPSContext.Provider value={{ gpsStatus, lastCoords, hasActiveShipment, refreshActiveShipment: checkActiveShipment }}>
       {children}
     </GPSContext.Provider>
   );

@@ -253,6 +253,9 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		// 26. Вага ресурсу/товару (САМЕ ЦЬОГО НЕ ВИСТАЧАЛО!)
 		`ALTER TABLE resources ADD COLUMN IF NOT EXISTS weight_kg DECIMAL(10,2) NOT NULL DEFAULT 1.00;`,
 
+		// 26b. Ціна одиниці ресурсу (для фінансової аналітики)
+		`ALTER TABLE resources ADD COLUMN IF NOT EXISTS unit_price NUMERIC(12,2) NOT NULL DEFAULT 0;`,
+
 		// 27. Рейси (Накладні / Відправки)
 		`CREATE TABLE IF NOT EXISTS shipments (
 			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

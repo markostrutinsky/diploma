@@ -305,7 +305,7 @@ func main() {
 		}
 
 		// Захищений endpoint для скачування файлів ТО (лише для авторизованих)
-		r.GET("/uploads/maintenance/:filename",
+		api.GET("/uploads/maintenance/:filename",
 			middleware.AuthMiddleware(jwtSecret, dbPool),
 			func(c *gin.Context) {
 				filename := c.Param("filename")

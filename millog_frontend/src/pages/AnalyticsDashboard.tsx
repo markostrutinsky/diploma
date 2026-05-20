@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, BarChart, Bar, Cell, PieChart, Pie } from 'recharts';
-import { toast, Toaster } from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import './AnalyticsDashboard.css';
@@ -200,7 +200,7 @@ const AnalyticsDashboard: React.FC = () => {
 
   const submitSmartReplenish = async () => {
     const payloadItems = (data?.deficit_resources || [])
-      .filter((r: any) => orderConfig[r.id] !== 'NONE')
+      .filter((r: any) => orderConfig[r.id] && orderConfig[r.id] !== 'NONE')
       .map((r: any) => ({
         resource_id: r.id,
         name: r.name,
@@ -233,7 +233,7 @@ const AnalyticsDashboard: React.FC = () => {
 
   return (
     <div className="analytics-erp-container">
-      <Toaster position="top-right" />
+
 
       {/* --- МОДАЛЬНЕ ВІКНО SMART ПОПОВНЕННЯ --- */}
       {isModalOpen && (
@@ -603,10 +603,70 @@ const AnalyticsDashboard: React.FC = () => {
               </div>
             </div>
 
+            {/* ФІНАНСОВІ МЕТРИКИ */}
+            <div className="erp-widget col-span-1">
+              <div className="widget-header"><h3>💰 Загальна вартість майна</h3></div>
+              <div style={{ padding: '24px', textAlign: 'center' }}>
+                <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '8px' }}>
+                  {(data?.inventory_total_value || 0).toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₴
+                </div>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Активних залишків на складах</div>
+                {(data?.write_off_total_value || 0) > 0 && (
+                  <div style={{ marginTop: '16px', padding: '12px', background: 'var(--surface)', borderRadius: '8px' }}>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Списано за період</div>
+                    <div style={{ fontSize: '1.3rem', fontWeight: 600, color: 'var(--error)' }}>
+                      {(data.write_off_total_value || 0).toLocaleString('uk-UA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₴
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="erp-widget col-span-2">
+              <div className="widget-header"><h3>Вартість майна по складах (Топ-5)</h3></div>
+              <div className="chart-container">
+                {(!data?.warehouse_value_stats || data.warehouse_value_stats.length === 0) ? <p className="empty">Немає оцінених залишків.</p> : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={data.warehouse_value_stats} margin={{ top: 10, right: 30, left: 20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                      <XAxis dataKey="warehouse_name" tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(v) => `${(v/1000).toFixed(0)}к`} />
+                      <Tooltip contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }} formatter={(v: number) => [`${v.toLocaleString('uk-UA')} ₴`, 'Вартість']} cursor={{ fill: '#f8fafc' }} />
+                      <Bar dataKey="total_value" name="Вартість (₴)" fill="#10b981" radius={[4, 4, 0, 0]} barSize={40} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            </div>
+
+            <div className="erp-widget col-span-full">
+              <div className="widget-header"><h3>Топ-5 найдорожчих позицій</h3></div>
+              {(!data?.top_costly_resources || data.top_costly_resources.length === 0) ? <p className="empty" style={{ padding: '16px' }}>Немає оцінених ресурсів.</p> : (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                      <th style={{ padding: '10px 16px', textAlign: 'left', color: 'var(--text-secondary)', fontWeight: 600 }}>Найменування</th>
+                      <th style={{ padding: '10px 16px', textAlign: 'right', color: 'var(--text-secondary)', fontWeight: 600 }}>К-сть</th>
+                      <th style={{ padding: '10px 16px', textAlign: 'right', color: 'var(--text-secondary)', fontWeight: 600 }}>Ціна за од., ₴</th>
+                      <th style={{ padding: '10px 16px', textAlign: 'right', color: 'var(--text-secondary)', fontWeight: 600 }}>Загальна вартість, ₴</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.top_costly_resources.map((r: any, idx: number) => (
+                      <tr key={idx} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '10px 16px', fontWeight: 500 }}>{r.resource_name}</td>
+                        <td style={{ padding: '10px 16px', textAlign: 'right' }}>{r.quantity}</td>
+                        <td style={{ padding: '10px 16px', textAlign: 'right' }}>{r.unit_price.toLocaleString('uk-UA', { minimumFractionDigits: 2 })}</td>
+                        <td style={{ padding: '10px 16px', textAlign: 'right', fontWeight: 700, color: 'var(--primary)' }}>{r.total_value.toLocaleString('uk-UA', { minimumFractionDigits: 2 })}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
           </div>
         )}
-
-        {/* ВКЛАДКА 3: АВТОПАРК */}
         {activeTab === 'fleet' && (
           <div className="grid-layout">
             <div className="erp-widget col-span-2">
