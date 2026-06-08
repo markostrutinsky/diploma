@@ -66,8 +66,13 @@ func (r *FuelRepository) CreateFuelRecord(ctx context.Context, record *models.Fu
 			return fmt.Errorf("недостатньо пального. У баку: %.1f л, спроба списати: %.1f л", currentBalance, record.Liters)
 		}
 	} else if record.RecordType == models.FuelRefuel {
-		if currentBalance+record.Liters > tankCapacity {
-			return fmt.Errorf("бак переповнено! Поточний залишок: %.1f л, максимум: %.1f л, спроба заправити: %.1f л", currentBalance, tankCapacity, record.Liters)
+		// Якщо заправка переповнює бак — обрізаємо до місткості (не повертаємо помилку)
+		maxRefuel := tankCapacity - currentBalance
+		if maxRefuel <= 0 {
+			return fmt.Errorf("бак повний! Поточний залишок: %.1f л, максимум: %.1f л", currentBalance, tankCapacity)
+		}
+		if record.Liters > maxRefuel {
+			record.Liters = maxRefuel
 		}
 	}
 
@@ -99,17 +104,25 @@ func (r *FuelRepository) CreateFuelRecord(ctx context.Context, record *models.Fu
 		distance := *record.OdometerKm - lastOdometer
 
 		if distance == 0 {
-			// Пальне спалено, але машина не рухалась
+			// Пальне спалено, але машина не рухалась → весь обсяг вважаємо втратою
 			record.IsAnomaly = true
+			record.AnomalyExcessLiters = record.Liters
 			reason := fmt.Sprintf("Витрата пального без руху (холостий хід / обігрів). Одометр не змінився: %d км", lastOdometer)
 			record.AnomalyReason = &reason
 		} else if fuelNorm > 0 {
 			actualConsumption := (record.Liters / float64(distance)) * 100
 
 			if actualConsumption > (fuelNorm * 1.3) {
-				// Перевитрата більше ніж на 30% від норми
+				// Перевитрата більше ніж на 30% від норми.
+				// Втратою вважаємо лише обсяг ПОНАД норму, а не всі літри.
 				record.IsAnomaly = true
-				reason := fmt.Sprintf("Перевитрата пального! Факт: %.1f л/100км (Норма: %.1f). Дистанція: %d км", actualConsumption, fuelNorm, distance)
+				expectedLiters := fuelNorm * float64(distance) / 100.0
+				excess := record.Liters - expectedLiters
+				if excess < 0 {
+					excess = 0
+				}
+				record.AnomalyExcessLiters = excess
+				reason := fmt.Sprintf("Перевитрата пального! Факт: %.1f л/100км (Норма: %.1f). Дистанція: %d км. Зайве: %.1f л", actualConsumption, fuelNorm, distance, excess)
 				record.AnomalyReason = &reason
 			}
 		}
@@ -119,22 +132,22 @@ func (r *FuelRepository) CreateFuelRecord(ctx context.Context, record *models.Fu
 	if tid == "" {
 		query := `
         INSERT INTO fuel_records (
-            vehicle_id, liters, odometer_km, record_type, created_by, is_anomaly, anomaly_reason
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-        RETURNING id, created_at`
-		err = tx.QueryRow(ctx, query,
-			record.VehicleID, record.Liters, record.OdometerKm, record.RecordType,
-			record.CreatedBy, record.IsAnomaly, record.AnomalyReason,
-		).Scan(&record.ID, &record.CreatedAt)
-	} else {
-		query := `
-        INSERT INTO fuel_records (
-            vehicle_id, liters, odometer_km, record_type, created_by, is_anomaly, anomaly_reason, tenant_id
+            vehicle_id, liters, odometer_km, record_type, created_by, is_anomaly, anomaly_reason, anomaly_excess_liters
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING id, created_at`
 		err = tx.QueryRow(ctx, query,
 			record.VehicleID, record.Liters, record.OdometerKm, record.RecordType,
-			record.CreatedBy, record.IsAnomaly, record.AnomalyReason, tid,
+			record.CreatedBy, record.IsAnomaly, record.AnomalyReason, record.AnomalyExcessLiters,
+		).Scan(&record.ID, &record.CreatedAt)
+	} else {
+		query := `
+        INSERT INTO fuel_records (
+            vehicle_id, liters, odometer_km, record_type, created_by, is_anomaly, anomaly_reason, anomaly_excess_liters, tenant_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING id, created_at`
+		err = tx.QueryRow(ctx, query,
+			record.VehicleID, record.Liters, record.OdometerKm, record.RecordType,
+			record.CreatedBy, record.IsAnomaly, record.AnomalyReason, record.AnomalyExcessLiters, tid,
 		).Scan(&record.ID, &record.CreatedAt)
 	}
 

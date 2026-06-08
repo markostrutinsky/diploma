@@ -2,9 +2,11 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
 	"sort"
 	"time"
 
@@ -13,6 +15,44 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// calcOSRMDistance розраховує відстань у км між двома складами через OSRM.
+// Повертає 0 якщо координати відсутні або сервіс недоступний.
+func calcOSRMDistance(ctx context.Context, db *pgxpool.Pool, fromWarehouseID, toWarehouseID string) float64 {
+	var fromLat, fromLon, toLat, toLon *float64
+	db.QueryRow(ctx, "SELECT latitude, longitude FROM warehouses WHERE id = $1", fromWarehouseID).Scan(&fromLat, &fromLon)
+	db.QueryRow(ctx, "SELECT latitude, longitude FROM warehouses WHERE id = $1", toWarehouseID).Scan(&toLat, &toLon)
+
+	if fromLat == nil || fromLon == nil || toLat == nil || toLon == nil {
+		return 0
+	}
+
+	url := fmt.Sprintf("https://router.project-osrm.org/route/v1/driving/%.6f,%.6f;%.6f,%.6f?overview=false",
+		*fromLon, *fromLat, *toLon, *toLat)
+
+	reqCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	httpReq, err := http.NewRequestWithContext(reqCtx, http.MethodGet, url, nil)
+	if err != nil {
+		return 0
+	}
+	resp, err := http.DefaultClient.Do(httpReq)
+	if err != nil {
+		return 0
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Routes []struct {
+			Distance float64 `json:"distance"`
+		} `json:"routes"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil || len(result.Routes) == 0 {
+		return 0
+	}
+	return result.Routes[0].Distance / 1000.0 // метри → км
+}
 
 func CanApproveRequest(creatorRole models.UserRole, approverRole models.UserRole) bool {
 	if approverRole == models.RoleAdmin {
@@ -160,7 +200,7 @@ func (s *RequestService) Cancel(ctx context.Context, id string, userID string) e
 }
 
 // GetSmartDispatchPreview виконує розрахунок пакування
-func (s *RequestService) GetSmartDispatchPreview(ctx context.Context, reqIDs []string) (*models.SmartDispatchResult, error) {
+func (s *RequestService) GetSmartDispatchPreview(ctx context.Context, reqIDs []string, fromWarehouseID string) (*models.SmartDispatchResult, error) {
 	// 1. Отримуємо заявки з БД
 	requests, err := s.requestRepo.GetRequestsForDispatch(ctx, s.dbPool, reqIDs)
 	if err != nil {
@@ -170,13 +210,20 @@ func (s *RequestService) GetSmartDispatchPreview(ctx context.Context, reqIDs []s
 		return nil, fmt.Errorf("не знайдено валідних заявок для обробки")
 	}
 
-	// 2. Отримуємо доступні авто з БД
-	vehicles, err := s.requestRepo.GetAvailableVehicles(ctx, s.dbPool)
+	// Визначаємо цільовий склад (усі заявки мають однаковий, фронт це гарантує).
+	targetWarehouseID := requests[0].TargetWarehouseID
+
+	// 2. Отримуємо доступні авто з БД — тільки ті, що фізично знаходяться
+	// на складі відправника або складі отримувача (без ієрархії).
+	vehicles, err := s.requestRepo.GetAvailableVehicles(ctx, s.dbPool, fromWarehouseID, targetWarehouseID)
 	if err != nil {
 		return nil, fmt.Errorf("помилка отримання автопарку: %v", err)
 	}
 	if len(vehicles) == 0 {
-		return nil, fmt.Errorf("наразі немає вільних вантажних автомобілів")
+		if fromWarehouseID != "" {
+			return nil, fmt.Errorf("на складах відправника та отримувача немає вільних вантажних автомобілів. Переконайтесь, що транспорт зареєстрований на одному з цих складів")
+		}
+		return nil, fmt.Errorf("на складі отримувача немає вільних вантажних автомобілів")
 	}
 
 	// 3. АЛГОРИТМ First-Fit Decreasing
@@ -186,9 +233,11 @@ func (s *RequestService) GetSmartDispatchPreview(ctx context.Context, reqIDs []s
 		return requests[i].WeightKg > requests[j].WeightKg
 	})
 
-	// Сортуємо авто за вантажопідйомністю (від найбільших до найменших)
+	// Сортуємо авто за вантажопідйомністю від НАЙМЕНШИХ до НАЙБІЛЬШИХ.
+	// Це гарантує, що легкий вантаж отримає найменшу відповідну машину,
+	// а не одразу 22-тонну фуру (FFD з "best-fit" вибором біна).
 	sort.Slice(vehicles, func(i, j int) bool {
-		return vehicles[i].MaxWeight > vehicles[j].MaxWeight
+		return vehicles[i].MaxWeight < vehicles[j].MaxWeight
 	})
 
 	var unassigned []models.RequestItem
@@ -254,7 +303,7 @@ func (s *RequestService) ConfirmSmartDispatch(ctx context.Context, req *models.S
 			if err != nil {
 				return 0, fmt.Errorf("не знайдено заявку %s: %w", rid, err)
 			}
-			if sr.Status != models.RequestApproved && sr.Status != models.RequestPending {
+			if sr.Status != models.RequestApproved && sr.Status != models.RequestPending && sr.Status != models.RequestLoading {
 				return 0, fmt.Errorf("заявка %s вже оброблена (status=%s)", rid, sr.Status)
 			}
 			if sr.TargetWarehouseID == "" {
@@ -311,12 +360,19 @@ func (s *RequestService) ConfirmSmartDispatch(ctx context.Context, req *models.S
 			})
 		}
 
+		// Розраховуємо відстань між складами (OSRM), якщо не передана у payload
+		distanceKm := req.DistanceKm
+		if distanceKm == 0 {
+			distanceKm = calcOSRMDistance(ctx, s.dbPool, req.FromWarehouseID, toWarehouseID)
+		}
+
 		shipReq := models.CreateShipmentRequest{
 			FromWarehouseID: req.FromWarehouseID,
 			ToWarehouseID:   toWarehouseID,
 			VehicleID:       route.VehicleID,
 			Priority:        req.Priority,
 			Items:           items,
+			DistanceKm:      distanceKm,
 		}
 
 		if err := s.resourceRepo.CreateShipment(ctx, s.dbPool, shipReq); err != nil {

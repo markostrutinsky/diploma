@@ -1,15 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { api, ROLE_NAMES, type Vehicle, type FuelRecordType, type FuelRecord, type MaintenanceRecord, type SystemUser, type DriverHistoryRecord} from '../api/client'
+import { api, ROLE_NAMES, type Vehicle, type FuelRecordType, type FuelRecord, type MaintenanceRecord, type SystemUser, type DriverHistoryRecord, type VehicleShipmentRecord, type Warehouse, type LogShipmentRefuelPayload} from '../api/client'
 import { usePermissions } from '../hooks/usePermissions'
 import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
 import Pagination from '../components/Pagination'
-import './Vehicles.css' 
+import SearchableSelect from '../components/SearchableSelect'
+import './Vehicles.css'
 
 export default function Vehicles() {
   const navigate = useNavigate()
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [usersList, setUsersList] = useState<SystemUser[]>([])
+  const [warehousesList, setWarehousesList] = useState<Warehouse[]>([])
   const [loading, setLoading] = useState(true)
 
   const [viewTab, setViewTab] = useState<'ACTIVE' | 'ARCHIVE'>('ACTIVE')
@@ -46,12 +48,18 @@ export default function Vehicles() {
   const [anomalyAlert, setAnomalyAlert] = useState<FuelRecord | null>(null)
   
   const [historyVehicle, setHistoryVehicle] = useState<Vehicle | null>(null)
-  const [historyTab, setHistoryTab] = useState<'FUEL' | 'MAINTENANCE' | 'DRIVERS'>('FUEL')
+  const [historyTab, setHistoryTab] = useState<'FUEL' | 'MAINTENANCE' | 'DRIVERS' | 'TRIPS'>('FUEL')
   const [fuelRecords, setFuelRecords] = useState<FuelRecord[]>([])
   const [maintenanceRecords, setMaintenanceRecords] = useState<MaintenanceRecord[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [driverRecords, setDriverRecords] = useState<DriverHistoryRecord[]>([])
-  
+  const [tripRecords, setTripRecords] = useState<VehicleShipmentRecord[]>([])
+
+  // ⛽ Дозаправка під час рейсу
+  const [tripRefuelModal, setTripRefuelModal] = useState<{ shipmentId: string; fromWarehouse: string; toWarehouse: string } | null>(null)
+  const [tripRefuelForm, setTripRefuelForm] = useState({ liters: '', station_name: '', odometer_km: '', cost_uah: '' })
+  const [tripRefuelProcessing, setTripRefuelProcessing] = useState(false)
+
   const [driverModalVehicle, setDriverModalVehicle] = useState<Vehicle | null>(null)
   const [driverForm, setDriverForm] = useState({ driver_id: '' })
   const maintenanceFileRef = useRef<HTMLInputElement>(null)
@@ -64,7 +72,8 @@ export default function Vehicles() {
     capacity_kg: 1500,     
     tank_capacity: 0,
     fuel_norm: 0,
-    driver_id: ''
+    driver_id: '',
+    home_warehouse_id: ''
   })
 
   const [fuelForm, setFuelForm] = useState({
@@ -96,10 +105,12 @@ export default function Vehicles() {
     setLoading(true)
     Promise.all([
       api.vehicles.list().catch(() => []),
-      api.users.getVisible().catch(() => [])
-    ]).then(([vehiclesData, usersData]) => {
+      api.users.getVisible().catch(() => []),
+      api.warehouses.list().catch(() => [])
+    ]).then(([vehiclesData, usersData, warehousesData]) => {
       setVehicles(Array.isArray(vehiclesData) ? vehiclesData : [])
       setUsersList(Array.isArray(usersData) ? usersData : [])
+      setWarehousesList(Array.isArray(warehousesData) ? warehousesData : [])
     }).finally(() => setLoading(false))
   }
 
@@ -117,7 +128,7 @@ export default function Vehicles() {
       }
       await api.vehicles.create(payload)
       toast.success('Автомобіль успішно додано!')
-      setNewVehicle({ brand: '', model: '', plate_number: '', type: 'VAN', capacity_kg: 1500, tank_capacity: 0, fuel_norm: 0, driver_id: '' })
+      setNewVehicle({ brand: '', model: '', plate_number: '', type: 'VAN', capacity_kg: 1500, tank_capacity: 0, fuel_norm: 0, driver_id: '', home_warehouse_id: '' })
       loadData()
       setShowVehicleForm(false)
     } catch (err: any) {
@@ -186,6 +197,31 @@ export default function Vehicles() {
       toast.error(err instanceof Error ? err.message : 'Помилка збереження пального')
     } finally {
       setIsProcessing(false)
+    }
+  }
+
+  // ⛽ Дозаправка під час активного рейсу
+  const handleConfirmTripRefuel = async () => {
+    if (!tripRefuelModal) return
+    const liters = parseFloat(tripRefuelForm.liters)
+    if (isNaN(liters) || liters <= 0) return toast.error('Вкажіть кількість літрів')
+    setTripRefuelProcessing(true)
+    try {
+      const payload: LogShipmentRefuelPayload = { liters }
+      if (tripRefuelForm.station_name.trim()) payload.station_name = tripRefuelForm.station_name.trim()
+      if (tripRefuelForm.odometer_km) payload.odometer_km = parseInt(tripRefuelForm.odometer_km, 10)
+      if (tripRefuelForm.cost_uah) payload.cost_uah = parseFloat(tripRefuelForm.cost_uah)
+      const result = await api.inventory.logShipmentRefuel(tripRefuelModal.shipmentId, payload)
+      toast.success(`⛽ Дозаправка ${result.liters} л зареєстрована!`)
+      setTripRefuelModal(null)
+      // Оновлюємо список рейсів в панелі авто
+      if (historyVehicle) {
+        api.vehicles.getShipmentHistory(historyVehicle.id).then(setTripRecords).catch(() => {})
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Помилка реєстрації дозаправки')
+    } finally {
+      setTripRefuelProcessing(false)
     }
   }
 
@@ -271,16 +307,19 @@ export default function Vehicles() {
     setFuelRecords([])
     setMaintenanceRecords([])
     setDriverRecords([])
+    setTripRecords([])
     
     try {
-      const [fRecords, mRecords, dRecords] = await Promise.all([
+      const [fRecords, mRecords, dRecords, tRecords] = await Promise.all([
         api.vehicles.getFuelHistory(vehicle.id).catch(() => []),
         api.vehicles.getMaintenanceHistory(vehicle.id).catch(() => []),
-        api.vehicles.getDriverHistory(vehicle.id).catch(() => [])
+        api.vehicles.getDriverHistory(vehicle.id).catch(() => []),
+        api.vehicles.getShipmentHistory(vehicle.id).catch(() => [])
       ])
       setFuelRecords(fRecords || [])
       setMaintenanceRecords(mRecords || [])
       setDriverRecords(dRecords || [])
+      setTripRecords(tRecords || [])
     } catch (err) {
       toast.error('Не вдалося завантажити історію')
     } finally {
@@ -384,9 +423,22 @@ export default function Vehicles() {
 
   const availableDriversForNew = usersList.filter(u => !assignedDriverIds.includes(u.id));
 
-  const availableDriversForAssign = usersList.filter(u => 
-    !assignedDriverIds.includes(u.id) || u.id === driverModalVehicle?.driver_id
-  );
+  // Фільтруємо водіїв для присвоєння:
+  // 1. Не зайнятий (або вже закріплений за цим авто)
+  // 2. Належить до того ж підрозділу (unit_id), що і склад базування авто
+  const vehicleWarehouseUnitId = driverModalVehicle
+    ? warehousesList.find(w => w.id === driverModalVehicle.home_warehouse_id)?.unit_id
+    : undefined;
+
+  const availableDriversForAssign = usersList.filter(u => {
+    const notTaken = !assignedDriverIds.includes(u.id) || u.id === driverModalVehicle?.driver_id;
+    if (!notTaken) return false;
+    // Якщо склад авто має unit_id — показуємо лише водіїв з того ж підрозділу
+    if (vehicleWarehouseUnitId != null) {
+      return u.unit_id === vehicleWarehouseUnitId;
+    }
+    return true; // склад без підрозділу — без фільтра
+  });
 
   return (
     <div className="vehicles-page">
@@ -417,6 +469,60 @@ export default function Vehicles() {
             <div className="modal-actions center-actions">
               <button className="btn btn-primary" onClick={() => setAnomalyAlert(null)}>
                 Зрозуміло
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ⛽ Модаль дозаправки в дорозі (з вкладки Автопарку → Рейси) */}
+      {tripRefuelModal && (
+        <div className="modal-overlay vehicles-modal" onClick={() => setTripRefuelModal(null)}>
+          <div className="modal" style={{ maxWidth: '420px', width: '100%' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ margin: 0 }}>⛽ Дозаправка в дорозі</h3>
+              <button onClick={() => setTripRefuelModal(null)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: 'var(--text-muted)' }}>&times;</button>
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px', padding: '8px 12px', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '6px' }}>
+              🚚 {tripRefuelModal.fromWarehouse} → {tripRefuelModal.toWarehouse}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label className="form-label">Літри <span style={{ color: '#ef4444' }}>*</span></label>
+                <input type="number" min="0.1" step="0.1" className="erp-input" style={{ width: '100%', boxSizing: 'border-box' }}
+                  placeholder="напр. 35.5" value={tripRefuelForm.liters}
+                  onChange={e => setTripRefuelForm(f => ({ ...f, liters: e.target.value }))} autoFocus />
+              </div>
+              <div>
+                <label className="form-label">Назва АЗС (необов'язково)</label>
+                <input type="text" className="erp-input" style={{ width: '100%', boxSizing: 'border-box' }}
+                  placeholder="ОККО, WOG, ANP, Shell..." value={tripRefuelForm.station_name}
+                  onChange={e => setTripRefuelForm(f => ({ ...f, station_name: e.target.value }))} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label className="form-label">Одометр (км)</label>
+                  <input type="number" min="0" className="erp-input" style={{ width: '100%', boxSizing: 'border-box' }}
+                    placeholder="12450" value={tripRefuelForm.odometer_km}
+                    onChange={e => setTripRefuelForm(f => ({ ...f, odometer_km: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="form-label">Вартість (грн)</label>
+                  <input type="number" min="0" step="0.01" className="erp-input" style={{ width: '100%', boxSizing: 'border-box' }}
+                    placeholder="2100" value={tripRefuelForm.cost_uah}
+                    onChange={e => setTripRefuelForm(f => ({ ...f, cost_uah: e.target.value }))} />
+                </div>
+              </div>
+            </div>
+            <div className="modal-actions" style={{ marginTop: '20px' }}>
+              <button className="btn btn-secondary" onClick={() => setTripRefuelModal(null)}>Скасувати</button>
+              <button
+                className="btn"
+                style={{ background: '#f59e0b', color: '#1a1a2e', fontWeight: 700 }}
+                onClick={handleConfirmTripRefuel}
+                disabled={tripRefuelProcessing}
+              >
+                {tripRefuelProcessing ? '⏳ Збереження...' : '⛽ Зареєструвати'}
               </button>
             </div>
           </div>
@@ -471,19 +577,38 @@ export default function Vehicles() {
               </div>
 
               <div className="form-group">
-    <label>Закріплений водій</label>
-    <select value={newVehicle.driver_id} onChange={(e) => setNewVehicle({ ...newVehicle, driver_id: e.target.value })} className="erp-input">
-      <option value="">-- Без закріплення --</option>
-      {availableDriversForNew.map(u => <option key={u.id} value={u.id}>{u.full_name} ({ROLE_NAMES[u.role] || u.role})</option>)}
-    </select>
-    <span style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', display: 'block' }}>
-      У списку відображаються лише вільні співробітники.
-    </span>
-  </div>
+                <label>Закріплений водій</label>
+                <SearchableSelect
+                  options={availableDriversForNew.map(u => ({ value: u.id, label: `${u.full_name} (${ROLE_NAMES[u.role] || u.role})` }))}
+                  value={newVehicle.driver_id}
+                  onChange={(val) => setNewVehicle({ ...newVehicle, driver_id: val })}
+                  emptyLabel="-- Без закріплення --"
+                  searchPlaceholder="Пошук співробітника..."
+                  disabled={isProcessing}
+                />
+                <span style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', display: 'block' }}>
+                  У списку відображаються лише вільні співробітники.
+                </span>
+              </div>
+
+              <div className="form-group">
+                <label>Базовий склад <span style={{color: '#ef4444'}}>*</span></label>
+                <SearchableSelect
+                  options={warehousesList.map(w => ({ value: w.id, label: w.name }))}
+                  value={newVehicle.home_warehouse_id}
+                  onChange={(val) => setNewVehicle({ ...newVehicle, home_warehouse_id: val })}
+                  placeholder="Оберіть склад приписки..."
+                  searchPlaceholder="Пошук складу..."
+                  disabled={isProcessing}
+                />
+                <span style={{ fontSize: '11px', color: '#64748b', marginTop: '4px', display: 'block' }}>
+                  Де машина базується постійно. Поточна локація може змінюватись після рейсів.
+                </span>
+              </div>
 
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowVehicleForm(false)} disabled={isProcessing}>Скасувати</button>
-                <button type="submit" className="btn btn-primary" disabled={isProcessing || !newVehicle.brand?.trim() || !newVehicle.plate_number?.trim() || !newVehicle.capacity_kg || !newVehicle.tank_capacity || !newVehicle.fuel_norm}>Створити</button>
+                <button type="submit" className="btn btn-primary" disabled={isProcessing || !newVehicle.brand?.trim() || !newVehicle.plate_number?.trim() || !newVehicle.capacity_kg || !newVehicle.tank_capacity || !newVehicle.fuel_norm || !newVehicle.home_warehouse_id}>Створити</button>
               </div>
             </form>
           </div>
@@ -539,19 +664,12 @@ export default function Vehicles() {
       {statusModalVehicle && (
         <div className="modal-overlay vehicles-modal" onClick={() => !isProcessing && setStatusModalVehicle(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Зміна статусу: {statusModalVehicle.brand} ({statusModalVehicle.plate_number})</h3>
+            <h3>🛠 Відправити в ремонт: {statusModalVehicle.brand} ({statusModalVehicle.plate_number})</h3>
             <form onSubmit={handleUpdateStatus}>
-              <p className="modal-description">Виберіть новий стан техніки та обов'язково вкажіть причину.</p>
+              <p className="modal-description">Заповніть причину — це допоможе відстежити хід ремонту та скласти акт виконаних робіт.</p>
               <div className="form-group">
-                <label>Новий статус</label>
-                <select value={statusForm.status} onChange={(e) => setStatusForm({...statusForm, status: e.target.value})} className="erp-input" disabled={isProcessing}>
-                  {statusModalVehicle.status !== 'IN_REPAIR' && <option value="IN_REPAIR">🛠 Відправити в ремонт</option>}
-                  <option value="INACTIVE">🔥 Списати (Тотал / Повна втрата)</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Причина <span style={{color: '#ef4444'}}>*</span></label>
-                <textarea rows={3} placeholder={statusForm.status === 'IN_REPAIR' ? "Напр., Поломка двигуна / ДТП" : "Напр., Авто не підлягає відновленню після ДТП"} value={statusForm.reason} onChange={(e) => setStatusForm({...statusForm, reason: e.target.value})} required disabled={isProcessing} className="erp-input" />
+                <label>Причина направлення в ремонт <span style={{color: '#ef4444'}}>*</span></label>
+                <textarea rows={3} placeholder="Напр., Поломка двигуна / ДТП / планове ТО" value={statusForm.reason} onChange={(e) => setStatusForm({...statusForm, reason: e.target.value})} required disabled={isProcessing} className="erp-input" />
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setStatusModalVehicle(null)} disabled={isProcessing}>Скасувати</button>
@@ -567,17 +685,33 @@ export default function Vehicles() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>Водій: {driverModalVehicle.brand} ({driverModalVehicle.plate_number})</h3>
             <form onSubmit={handleAssignDriver}>
-              <p className="modal-description">Виберіть співробітника, за яким буде закріплено даний транспортний засіб.</p>
+              <p className="modal-description">
+                Виберіть співробітника, за яким буде закріплено даний транспортний засіб.
+                {vehicleWarehouseUnitId != null && (
+                  <span style={{ display: 'block', marginTop: '6px', color: 'var(--text-muted)', fontSize: '12px' }}>
+                    🏠 Показуються лише співробітники підрозділу складу базування авто.
+                  </span>
+                )}
+              </p>
               <div className="form-group">
-    <label>Відповідальний водій</label>
-    <select value={driverForm.driver_id} onChange={(e) => setDriverForm({...driverForm, driver_id: e.target.value})} className="erp-input" disabled={isProcessing}>
-      <option value="">-- Зняти закріплення (Без водія) --</option>
-      {availableDriversForAssign.map(u => <option key={u.id} value={u.id}>{u.full_name} ({ROLE_NAMES[u.role] || u.role})</option>)}
-    </select>
-  </div>
+                <label>Відповідальний водій</label>
+                <SearchableSelect
+                  options={availableDriversForAssign.map(u => ({ value: u.id, label: `${u.full_name} (${ROLE_NAMES[u.role] || u.role})` }))}
+                  value={driverForm.driver_id}
+                  onChange={(val) => setDriverForm({...driverForm, driver_id: val})}
+                  emptyLabel="-- Зняти закріплення (Без водія) --"
+                  searchPlaceholder="Пошук співробітника..."
+                  disabled={isProcessing}
+                />
+                {availableDriversForAssign.length === 0 && vehicleWarehouseUnitId != null && (
+                  <div style={{ marginTop: '8px', fontSize: '12px', color: '#f59e0b' }}>
+                    ⚠️ Немає доступних співробітників у підрозділі цього складу. Спочатку призначте персонал до підрозділу.
+                  </div>
+                )}
+              </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setDriverModalVehicle(null)} disabled={isProcessing}>Скасувати</button>
-                <button type="submit" className="btn btn-primary" disabled={isProcessing || !driverForm.driver_id}>Зберегти зміни</button>
+                <button type="submit" className="btn btn-primary" disabled={isProcessing}>Зберегти зміни</button>
               </div>
             </form>
           </div>
@@ -623,11 +757,6 @@ export default function Vehicles() {
             <form onSubmit={handlePerformMaintenance}>
               <div className="form-row-2">
                 <div className="form-group">
-                  <label>Одометр після ремонту (км) <span style={{color: '#ef4444'}}>*</span></label>
-                  <input type="number" min={maintenanceModalVehicle.last_maintenance_odometer} value={maintenanceForm.odometer_km || ''} onChange={(e) => setMaintenanceForm({...maintenanceForm, odometer_km: parseInt(e.target.value, 10)})} required disabled={isProcessing} className="erp-input" />
-                  <span className="odometer-hint">Поточний: <strong>{maintenanceModalVehicle.current_odometer || 0}</strong> км</span>
-                </div>
-                <div className="form-group">
                   <label>Виконавець (Власний сервіс / СТО)</label>
                   <input type="text" placeholder="Напр. Внутрішній сервіс або СТО 'Гараж'" value={maintenanceForm.performed_by} onChange={(e) => setMaintenanceForm({...maintenanceForm, performed_by: e.target.value})} disabled={isProcessing} className="erp-input" />
                 </div>
@@ -651,7 +780,7 @@ export default function Vehicles() {
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setMaintenanceModalVehicle(null)} disabled={isProcessing}>Скасувати</button>
-                <button type="submit" className={maintenanceModalVehicle.status === 'IN_REPAIR' ? "btn btn-success" : "btn btn-primary"} disabled={isProcessing || !maintenanceForm.description?.trim() || !maintenanceForm.performed_by?.trim() || maintenanceForm.odometer_km <= 0}>{maintenanceModalVehicle.status === 'IN_REPAIR' ? 'Повернути на лінію' : 'Зафіксувати ТО'}</button>
+                <button type="submit" className={maintenanceModalVehicle.status === 'IN_REPAIR' ? "btn btn-success" : "btn btn-primary"} disabled={isProcessing || !maintenanceForm.description?.trim() || !maintenanceForm.performed_by?.trim()}>{maintenanceModalVehicle.status === 'IN_REPAIR' ? 'Повернути на лінію' : 'Зафіксувати ТО'}</button>
               </div>
             </form>
           </div>
@@ -711,6 +840,7 @@ export default function Vehicles() {
               <button className={`history-tab ${historyTab === 'FUEL' ? 'active' : ''}`} onClick={() => setHistoryTab('FUEL')}>⛽ Історія пального</button>
               <button className={`history-tab ${historyTab === 'MAINTENANCE' ? 'active' : ''}`} onClick={() => setHistoryTab('MAINTENANCE')}>🛠 Акти виконаних робіт</button>
               <button className={`history-tab ${historyTab === 'DRIVERS' ? 'active' : ''}`} onClick={() => setHistoryTab('DRIVERS')}>👥 Історія водіїв</button>
+              <button className={`history-tab ${historyTab === 'TRIPS' ? 'active' : ''}`} onClick={() => setHistoryTab('TRIPS')}>🚚 Історія рейсів</button>
             </div>
 
             {historyLoading ? (
@@ -810,18 +940,89 @@ export default function Vehicles() {
                         <tr>
                           <th>Дата призначення</th>
                           <th>Співробітник (Водій)</th>
+                          <th>Стан</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {driverRecords.map(record => (
-                          <tr key={record.id}>
+                        {driverRecords.map((record, idx) => (
+                          <tr key={record.id} className={idx === 0 && record.driver_id ? 'row-current-driver' : ''}>
                             <td className="text-muted">
                               {new Date(record.assigned_at).toLocaleString('uk-UA', { 
                                 day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' 
                               })}
                             </td>
                             <td className={record.driver_id ? 'driver-assigned' : 'driver-unassigned'}>
-                              {record.driver_id ? `👤 ${record.driver_name}` : `🚫 ${record.driver_name}`}
+                              {record.driver_id ? `👤 ${record.driver_name}` : `🚫 ${record.driver_name || 'Знято закріплення'}`}
+                            </td>
+                            <td>
+                              {idx === 0 && record.driver_id ? (
+                                <span className="badge badge-success">Поточний</span>
+                              ) : idx === 0 && !record.driver_id ? (
+                                <span className="badge badge-critical">Без водія</span>
+                              ) : (
+                                <span className="badge" style={{background:'#e2e8f0',color:'#64748b'}}>Архів</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )
+                )}
+
+                {historyTab === 'TRIPS' && (
+                  tripRecords.length === 0 ? (
+                    <p className="history-empty">Рейсів ще не було.</p>
+                  ) : (
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>Дата</th>
+                          <th>Звідки</th>
+                          <th>Куди</th>
+                          <th className="text-center">Статус</th>
+                          <th className="text-center">Відстань</th>
+                          <th className="text-center">Дії</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tripRecords.map(trip => (
+                          <tr key={trip.id}>
+                            <td className="text-muted">
+                              {new Date(trip.created_at).toLocaleString('uk-UA', {
+                                day: '2-digit', month: '2-digit', year: 'numeric'
+                              })}
+                            </td>
+                            <td style={{fontWeight: 500}}>{trip.from_warehouse_name}</td>
+                            <td style={{fontWeight: 500}}>{trip.to_warehouse_name}</td>
+                            <td className="text-center">
+                              {trip.status === 'PENDING' ? (
+                                <span className="badge badge-neutral">⏳ Очікує</span>
+                              ) : trip.status === 'IN_TRANSIT' ? (
+                                <span className="badge badge-warning">🚛 В дорозі</span>
+                              ) : (
+                                <span className="badge badge-success">✅ Доставлено</span>
+                              )}
+                            </td>
+                            <td className="text-center" style={{fontWeight: 600}}>
+                              {trip.actual_km > 0
+                                ? `${trip.actual_km} км`
+                                : trip.distance_km > 0
+                                  ? `~${Math.round(trip.distance_km)} км`
+                                  : '—'}
+                            </td>
+                            <td className="text-center">
+                              {trip.status === 'IN_TRANSIT' && (
+                                <button
+                                  className="btn btn-sm"
+                                  style={{ background: '#f59e0b', color: '#1a1a2e', fontWeight: 600, border: 'none', padding: '4px 10px', borderRadius: '6px', cursor: 'pointer', fontSize: '12px' }}
+                                  onClick={() => {
+                                    setTripRefuelModal({ shipmentId: trip.id, fromWarehouse: trip.from_warehouse_name, toWarehouse: trip.to_warehouse_name })
+                                    setTripRefuelForm({ liters: '', station_name: '', odometer_km: '', cost_uah: '' })
+                                  }}
+                                  title="Зареєструвати дозаправку"
+                                >⛽ Дозаправка</button>
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -892,6 +1093,7 @@ export default function Vehicles() {
                 <th>Номерний знак</th>
                 <th>Тип та Вантаж</th>
                 <th>Закріплений водій</th>
+                <th>База / Локація</th>
                 <th>Бак (Норма)</th>
                 <th>Статус</th>
                 {viewTab === 'ACTIVE' && <th>До ТО</th>}
@@ -914,6 +1116,19 @@ export default function Vehicles() {
 
                     <td>{getDriverName(v.driver_id)}</td>
 
+                    <td>
+                      <div style={{ fontSize: '0.8rem' }}>
+                        <div title="Базовий склад (постійна приписка)">
+                          🏠 {v.home_warehouse_name || <span style={{color: 'var(--text-muted)'}}>не вказано</span>}
+                        </div>
+                        {v.current_warehouse_id !== v.home_warehouse_id && (
+                          <div style={{ color: 'var(--text-muted)', marginTop: 2 }} title="Поточна локація після рейсу">
+                            📍 {v.current_warehouse_name || '—'}
+                          </div>
+                        )}
+                      </div>
+                    </td>
+
                     <td>{v.tank_capacity} л <span className="norm-text">({v.fuel_norm} л/100км)</span></td>
                     
                     <td>
@@ -928,27 +1143,25 @@ export default function Vehicles() {
       <span className="badge badge-critical">🚨 Прострочено</span>
     ) : (
       <div className="maint-cell">
-        {/* PRO ВАРІАНТ: Дата + темп пробігу */}
-        {isPro && v.predicted_maint_date ? (
-          <div className="pro-prediction" title={`Середній пробіг: ${Math.round(v.avg_km_per_day || 0)} км/день`}>
-            <span className={v.maintenance_status === 'WARNING' ? 'text-warning' : 'text-success'} style={{fontWeight: 600}}>
-              📅 {new Date(v.predicted_maint_date).toLocaleDateString('uk-UA')}
-            </span>
-            <div className="pro-badge">PRO прогноз</div>
-          </div>
-        ) : (
-          /* BASIC ВАРІАНТ: Просто кілометри */
-          <div className="basic-maint">
-            <span className={v.maintenance_status === 'WARNING' ? 'text-warning' : 'text-muted'}>
-              Залишок: {v.km_to_next_maintenance} км
-            </span>
-            {!isPro && (
-              <div className="upsell-link" onClick={() => toast.error("Прогноз дати доступний лише у PRO тарифі")}>
-                🔒 Дізнатись дату
+        {/* Завжди показуємо км залишку */}
+        <div className={isPro && v.predicted_maint_date ? "pro-prediction" : "basic-maint"} title={isPro ? `Середній пробіг: ${Math.round(v.avg_km_per_day || 0)} км/день` : undefined}>
+          <span className={v.maintenance_status === 'WARNING' ? 'text-warning' : 'text-muted'} style={{fontWeight: 600}}>
+            Залишок: {v.km_to_next_maintenance} км
+          </span>
+          {/* PRO: дата прогнозу як додаткова підказка */}
+          {isPro && v.predicted_maint_date ? (
+            <>
+              <div style={{fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px'}}>
+                📅 {new Date(v.predicted_maint_date).toLocaleDateString('uk-UA')}
               </div>
-            )}
-          </div>
-        )}
+              <div className="pro-badge">PRO прогноз</div>
+            </>
+          ) : !isPro ? (
+            <div className="upsell-link" onClick={() => toast.error("Прогноз дати доступний лише у PRO тарифі")}>
+              🔒 Дізнатись дату
+            </div>
+          ) : null}
+        </div>
       </div>
     )}
   </td>
@@ -968,8 +1181,34 @@ export default function Vehicles() {
                             <button onClick={() => { handleViewHistory(v); setActiveMenuId(null); }}>
                               📊 Картка авто
                             </button>
+
+                            {v.status === 'ON_MISSION' && (
+                              <>
+                                <button
+                                  style={{ color: '#f59e0b', fontWeight: 600 }}
+                                  onClick={async () => {
+                                    setActiveMenuId(null)
+                                    try {
+                                      const trips = await api.vehicles.getShipmentHistory(v.id)
+                                      const active = trips.find(t => t.status === 'IN_TRANSIT')
+                                      if (active) {
+                                        setTripRefuelForm({ liters: '', station_name: '', odometer_km: '', cost_uah: '' })
+                                        setTripRefuelModal({ shipmentId: active.id, fromWarehouse: active.from_warehouse_name, toWarehouse: active.to_warehouse_name })
+                                      } else {
+                                        toast.error('Активний рейс не знайдено')
+                                      }
+                                    } catch {
+                                      toast.error('Не вдалося отримати рейс')
+                                    }
+                                  }}
+                                >
+                                  ⛽ Дозаправка в дорозі
+                                </button>
+                                <div className="dropdown-divider"></div>
+                              </>
+                            )}
                             
-                            {canManageVehicles && viewTab === 'ACTIVE' && (
+                            {canManageVehicles && viewTab === 'ACTIVE' && v.status !== 'ON_MISSION' && (
                               <>
                                 <button onClick={() => { setDriverModalVehicle(v); setDriverForm({ driver_id: v.driver_id || '' }); setActiveMenuId(null); }}>
                                   👤 Призначити водія
@@ -991,9 +1230,11 @@ export default function Vehicles() {
                                   </button>
                                 )}
                                 
-                                <button onClick={() => { setStatusModalVehicle(v); setStatusForm({ status: v.status === 'IN_REPAIR' ? 'INACTIVE' : 'IN_REPAIR', reason: '' }); setActiveMenuId(null); }}>
-                                  🚦 Змінити статус
-                                </button>
+                                {v.status !== 'IN_REPAIR' && (
+                                  <button onClick={() => { setStatusModalVehicle(v); setStatusForm({ status: 'IN_REPAIR', reason: '' }); setActiveMenuId(null); }}>
+                                    � Відправити в ремонт
+                                  </button>
+                                )}
 
                                 <div className="dropdown-divider"></div>
 

@@ -110,11 +110,8 @@ func (s *VehicleService) DeleteVehicle(ctx context.Context, id string) error {
 	return s.repo.Delete(ctx, s.Pool, id)
 }
 
-// GetAvailableForRoute повертає список вільних машин, доступних для рейсу між двома підрозділами
-func (s *VehicleService) GetAvailableForRoute(ctx context.Context, senderUnitID int64, receiverUnitID int64) ([]models.Vehicle, error) {
-	// Тут можна додати додаткову бізнес-логіку, якщо потрібно.
-	// Наприклад, перевірку, чи взагалі існують ці підрозділи (хоча це швидше робота для WarehouseService).
-
-	// Передаємо запит у репозиторій, прокидаючи пул з'єднань
-	return s.repo.GetAvailableForRoute(ctx, s.Pool, senderUnitID, receiverUnitID)
+// GetAvailableForRoute повертає список вільних машин, доступних для рейсу між двома складами.
+// Фільтрує по current_warehouse_id (де зараз фізично), а якщо current = NULL — по home_warehouse_id.
+func (s *VehicleService) GetAvailableForRoute(ctx context.Context, fromWarehouseID string, toWarehouseID string) ([]models.Vehicle, error) {
+	return s.repo.GetAvailableForRoute(ctx, s.Pool, fromWarehouseID, toWarehouseID)
 }

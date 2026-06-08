@@ -28,11 +28,11 @@ func (r *ResourceRepository) Create(ctx context.Context, db DBExecutor, res *mod
 		return fmt.Errorf("tenant_id is required for creating resources")
 	}
 
-	query := `INSERT INTO resources (category_id, unit_id, name, description, quantity, unit_type, serial_number, barcode, warehouse_id, condition, min_quantity, weight_kg, unit_price, tenant_id)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id, created_at, updated_at`
+	query := `INSERT INTO resources (category_id, unit_id, name, description, quantity, unit_type, serial_number, barcode, location, warehouse_id, condition, min_quantity, weight_kg, unit_price, tenant_id)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING id, created_at, updated_at`
 	return db.QueryRow(ctx, query,
 		res.CategoryID, res.UnitID, res.Name, res.Description, res.Quantity, res.UnitType, res.SerialNumber,
-		res.Barcode, res.WarehouseID, res.Condition, res.MinQuantity, res.WeightKg, res.UnitPrice, tid,
+		res.Barcode, res.Location, res.WarehouseID, res.Condition, res.MinQuantity, res.WeightKg, res.UnitPrice, tid,
 	).Scan(&res.ID, &res.CreatedAt, &res.UpdatedAt)
 }
 
@@ -45,6 +45,7 @@ func (r *ResourceRepository) GetByID(ctx context.Context, db DBExecutor, id stri
             r.quantity, COALESCE(SUM(ra.quantity) FILTER (WHERE ra.status = 'ACTIVE'), 0) as issued_quantity, 
             COALESCE(r.unit_type, 'PCS'), COALESCE(r.serial_number, ''), 
             COALESCE(r.barcode, ''),
+            COALESCE(r.location, ''),
             COALESCE(CAST(r.warehouse_id AS TEXT), ''),
             COALESCE(w.name, 'Без складу') as warehouse_name,
             r.condition, r.min_quantity, 
@@ -60,7 +61,7 @@ func (r *ResourceRepository) GetByID(ctx context.Context, db DBExecutor, id stri
 	err := db.QueryRow(ctx, query, args...).Scan(
 		&res.ID, &res.CategoryID, &res.UnitID, &res.Name, &res.Description,
 		&res.Quantity, &res.IssuedQuantity, &res.UnitType, &res.SerialNumber,
-		&res.Barcode,
+		&res.Barcode, &res.Location,
 		&res.WarehouseID, &res.WarehouseName, &res.Condition, &res.MinQuantity, &res.WeightKg, &res.UnitPrice, &res.CreatedAt, &res.UpdatedAt,
 	)
 	if err != nil {
@@ -88,6 +89,7 @@ func (r *ResourceRepository) List(ctx context.Context, db DBExecutor, unitID *in
             r.quantity,
             COALESCE(SUM(ra.quantity) FILTER (WHERE ra.status = 'ACTIVE'), 0) as issued_quantity,
             COALESCE(r.unit_type, 'PCS'), COALESCE(r.serial_number, ''), COALESCE(r.barcode, ''), 
+            COALESCE(r.location, ''),
             COALESCE(CAST(r.warehouse_id AS TEXT), ''),
             COALESCE(w.name, 'Без складу') as warehouse_name,
             r.condition, r.min_quantity, 
@@ -107,6 +109,7 @@ func (r *ResourceRepository) List(ctx context.Context, db DBExecutor, unitID *in
             r.quantity,
             COALESCE(SUM(ra.quantity) FILTER (WHERE ra.status = 'ACTIVE'), 0) as issued_quantity,
             COALESCE(r.unit_type, 'PCS'), COALESCE(r.serial_number, ''), COALESCE(r.barcode, ''),
+            COALESCE(r.location, ''),
             COALESCE(CAST(r.warehouse_id AS TEXT), ''),
             COALESCE(w.name, 'Без складу') as warehouse_name,
             r.condition, r.min_quantity, 
@@ -133,7 +136,7 @@ func (r *ResourceRepository) List(ctx context.Context, db DBExecutor, unitID *in
 			&res.ID, &res.CategoryID, &res.UnitID, &res.Name, &res.Description,
 			&res.Quantity,       // Це тепер складський залишок
 			&res.IssuedQuantity, // НОВЕ: Це скільки на руках
-			&res.UnitType, &res.SerialNumber, &res.Barcode, &res.WarehouseID, &res.WarehouseName, &res.Condition, &res.MinQuantity, &res.WeightKg, &res.UnitPrice,
+			&res.UnitType, &res.SerialNumber, &res.Barcode, &res.Location, &res.WarehouseID, &res.WarehouseName, &res.Condition, &res.MinQuantity, &res.WeightKg, &res.UnitPrice,
 			&res.CreatedAt, &res.UpdatedAt,
 		); err != nil {
 			fmt.Println("🚨 SCAN ERROR IN ListResources (Row Loop):", err)
@@ -233,6 +236,18 @@ func (r *ResourceRepository) Update(ctx context.Context, db DBExecutor, id strin
 	if req.SerialNumber != nil {
 		query += fmt.Sprintf(", serial_number = $%d", argID)
 		args = append(args, *req.SerialNumber)
+		argID++
+	}
+
+	if req.Barcode != nil {
+		query += fmt.Sprintf(", barcode = $%d", argID)
+		args = append(args, *req.Barcode)
+		argID++
+	}
+
+	if req.Location != nil {
+		query += fmt.Sprintf(", location = $%d", argID)
+		args = append(args, *req.Location)
 		argID++
 	}
 
@@ -406,22 +421,26 @@ func (r *ResourceRepository) GetMyEquipment(ctx context.Context, db DBExecutor, 
 	return items, nil
 }
 
-// IssueToUser видає ресурс зі складу підрозділу командира конкретному солдату
-func (r *ResourceRepository) IssueToUser(ctx context.Context, db *pgxpool.Pool, commanderUnitID int64, resourceID string, targetUserID string, quantity int, notes string) error {
+// IssueToUser видає ресурс зі складу конкретному користувачу.
+// Якщо warehouseID не порожній — використовується напряму (для адмін-ролей без unit_id).
+// Інакше — шукається склад підрозділу командира.
+func (r *ResourceRepository) IssueToUser(ctx context.Context, db *pgxpool.Pool, commanderUnitID int64, resourceID string, targetUserID string, quantity int, notes string, warehouseID string) error {
 	tx, err := db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("помилка старту транзакції: %w", err)
 	}
 	defer tx.Rollback(ctx)
 
-	// 1. Шукаємо склад, який належить підрозділу командира
-	var warehouseID string
-	err = tx.QueryRow(ctx, `SELECT id FROM warehouses WHERE unit_id = $1`, commanderUnitID).Scan(&warehouseID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return errors.New("у вашого підрозділу немає власного складу")
+	// 1. Визначаємо warehouse
+	if warehouseID == "" {
+		// Шукаємо склад підрозділу командира
+		err = tx.QueryRow(ctx, `SELECT id FROM warehouses WHERE unit_id = $1`, commanderUnitID).Scan(&warehouseID)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return errors.New("у вашого підрозділу немає власного складу")
+			}
+			return err
 		}
-		return err
 	}
 
 	// 2. Блокуємо ресурс для оновлення (FOR UPDATE) і перевіряємо чи він є на ЦЬОМУ складі
@@ -556,9 +575,9 @@ func (r *ResourceRepository) CreateShipment(ctx context.Context, db *pgxpool.Poo
 	// 4. Створюємо запис про рейс з напрямком руху...
 	var shipmentID string
 	err = tx.QueryRow(ctx, `
-        INSERT INTO shipments (from_warehouse_id, to_warehouse_id, vehicle_id, priority, status, tenant_id, direction)
-        VALUES ($1, $2, $3, $4, 'PENDING', $5, $6) RETURNING id
-    `, req.FromWarehouseID, req.ToWarehouseID, req.VehicleID, req.Priority, tenantID, direction).Scan(&shipmentID)
+        INSERT INTO shipments (from_warehouse_id, to_warehouse_id, vehicle_id, priority, status, tenant_id, direction, distance_km)
+        VALUES ($1, $2, $3, $4, 'PENDING', $5, $6, $7) RETURNING id
+    `, req.FromWarehouseID, req.ToWarehouseID, req.VehicleID, req.Priority, tenantID, direction, req.DistanceKm).Scan(&shipmentID)
 	if err != nil {
 		return err
 	}
@@ -604,43 +623,19 @@ func (r *ResourceRepository) CreateShipment(ctx context.Context, db *pgxpool.Poo
 		if err != nil {
 			return err
 		}
-	}
 
-	// 🔥 5. Переводимо заявки в DISPATCHED одразу при формуванні рейсу.
-	// Для заявок з явним request_id — пряме оновлення.
-	// Для рейсів без request_id (legacy або ручне створення) — шукаємо по resource_name + to_warehouse.
-	var requestIDs []string
-	for _, item := range req.Items {
+		// Крок 4.6. Переводимо заявку у статус LOADING ("Завантажується") —
+		// рейс сформований, але водій ще не виїхав. Статус DISPATCHED ("В дорозі")
+		// встановлюється пізніше в StartShipment, коли водій натискає "Виїхати".
 		if item.RequestID != nil && *item.RequestID != "" {
-			requestIDs = append(requestIDs, *item.RequestID)
-		}
-	}
-
-	if len(requestIDs) > 0 {
-		// Пряме оновлення по request_id
-		_, err = tx.Exec(ctx, `
-			UPDATE supply_requests
-			SET status = 'DISPATCHED', updated_at = CURRENT_TIMESTAMP
-			WHERE id = ANY($1) AND status IN ('PENDING', 'APPROVED')
-		`, requestIDs)
-		if err != nil {
-			return fmt.Errorf("помилка оновлення статусу заявок: %w", err)
-		}
-	} else {
-		// Legacy: рейс без request_id — знаходимо заявки по resource_name + to_warehouse
-		_, err = tx.Exec(ctx, `
-			UPDATE supply_requests sr
-			SET status = 'DISPATCHED', updated_at = CURRENT_TIMESTAMP
-			FROM shipment_items si
-			JOIN resources r ON r.id = si.resource_id
-			WHERE si.shipment_id = $1
-			  AND sr.resource_name = r.name
-			  AND sr.target_warehouse_id = $2
-			  AND sr.status IN ('PENDING', 'APPROVED')
-			  AND sr.tenant_id = $3
-		`, shipmentID, req.ToWarehouseID, tenantID)
-		if err != nil {
-			return fmt.Errorf("помилка оновлення статусу заявок (legacy): %w", err)
+			_, err = tx.Exec(ctx, `
+				UPDATE supply_requests
+				SET status = 'LOADING', updated_at = CURRENT_TIMESTAMP
+				WHERE id = $1 AND status = 'APPROVED'
+			`, *item.RequestID)
+			if err != nil {
+				return fmt.Errorf("помилка переведення заявки %s у LOADING: %w", *item.RequestID, err)
+			}
 		}
 	}
 
@@ -704,6 +699,8 @@ type ShipmentRecord struct {
 	Priority          string         `json:"priority"`
 	Status            string         `json:"status"`
 	Direction         string         `json:"direction,omitempty"` // DOWNSTREAM, UPSTREAM, LATERAL
+	DistanceKm        float64        `json:"distance_km,omitempty"`
+	ActualKm          int            `json:"actual_km,omitempty"`
 	CreatedAt         time.Time      `json:"created_at"`
 	StartedAt         *time.Time     `json:"started_at,omitempty"`
 	DeliveredAt       *time.Time     `json:"delivered_at,omitempty"`
@@ -717,7 +714,9 @@ func (r *ResourceRepository) ListShipments(ctx context.Context, db DBExecutor) (
 		SELECT 
 			s.id, w1.name as from_warehouse, w2.name as to_warehouse, 
 			v.brand || ' (' || v.plate_number || ')' as vehicle, 
-			s.priority, s.status, COALESCE(s.direction, '') as direction, s.created_at
+			s.priority, s.status, COALESCE(s.direction, '') as direction,
+			COALESCE(s.distance_km, 0) as distance_km,
+			s.created_at
 		FROM shipments s
 		JOIN warehouses w1 ON s.from_warehouse_id = w1.id
 		JOIN warehouses w2 ON s.to_warehouse_id = w2.id
@@ -734,7 +733,7 @@ func (r *ResourceRepository) ListShipments(ctx context.Context, db DBExecutor) (
 	var list []ShipmentRecord
 	for rows.Next() {
 		var s ShipmentRecord
-		if err := rows.Scan(&s.ID, &s.FromWarehouse, &s.ToWarehouse, &s.Vehicle, &s.Priority, &s.Status, &s.Direction, &s.CreatedAt); err == nil {
+		if err := rows.Scan(&s.ID, &s.FromWarehouse, &s.ToWarehouse, &s.Vehicle, &s.Priority, &s.Status, &s.Direction, &s.DistanceKm, &s.CreatedAt); err == nil {
 			list = append(list, s)
 		}
 	}
@@ -827,7 +826,69 @@ func (r *ResourceRepository) ListMyShipments(ctx context.Context, db DBExecutor,
 	return list, nil
 }
 
-func (r *ResourceRepository) ReceiveShipment(ctx context.Context, db *pgxpool.Pool, shipmentID string) error {
+// ListShipmentsByVehicle — список рейсів конкретного автомобіля
+func (r *ResourceRepository) ListShipmentsByVehicle(ctx context.Context, db DBExecutor, vehicleID string) ([]ShipmentRecord, error) {
+	query := `
+		SELECT 
+			s.id, 
+			s.vehicle_id,
+			v.plate_number as vehicle_plate,
+			s.from_warehouse_id,
+			w1.name as from_warehouse_name, 
+			s.to_warehouse_id,
+			w2.name as to_warehouse_name, 
+			s.status,
+			COALESCE(s.priority, 'NORMAL') as priority,
+			COALESCE(s.direction, '') as direction,
+			COALESCE(s.distance_km, 0) as distance_km,
+			COALESCE(s.actual_km, 0) as actual_km,
+			s.created_at,
+			s.started_at,
+			s.delivered_at
+		FROM shipments s
+		JOIN warehouses w1 ON s.from_warehouse_id = w1.id
+		JOIN warehouses w2 ON s.to_warehouse_id = w2.id
+		JOIN vehicles v ON s.vehicle_id = v.id
+		WHERE s.vehicle_id = $1
+		ORDER BY s.created_at DESC
+		LIMIT 100
+	`
+	rows, err := db.Query(ctx, query, vehicleID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []ShipmentRecord
+	for rows.Next() {
+		var s ShipmentRecord
+		if err := rows.Scan(
+			&s.ID,
+			&s.VehicleID,
+			&s.VehiclePlate,
+			&s.FromWarehouseID,
+			&s.FromWarehouseName,
+			&s.ToWarehouseID,
+			&s.ToWarehouseName,
+			&s.Status,
+			&s.Priority,
+			&s.Direction,
+			&s.DistanceKm,
+			&s.ActualKm,
+			&s.CreatedAt,
+			&s.StartedAt,
+			&s.DeliveredAt,
+		); err == nil {
+			list = append(list, s)
+		}
+	}
+	if list == nil {
+		list = []ShipmentRecord{}
+	}
+	return list, nil
+}
+
+func (r *ResourceRepository) ReceiveShipment(ctx context.Context, db *pgxpool.Pool, shipmentID string, actualKm float64) error {
 	tx, err := db.Begin(ctx)
 	if err != nil {
 		return err
@@ -846,10 +907,81 @@ func (r *ResourceRepository) ReceiveShipment(ctx context.Context, db *pgxpool.Po
 	var targetUnitID int64
 	tx.QueryRow(ctx, `SELECT unit_id FROM warehouses WHERE id = $1`, targetWarehouseID).Scan(&targetUnitID)
 
+	// Якщо фактичний пробіг не вказаний — використовуємо планову відстань рейсу
+	if actualKm == 0 {
+		var plannedDistanceKm float64
+		if scanErr := tx.QueryRow(ctx, `SELECT COALESCE(distance_km, 0) FROM shipments WHERE id = $1`, shipmentID).Scan(&plannedDistanceKm); scanErr == nil && plannedDistanceKm > 0 {
+			actualKm = plannedDistanceKm
+		}
+	}
+	// Якщо відстань так і не визначена — використовуємо мінімум 1 км,
+	// щоб одометр завжди оновлювався після рейсу.
+	if actualKm == 0 {
+		actualKm = 1.0
+	}
+
 	// 1. Звільняємо машину, оновлюємо її локацію та закриваємо рейс
 	_, err = tx.Exec(ctx, `UPDATE vehicles SET status = 'ACTIVE', current_warehouse_id = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`, targetWarehouseID, vehicleID)
 	if err != nil {
 		return fmt.Errorf("помилка звільнення авто: %w", err)
+	}
+
+	// 1a. Оновлюємо одометр: записуємо витрату пального (EXPENSE) на основі фактичного пробігу.
+	if actualKm > 0 {
+		var currentOdo float64
+		var fuelNorm float64
+		var tenantID string
+		err = tx.QueryRow(ctx, `
+			SELECT GREATEST(
+			           COALESCE((SELECT MAX(odometer_km) FROM fuel_records WHERE vehicle_id = $1 AND odometer_km IS NOT NULL), 0),
+			           v.last_maintenance_odometer
+			       ),
+			       v.fuel_norm,
+			       v.tenant_id
+			FROM vehicles v WHERE v.id = $1
+		`, vehicleID).Scan(&currentOdo, &fuelNorm, &tenantID)
+		if err == nil {
+			newOdo := currentOdo + actualKm
+			litersUsed := actualKm * fuelNorm / 100.0
+			if litersUsed < 0.1 {
+				litersUsed = 0.1
+			}
+
+			// ПРИМІТКА (антифрод): автоматичне списання після рейсу рахується РІВНО за
+			// нормою (litersUsed = пробіг × норма/100), тому такий запис за визначенням
+			// не може бути «перевитратою» і завжди is_anomaly=false. Це лише синхронізує
+			// одометр і віртуальний бак. Фактичні аномалії (перевитрата/злив) виявляються
+			// окремо — коли комірник/водій вручну вносить РЕАЛЬНУ заправку чи витрату з
+			// реальним одометром через «Додати пальне» (див. fuel_repository.CreateFuelRecord).
+			// Рахуємо повний баланс пального включно з дозаправками в дорозі.
+			// Якщо водій заправлявся в дорозі — баланс може бути більшим ніж на початку рейсу,
+			// і litersUsed може бути більшим за початковий залишок — це нормально.
+			// Списуємо рівно litersUsed, але не допускаємо від'ємного балансу.
+			var currentFuelBalance float64
+			_ = tx.QueryRow(ctx, `
+				SELECT GREATEST(0, COALESCE(SUM(CASE WHEN record_type = 'REFUEL' THEN liters ELSE -liters END), 0))
+				FROM fuel_records WHERE vehicle_id = $1
+			`, vehicleID).Scan(&currentFuelBalance)
+
+			if currentFuelBalance > 0 {
+				// Якщо пального в балансі менше ніж треба списати — списуємо все що є
+				actualExpense := litersUsed
+				if actualExpense > currentFuelBalance {
+					actualExpense = currentFuelBalance
+				}
+				_, _ = tx.Exec(ctx, `
+					INSERT INTO fuel_records (vehicle_id, liters, odometer_km, record_type, created_by, is_anomaly, tenant_id)
+					SELECT $1, $2, $3, 'EXPENSE',
+					       (SELECT id FROM users WHERE tenant_id = $4::uuid AND role IN ('TENANT_ADMIN','ADMIN') LIMIT 1),
+					       false, $4::uuid
+				`, vehicleID, actualExpense, newOdo, tenantID)
+			} else {
+				// Бак порожній — лише оновлюємо одометр
+				_, _ = tx.Exec(ctx, `UPDATE vehicles SET last_maintenance_odometer = GREATEST(last_maintenance_odometer, $1) WHERE id = $2 AND last_maintenance_odometer < $1`, newOdo, vehicleID)
+			}
+		}
+		// Зберігаємо фактичний пробіг в рейсі
+		_, _ = tx.Exec(ctx, `UPDATE shipments SET actual_km = $1 WHERE id = $2`, actualKm, shipmentID)
 	}
 
 	_, err = tx.Exec(ctx, `UPDATE shipments SET status = 'DELIVERED', delivered_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $1`, shipmentID)
@@ -965,7 +1097,7 @@ func (r *ResourceRepository) StartShipment(ctx context.Context, db *pgxpool.Pool
 	_, err = tx.Exec(ctx, `
 		UPDATE supply_requests
 		SET status = 'DISPATCHED', updated_at = CURRENT_TIMESTAMP
-		WHERE status = 'APPROVED'
+		WHERE status IN ('APPROVED', 'LOADING')
 		  AND (
 		    -- Пряме посилання через shipment_items.request_id
 		    id IN (

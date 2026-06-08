@@ -3,6 +3,7 @@ package models
 type PredictStat struct {
 	ResourceName  string  `json:"resource_name"`
 	CurrentStock  int     `json:"current_stock"`
+	MinQuantity   int     `json:"min_quantity"`
 	DailyBurnRate float64 `json:"daily_burn_rate"`
 	DaysLeft      int     `json:"days_left"`
 }

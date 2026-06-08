@@ -34,8 +34,11 @@ type Vehicle struct {
 	CapacityKg              float64       `json:"capacity_kg"` // ВАГА
 	Status                  VehicleStatus `json:"status"`
 	DriverID                *string       `json:"driver_id"`
-	DriverName              *string       `json:"driver_name"`          // ДОДАЙ ЦЕ ПОЛЕ!
-	CurrentWarehouseID      *string       `json:"current_warehouse_id"` // ПОТОЧНА ЛОКАЦІЯ
+	DriverName              *string       `json:"driver_name"`            // ДОДАЙ ЦЕ ПОЛЕ!
+	HomeWarehouseID         *string       `json:"home_warehouse_id"`      // ПОСТІЙНА БАЗА машини
+	HomeWarehouseName       *string       `json:"home_warehouse_name"`    // назва для UI
+	CurrentWarehouseID      *string       `json:"current_warehouse_id"`   // ПОТОЧНА ЛОКАЦІЯ (змінюється після рейсів)
+	CurrentWarehouseName    *string       `json:"current_warehouse_name"` // назва для UI
 	TankCapacity            float64       `json:"tank_capacity"`
 	FuelNorm                float64       `json:"fuel_norm"`
 	MaintenanceIntervalKm   int           `json:"maintenance_interval_km"`
@@ -45,19 +48,21 @@ type Vehicle struct {
 	MaintenanceStatus       string        `json:"maintenance_status"`
 	AvgKmPerDay             float64       `json:"avg_km_per_day"`
 	PredictedMaintDate      *time.Time    `json:"predicted_maint_date"`
+	CurrentFuelLiters       float64       `json:"current_fuel_liters"` // Поточний залишок пального
 	CreatedAt               time.Time     `json:"created_at"`
 	UpdatedAt               time.Time     `json:"updated_at"`
 }
 
 type CreateVehicleRequest struct {
-	Brand        string  `json:"brand" binding:"required"`
-	Model        string  `json:"model"`
-	PlateNumber  string  `json:"plate_number" binding:"required"`
-	Type         string  `json:"type" binding:"required"`             // ДОДАНО
-	CapacityKg   float64 `json:"capacity_kg" binding:"required,gt=0"` // ДОДАНО
-	TankCapacity float64 `json:"tank_capacity" binding:"required,gt=0"`
-	FuelNorm     float64 `json:"fuel_norm" binding:"required,gt=0"`
-	DriverID     *string `json:"driver_id"` // ДОДАНО
+	Brand           string  `json:"brand" binding:"required"`
+	Model           string  `json:"model"`
+	PlateNumber     string  `json:"plate_number" binding:"required"`
+	Type            string  `json:"type" binding:"required"`
+	CapacityKg      float64 `json:"capacity_kg" binding:"required,gt=0"`
+	TankCapacity    float64 `json:"tank_capacity" binding:"required,gt=0"`
+	FuelNorm        float64 `json:"fuel_norm" binding:"required,gt=0"`
+	DriverID        *string `json:"driver_id"`
+	HomeWarehouseID *string `json:"home_warehouse_id"` // Обов'язковий базовий склад
 }
 
 type FuelRecord struct {
@@ -68,8 +73,12 @@ type FuelRecord struct {
 	RecordType    FuelRecordType `json:"record_type"`
 	IsAnomaly     bool           `json:"is_anomaly"`
 	AnomalyReason *string        `json:"anomaly_reason,omitempty"`
-	CreatedBy     *string        `json:"created_by"`
-	CreatedAt     time.Time      `json:"created_at"`
+	// AnomalyExcessLiters — обсяг «зайвого» пального саме цього запису
+	// (перевитрата понад норму або весь обсяг при витраті без руху).
+	// Використовується антифрод-системою для розрахунку грошових втрат.
+	AnomalyExcessLiters float64   `json:"anomaly_excess_liters"`
+	CreatedBy           *string   `json:"created_by"`
+	CreatedAt           time.Time `json:"created_at"`
 }
 
 type MaintenanceRecord struct {
@@ -141,10 +150,11 @@ type ShipmentRecord struct {
 }
 
 type IssueResourceRequest struct {
-	ResourceID string `json:"resource_id" binding:"required"`
-	UserID     string `json:"user_id" binding:"required"` // Кому видаємо
-	Quantity   int    `json:"quantity" binding:"required,gt=0"`
-	Notes      string `json:"notes"`
+	ResourceID  string `json:"resource_id" binding:"required"`
+	UserID      string `json:"user_id" binding:"required"` // Кому видаємо
+	Quantity    int    `json:"quantity" binding:"required,gt=0"`
+	Notes       string `json:"notes"`
+	WarehouseID string `json:"warehouse_id"` // Явний склад (для адмін-ролей без unit_id)
 }
 
 type ShipmentItemRequest struct {
@@ -159,6 +169,7 @@ type CreateShipmentRequest struct {
 	VehicleID       string                `json:"vehicle_id" binding:"required"`
 	Priority        string                `json:"priority" binding:"required"`
 	Items           []ShipmentItemRequest `json:"items" binding:"required,min=1"`
+	DistanceKm      float64               `json:"distance_km"` // Планова відстань маршруту (OSRM)
 }
 
 var FuelRecordCreatorRoles = []UserRole{

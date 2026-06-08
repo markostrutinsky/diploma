@@ -269,6 +269,7 @@
 }
 .badge-warning { background-color: rgba(245, 158, 11, 0.15); color: #d97706; }
 .badge-success { background-color: rgba(16, 185, 129, 0.15); color: #059669; }
+.badge-info { background-color: rgba(99, 102, 241, 0.15); color: #6366f1; }
 .badge-danger, .badge-critical { background-color: rgba(239, 68, 68, 0.15); color: #dc2626; }
 .badge-neutral { background-color: var(--bg-input); color: var(--text); }
 
@@ -304,6 +305,57 @@
 .mb-0 { margin-bottom: 0; }
 .flex-1 { flex: 1; }
 
+/* Двоколонний рядок для dispatch-модалки (без "form-" щоб dark-override не зачіпало) */
+.dispatch-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+  align-items: flex-end; /* flex-end: поля вирівняні по нижньому краю, компенсуючи різну висоту label */
+  overflow: visible;
+}
+.dispatch-col {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+.dispatch-col > label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+  min-height: 1.25rem; /* Однакова висота label в обох колонках */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Гарантуємо однакову висоту для поля в обох колонках */
+.dispatch-col .ss-trigger,
+.dispatch-col .dispatch-locked-field {
+  height: 40px !important;
+  box-sizing: border-box;
+}
+.dispatch-locked-field {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  background-color: var(--bg-hover);
+  cursor: not-allowed;
+  box-sizing: border-box;
+  opacity: 0.8;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  height: 40px;
+  line-height: 20px; /* (40 - 2*10px padding) = 20px */
+}
+
 .erp-input {
   width: 100%;
   padding: 10px 12px;
@@ -314,16 +366,25 @@
   background-color: var(--bg-input);
   transition: border-color 0.2s, box-shadow 0.2s;
   box-sizing: border-box;
-  min-height: 40px; /* Мінімальна висота замість фіксованої */
+  height: 46px;
   line-height: 1.5;
-  vertical-align: middle; /* Вирівнювання по центру */
-  display: inline-block; /* Для правильного vertical-align */
+  display: block; /* Блочний елемент для правильного width: 100% */
 }
 
-/* Специфічно для select - забезпечуємо однакову висоту */
+/* Специфічно для select - висота рівна input */
 select.erp-input {
-  height: 40px;
-  padding: 9px 12px; /* Трохи менший padding для select */
+  height: 46px !important;
+  min-height: unset !important;
+  padding: 0 36px 0 12px !important;
+  box-sizing: border-box !important;
+  line-height: 46px !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 12px center !important;
+  cursor: pointer;
 }
 
 .erp-input:focus {
@@ -361,14 +422,32 @@ select.erp-input {
   width: 100%;
   max-width: 400px;
   max-height: 90vh;
-  overflow: visible; /* КРИТИЧНО: Дозволяємо dropdown виходити за межі */
+  overflow: visible;  /* Скрол лише на .modal-body всередині — не на самому модалі */
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   border: 1px solid var(--border);
   position: relative;
   z-index: 10000;
+  display: flex;
+  flex-direction: column;
 }
 
-/* КРИТИЧНИЙ ФІКС: Прибираємо всі кастомні стилі з select */
+/* Скрол-зона всередині модалу — тільки вона прокручується */
+.modal-body {
+  overflow-y: auto;
+  overflow-x: visible;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Внутрішній скрол-контейнер — тільки він прокручується, але не обрізає dropdown */
+.modal-scroll-body {
+  overflow-y: auto;
+  overflow-x: visible;
+  flex: 1;
+  max-height: calc(90vh - 80px); /* 90vh мінус padding модалки */
+}
+
+/* КРИТИЧНИЙ ФІКС: Прибираємо всі кастомні стилі з select в модалках */
 .modal select,
 .modal select.erp-input {
   /* Повертаємо нативний вигляд браузера */
@@ -380,11 +459,17 @@ select.erp-input {
   background-image: none !important;
   padding-right: 12px !important;
   
+  /* Висота явно задана */
+  height: 46px !important;
+  min-height: unset !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  line-height: 46px !important;
+  box-sizing: border-box !important;
+  
   cursor: pointer !important;
   position: relative !important;
   z-index: auto !important;
-  
-  /* Дозволяємо dropdown */
   overflow: visible !important;
 }
 
@@ -404,11 +489,40 @@ select.erp-input {
 
 .modal-actions {
   display: flex;
-  justify-content: flex-end;
-  gap: 12px;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 10px;
   margin-top: 24px;
   padding-top: 16px;
   border-top: 1px solid var(--border);
+}
+
+/* Єдині стилі для всіх кнопок у modal-actions — однакова висота */
+.modal-actions .btn {
+  flex-shrink: 1;
+  min-width: 0;
+  white-space: nowrap;
+  min-height: 40px;
+  padding: 8px 16px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer;
+  transform: none !important;
+}
+
+/* Кнопка "Скасувати" не стискається — завжди залишається видимою */
+.modal-actions .btn-secondary {
+  flex-shrink: 0;
+}
+
+/* Підтверджуюча кнопка може стискатися якщо текст довгий */
+.modal-actions .btn-success,
+.modal-actions .btn-primary,
+.modal-actions .btn-danger {
+  flex-shrink: 1;
+  text-align: center;
 }
 
 /* =========================================
@@ -565,25 +679,23 @@ select.erp-input {
 }
 /* --- Кнопка Smart Розподілу --- */
 .btn-smart {
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-  color: white;
-  border: none;
+  background: var(--bg-card);
+  color: var(--text-bright);
+  border: 1px solid var(--border-light);
   font-weight: 600;
   padding: 0.5rem 1.25rem;
   border-radius: 6px;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+  transition: background 0.15s, border-color 0.15s;
 }
 
 .btn-smart:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
-  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  background: var(--bg-hover);
+  border-color: var(--text-muted);
 }
 
 .btn-smart:active {
-  transform: translateY(0);
+  opacity: 0.85;
 }
 
 /* --- Модалка Smart Розподілу --- */
@@ -592,7 +704,7 @@ select.erp-input {
   border-radius: 8px;
   padding: 16px;
   background: var(--bg-card);
-  transition: border-color 0.2s;
+  transition: border-color 0.15s;
 }
 
 .smart-route-card:hover {
@@ -607,20 +719,20 @@ select.erp-input {
 }
 
 .smart-route-progress-bg {
-  height: 6px;
+  height: 4px;
   background: var(--bg-input);
-  border-radius: 3px;
+  border-radius: 2px;
   margin-bottom: 4px;
   overflow: hidden;
 }
 
 .smart-route-progress-fill {
   height: 100%;
-  border-radius: 3px;
-  transition: width 0.5s ease-out;
+  border-radius: 2px;
+  transition: width 0.4s ease-out;
 }
 
-.bg-purple { background: #8b5cf6; }
+.bg-purple { background: var(--text-muted); }
 .bg-red { background: #ef4444; }
 
 .smart-route-items {
@@ -661,13 +773,9 @@ select.erp-input {
   overflow: visible !important;
 }
 
-/* Модалка повинна дозволяти dropdown виходити за межі */
-.modal {
-  overflow: visible !important;
-}
-
+/* Модалка дозволяє вміст прокручувати, але dropdown виходить за межі через fixed z-index */
 .modal form {
-  overflow: visible !important;
+  overflow: visible;
 }
 
 /* Для Edge/IE */

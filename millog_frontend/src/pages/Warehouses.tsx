@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
-import { api, getInMemoryToken, type Warehouse, type Unit } from '../api/client';
+import { api, getInMemoryToken, type Warehouse, type Unit, type ShipmentRefuel } from '../api/client';
 import { usePermissions } from '../hooks/usePermissions';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
@@ -9,6 +9,7 @@ import Pagination from '../components/Pagination';
 import 'leaflet/dist/leaflet.css';
 import './Warehouses.css';
 import InventoryAuditModal from '../components/InventoryAuditModal';
+import SearchableSelect from '../components/SearchableSelect';
 
 const stationaryIcon = L.divIcon({ html: '<div style="font-size: 24px; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">🏢</div>', className: 'custom-map-marker', iconSize: [30, 30], iconAnchor: [15, 30], popupAnchor: [0, -30] });
 const mobileIcon = L.divIcon({ html: '<div style="font-size: 24px; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">🚛</div>', className: 'custom-map-marker', iconSize: [30, 30], iconAnchor: [15, 30], popupAnchor: [0, -30] });
@@ -127,13 +128,32 @@ export default function Warehouses() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   const [auditWarehouse, setAuditWarehouse] = useState<Warehouse | null>(null);
+  const [receiveShipmentModal, setReceiveShipmentModal] = useState<{ id: string; distance_km: number } | null>(null);
+  const [receiveActualKm, setReceiveActualKm] = useState<string>('');
+  const [receiveGPSSource, setReceiveGPSSource] = useState<{
+    has_gps: boolean;
+    points: number;
+    gps_km: number;
+    planned_km: number;
+    planned_rt_km: number;
+    route_status: 'on_route' | 'deviated' | 'unknown';
+    deviation_pct: number;
+    min_allowed_km: number;
+  } | null>(null);
+
+  // ⛽ Дозаправка в дорозі
+  const [refuelModal, setRefuelModal] = useState<{ shipmentId: string; vehiclePlate: string } | null>(null);
+  const [refuelForm, setRefuelForm] = useState({ liters: '', station_name: '', odometer_km: '', cost_uah: '' });
+  const [refuelProcessing, setRefuelProcessing] = useState(false);
+  const [shipmentRefuels, setShipmentRefuels] = useState<ShipmentRefuel[]>([]); // для модалі прийому
+
   const [viewInventoryItems, setViewInventoryItems] = useState<InventoryItem[]>([]);
   const [viewInventoryLoading, setViewInventoryLoading] = useState(false);
 
   const [warehousesPage, setWarehousesPage] = useState(0);
   const [shipmentsPage, setShipmentsPage] = useState(0);
-  const WH_PAGE_SIZE = 20;
-  const SHIP_PAGE_SIZE = 20;
+  const WH_PAGE_SIZE = 10;
+  const SHIP_PAGE_SIZE = 10;
 
   const perms = usePermissions();
   const canManageWarehouses = perms.can('warehouse_manage');
@@ -141,7 +161,6 @@ export default function Warehouses() {
 
   const loadData = async () => {
     try {
-      setLoading(true);
       const token = getInMemoryToken();
       const [wRes, uRes, vRes, sRes] = await Promise.all([
         api.warehouses.list().catch(() => []),
@@ -235,11 +254,25 @@ export default function Warehouses() {
       try {
         const [invRes, vehiclesRes] = await Promise.all([
           api.inventory.getByWarehouse(sourceW.id),
-          api.vehicles.getAvailableForRoute(sourceW.unit_id, dispatchTargetWarehouse.unit_id).catch(() => [])
+          api.vehicles.getAvailableForRoute(sourceW.id, dispatchTargetWarehouse.id).catch(() => [])
         ]);
-        const fetchedInventory = Array.isArray(invRes) ? invRes : [];
+        const rawInventory: InventoryItem[] = Array.isArray(invRes) ? invRes : [];
+        // Merge duplicate entries with the same name (different DB rows for same resource)
+        const mergedMap = new Map<string, InventoryItem>();
+        rawInventory.forEach(item => {
+          const existing = mergedMap.get(item.name);
+          if (existing) {
+            mergedMap.set(item.name, {
+              ...existing,
+              available: (existing.available ?? 0) + (item.available ?? 0),
+            });
+          } else {
+            mergedMap.set(item.name, { ...item });
+          }
+        });
+        const fetchedInventory = Array.from(mergedMap.values());
         setWarehouseInventory(fetchedInventory);
-        if (fetchedInventory.length > 0) setItemToAdd(fetchedInventory[0].id);
+        setItemToAdd(fetchedInventory.length > 0 ? fetchedInventory[0].id : '');
         setVehicles(Array.isArray(vehiclesRes) ? vehiclesRes : []);
       } catch (err) { console.error("Помилка завантаження:", err); }
       await buildRoute(sourceW, dispatchTargetWarehouse);
@@ -289,6 +322,16 @@ export default function Warehouses() {
     if (manifest.length === 0) return toast.error('Маніфест порожній! Додайте вантаж.');
     if (isOverweight) return toast.error(`Перевантаження! Максимум: ${selectedVehicle.capacity_kg} кг`);
 
+    // Перевірка пального
+    const MIN_FUEL_LITERS = 5;
+    const vehicleFuel = (selectedVehicle as any).current_fuel_liters ?? 0;
+    if (vehicleFuel < MIN_FUEL_LITERS) {
+      return toast.error(
+        `⛽ Неможливо відправити рейс! Машина "${selectedVehicle.brand} (${selectedVehicle.plate_number})" має лише ${vehicleFuel.toFixed(1)} л пального. Заправте мінімум ${MIN_FUEL_LITERS} л перед рейсом.`,
+        { duration: 7000 }
+      );
+    }
+
     const toastId = 'dispatch_toast';
     toast.loading('Відправка рейсу в систему...', { id: toastId });
 
@@ -298,7 +341,8 @@ export default function Warehouses() {
         to_warehouse_id: dispatchTargetWarehouse.id,
         vehicle_id: selectedVehicle.id,
         priority: dispatchPriority,
-        items: manifest.map(m => ({ resource_id: m.item.id, quantity: m.quantity }))
+        items: manifest.map(m => ({ resource_id: m.item.id, quantity: m.quantity })),
+        distance_km: parseFloat(activeRoadRoute.distance) || 0,
       };
       
       const token = getInMemoryToken();
@@ -315,24 +359,78 @@ export default function Warehouses() {
       }
       
       toast.success('Рейс успішно сформовано!', { id: toastId, duration: 4000 });
-      handleCloseDispatch();
-      loadData(); 
+      handleCloseDispatch(); // викликає loadData() всередині
     } catch (error: any) { 
       toast.error(error.message || 'Помилка при створенні рейсу', { id: toastId, duration: 5000 }); 
     }
   };
 
   const handleReceiveShipment = async (shipmentId: string) => {
+    const shipment = shipmentsList.find((s: any) => s.id === shipmentId);
+    const distanceKm = parseFloat(shipment?.distance_km) || 0;
+    setReceiveShipmentModal({ id: shipmentId, distance_km: distanceKm });
+    setReceiveActualKm('');
+    setReceiveGPSSource(null);
+    setShipmentRefuels([]);
+
+    // Паралельно: GPS-трек + список дозаправок в дорозі
+    try {
+      const token = getInMemoryToken();
+      const [gpsRes, refuelsRes] = await Promise.allSettled([
+        fetch(`/api/inventory/shipments/${shipmentId}/gps-distance`, {
+          headers: { 'Authorization': `Bearer ${token}` }, credentials: 'include',
+        }),
+        fetch(`/api/inventory/shipments/${shipmentId}/refuels`, {
+          headers: { 'Authorization': `Bearer ${token}` }, credentials: 'include',
+        }),
+      ]);
+
+      if (gpsRes.status === 'fulfilled' && gpsRes.value.ok) {
+        const data = await gpsRes.value.json();
+        setReceiveGPSSource(data);
+        setReceiveActualKm(data.suggested_km > 0 ? String(data.suggested_km) : (distanceKm > 0 ? String(parseFloat((distanceKm * 2).toFixed(1))) : ''));
+      } else {
+        setReceiveActualKm(distanceKm > 0 ? String(parseFloat((distanceKm * 2).toFixed(1))) : '');
+      }
+
+      if (refuelsRes.status === 'fulfilled' && refuelsRes.value.ok) {
+        const data = await refuelsRes.value.json();
+        setShipmentRefuels(Array.isArray(data) ? data : []);
+      }
+    } catch {
+      setReceiveActualKm(distanceKm > 0 ? String(parseFloat((distanceKm * 2).toFixed(1))) : '');
+    }
+  };
+
+  const handleReceiveShipmentConfirm = async () => {
+    if (!receiveShipmentModal) return;
+    const shipmentId = receiveShipmentModal.id;
+    const actualKmValue = parseInt(receiveActualKm, 10);
+    if (isNaN(actualKmValue) || actualKmValue < 1) {
+      return toast.error('Вкажіть фактичний пробіг (мінімум 1 км)');
+    }
     try {
       toast.loading('Приймаємо вантаж на склад...', { id: 'receive' });
       const token = getInMemoryToken();
-      const res = await fetch(`/api/inventory/shipments/${shipmentId}/receive`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, credentials: 'include' });
+      const payload: any = {
+        actual_km: actualKmValue,
+        gps_km: receiveGPSSource?.gps_km ?? 0,
+        route_status: receiveGPSSource?.route_status ?? 'unknown',
+        deviation_pct: receiveGPSSource?.deviation_pct ?? 0,
+      };
+      const res = await fetch(`/api/inventory/shipments/${shipmentId}/receive`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         throw new Error(errData.error || 'Помилка сервера (500)');
       }
       toast.success('Вантаж успішно прийнято! Машину звільнено.', { id: 'receive' });
-      loadData(); 
+      setReceiveShipmentModal(null);
+      loadData();
     } catch (err: any) {
       toast.error(err.message || 'Не вдалося прийняти вантаж', { id: 'receive' });
     }
@@ -351,6 +449,27 @@ export default function Warehouses() {
       loadData(); 
     } catch (err: any) {
       toast.error(err.message || 'Не вдалося відправити рейс', { id: 'start' });
+    }
+  };
+
+  // ⛽ Підтвердити дозаправку
+  const handleConfirmRefuel = async () => {
+    if (!refuelModal) return;
+    const liters = parseFloat(refuelForm.liters);
+    if (isNaN(liters) || liters <= 0) return toast.error('Вкажіть кількість літрів');
+    setRefuelProcessing(true);
+    try {
+      const payload: any = { liters };
+      if (refuelForm.station_name.trim()) payload.station_name = refuelForm.station_name.trim();
+      if (refuelForm.odometer_km) payload.odometer_km = parseInt(refuelForm.odometer_km, 10);
+      if (refuelForm.cost_uah) payload.cost_uah = parseFloat(refuelForm.cost_uah);
+      const result = await api.inventory.logShipmentRefuel(refuelModal.shipmentId, payload);
+      toast.success(`✅ Дозаправка ${result.liters} л зареєстрована!`);
+      setRefuelModal(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Помилка реєстрації дозаправки');
+    } finally {
+      setRefuelProcessing(false);
     }
   };
 
@@ -510,6 +629,151 @@ export default function Warehouses() {
         <button className={`tab-btn ${activeTab === 'shipments' ? 'active' : ''}`} onClick={() => setActiveTab('shipments')}>🚚 Рейси та Накладні</button>
       </div>
 
+      {/* Модалка прийому рейсу з введенням фактичного пробігу */}
+      {receiveShipmentModal && (() => {
+        const gps = receiveGPSSource;
+        const actualKmNum = parseFloat(receiveActualKm) || 0;
+        const isFraudWarning = gps?.has_gps && gps.gps_km > 0 && actualKmNum > 0 && actualKmNum < gps.gps_km * 0.6;
+        const isSubmitDisabled = !receiveActualKm || actualKmNum <= 0 || isFraudWarning;
+        return (
+          <div className="modal-overlay" onClick={() => { setReceiveShipmentModal(null); setReceiveActualKm(''); setReceiveGPSSource(null); }}>
+            <div className="modal" style={{ maxWidth: '460px' }} onClick={e => e.stopPropagation()}>
+              <h3 className="modal-title">📦 Прийом вантажу</h3>
+              {/* GPS status block */}
+              {gps ? (
+                gps.has_gps ? (
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ padding: '12px', background: gps.route_status === 'on_route' ? 'rgba(34,197,94,0.07)' : 'rgba(251,191,36,0.07)', border: `1px solid ${gps.route_status === 'on_route' ? 'rgba(34,197,94,0.3)' : 'rgba(251,191,36,0.3)'}`, borderRadius: '8px', marginBottom: '10px' }}>
+                      <div style={{ fontWeight: 600, color: gps.route_status === 'on_route' ? '#22c55e' : '#f59e0b', marginBottom: '6px' }}>
+                        {gps.route_status === 'on_route' ? '✅ Маршрут виконано' : '⚠️ Відхилення від маршруту'}
+                        {gps.route_status !== 'on_route' && gps.deviation_pct > 0 && <span style={{ fontSize: '12px', marginLeft: '8px', fontWeight: 400 }}>({gps.deviation_pct.toFixed(0)}%)</span>}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '12px' }}>
+                        <div style={{ padding: '8px', background: 'rgba(99,102,241,0.1)', borderRadius: '6px', textAlign: 'center' }}>
+                          <div style={{ color: 'var(--text-muted)', marginBottom: '2px' }}>📡 GPS-трек</div>
+                          <div style={{ fontWeight: 700, fontSize: '16px' }}>{gps.gps_km} км</div>
+                          <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>{gps.points} точок</div>
+                        </div>
+                        <div style={{ padding: '8px', background: 'rgba(59,130,246,0.1)', borderRadius: '6px', textAlign: 'center' }}>
+                          <div style={{ color: 'var(--text-muted)', marginBottom: '2px' }}>🗺️ OSRM (туди+назад)</div>
+                          <div style={{ fontWeight: 700, fontSize: '16px' }}>{gps.planned_rt_km > 0 ? `${gps.planned_rt_km} км` : '—'}</div>
+                          <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>{gps.planned_km > 0 ? `${Math.round(gps.planned_km)} × 2` : 'не розраховувався'}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : receiveShipmentModal.distance_km > 0 ? (
+                  <div style={{ padding: '12px', background: 'rgba(59,130,246,0.07)', border: '1px solid rgba(59,130,246,0.25)', borderRadius: '8px', marginBottom: '16px' }}>
+                    <div style={{ fontWeight: 600 }}>🗺️ Маршрут з карти (OSRM)</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>GPS не записувався. Планова відстань: {receiveShipmentModal.distance_km.toFixed(1)} × 2 = <strong>{(receiveShipmentModal.distance_km * 2).toFixed(1)} км</strong>.</div>
+                  </div>
+                ) : (
+                  <div style={{ padding: '12px', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '8px', marginBottom: '16px' }}>
+                    <div style={{ fontWeight: 600, color: '#ef4444' }}>⚠️ Пробіг невідомий</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>GPS не записувався, маршрут не розраховувався.</div>
+                  </div>
+                )
+              ) : (
+                <div style={{ padding: '12px', background: 'rgba(148,163,184,0.07)', border: '1px solid rgba(148,163,184,0.2)', borderRadius: '8px', marginBottom: '16px', fontSize: '13px', color: 'var(--text-muted)' }}>⏳ Завантаження GPS-даних...</div>
+              )}
+              <div style={{ marginBottom: isFraudWarning ? '8px' : '16px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '6px' }}>Фактичний пробіг (км) <span style={{ color: '#ef4444' }}>*</span></label>
+                <input type="number" min="0.1" step="0.1" className="erp-input" style={{ width: '100%', boxSizing: 'border-box', borderColor: isFraudWarning ? '#ef4444' : undefined }} value={receiveActualKm} onChange={e => setReceiveActualKm(e.target.value)} autoFocus />
+                <span style={{ display: 'block', fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+                  {gps?.has_gps ? `📡 З GPS-треку. Мінімально: ${gps.min_allowed_km} км.` : receiveShipmentModal.distance_km > 0 ? `🗺️ З OSRM (×2 = ${(receiveShipmentModal.distance_km * 2).toFixed(1)} км). Якщо їхали іншим шляхом — введіть реальний пробіг.` : 'Введіть пробіг туди і назад.'}
+                </span>
+              </div>
+              {isFraudWarning && (
+                <div style={{ padding: '10px 12px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.4)', borderRadius: '8px', marginBottom: '16px' }}>
+                  <div style={{ fontWeight: 600, color: '#ef4444', fontSize: '13px' }}>🚫 Введений пробіг підозріло малий</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>GPS показує {gps!.gps_km} км, ви ввели {actualKmNum} км. Мінімум: <strong>{gps!.min_allowed_km} км</strong>.</div>
+                </div>
+              )}
+
+              {/* ⛽ Дозаправки в дорозі */}
+              {shipmentRefuels.length > 0 && (
+                <div style={{ marginBottom: '16px', padding: '12px', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: '8px' }}>
+                  <div style={{ fontWeight: 600, fontSize: '13px', marginBottom: '8px' }}>⛽ Дозаправки в дорозі</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {shipmentRefuels.map(r => (
+                      <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', padding: '4px 8px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px' }}>
+                        <span>{r.station_name || 'Заправка'}</span>
+                        <span style={{ fontWeight: 700, color: '#fbbf24' }}>+{r.liters} л{r.cost_uah ? ` · ${r.cost_uah} грн` : ''}</span>
+                      </div>
+                    ))}
+                    <div style={{ textAlign: 'right', fontWeight: 700, fontSize: '12px', marginTop: '4px', color: '#fbbf24' }}>
+                      Разом: +{shipmentRefuels.reduce((s, r) => s + r.liters, 0).toFixed(1)} л
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="modal-actions">
+                <button className="btn btn-secondary" onClick={() => { setReceiveShipmentModal(null); setReceiveActualKm(''); setReceiveGPSSource(null); setShipmentRefuels([]); }}>Скасувати</button>
+                <button className="btn btn-primary" onClick={handleReceiveShipmentConfirm} disabled={isSubmitDisabled}>✅ Підтвердити прийом</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ⛽ Модаль реєстрації дозаправки в дорозі */}
+      {refuelModal && (
+        <div className="modal-overlay" onClick={() => setRefuelModal(null)}>
+          <div className="modal" style={{ maxWidth: '420px', width: '100%' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ margin: 0 }}>⛽ Дозаправка в дорозі</h3>
+              <button onClick={() => setRefuelModal(null)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: 'var(--text-muted)' }}>&times;</button>
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '16px', padding: '8px 12px', background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.25)', borderRadius: '6px' }}>
+              🚛 Транспорт: <strong>{refuelModal.vehiclePlate}</strong>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                  Літри <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input type="number" min="0.1" step="0.1" className="erp-input" style={{ width: '100%', boxSizing: 'border-box' }}
+                  placeholder="напр. 35.5" value={refuelForm.liters}
+                  onChange={e => setRefuelForm(f => ({ ...f, liters: e.target.value }))} autoFocus />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                  Назва АЗС (необов'язково)
+                </label>
+                <input type="text" className="erp-input" style={{ width: '100%', boxSizing: 'border-box' }}
+                  placeholder="напр. ОККО, WOG, ANP..." value={refuelForm.station_name}
+                  onChange={e => setRefuelForm(f => ({ ...f, station_name: e.target.value }))} />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                    Одометр (км)
+                  </label>
+                  <input type="number" min="0" className="erp-input" style={{ width: '100%', boxSizing: 'border-box' }}
+                    placeholder="напр. 12450" value={refuelForm.odometer_km}
+                    onChange={e => setRefuelForm(f => ({ ...f, odometer_km: e.target.value }))} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                    Вартість (грн)
+                  </label>
+                  <input type="number" min="0" step="0.01" className="erp-input" style={{ width: '100%', boxSizing: 'border-box' }}
+                    placeholder="напр. 2100" value={refuelForm.cost_uah}
+                    onChange={e => setRefuelForm(f => ({ ...f, cost_uah: e.target.value }))} />
+                </div>
+              </div>
+            </div>
+            <div className="modal-actions" style={{ marginTop: '20px' }}>
+              <button className="btn btn-secondary" onClick={() => setRefuelModal(null)}>Скасувати</button>
+              <button className="btn btn-warning" onClick={handleConfirmRefuel} disabled={refuelProcessing}>
+                {refuelProcessing ? '⏳ Збереження...' : '⛽ Зареєструвати'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {viewInventoryWarehouse && (
         <div className="modal-overlay" onClick={() => setViewInventoryWarehouse(null)}>
           <div className="modal" style={{ maxWidth: '600px', width: '100%' }} onClick={e => e.stopPropagation()}>
@@ -562,7 +826,7 @@ export default function Warehouses() {
            <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3>Новий склад</h3>
             <form onSubmit={handleCreate}>
-              <div className="form-group"><label>Орг. одиниця <span className="required">*</span></label><select className="erp-input" value={newWarehouse.unit_id} onChange={(e) => setNewWarehouse({ ...newWarehouse, unit_id: e.target.value ? Number(e.target.value) : '' })} required><option value="" disabled>Оберіть одиницю...</option>{units.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</select></div>
+              <div className="form-group"><label>Орг. одиниця <span className="required">*</span></label><SearchableSelect options={units.map(u => ({ value: String(u.id), label: u.name }))} value={String(newWarehouse.unit_id ?? '')} onChange={(val) => setNewWarehouse({ ...newWarehouse, unit_id: val ? Number(val) : '' })} placeholder="Оберіть одиницю..." /></div>
               <div className="form-group"><label>Назва <span className="required">*</span></label><input className="erp-input" value={newWarehouse.name} onChange={(e) => setNewWarehouse({ ...newWarehouse, name: e.target.value })} required /></div>
               <div className="form-group"><label>Тип <span className="required">*</span></label><select className="erp-input" value={newWarehouse.location_type} onChange={(e) => setNewWarehouse({ ...newWarehouse, location_type: e.target.value as 'STATIONARY' | 'MOBILE' })} required><option value="STATIONARY">Стаціонарний</option><option value="MOBILE">Мобільний</option></select></div>
               <div className="form-row-2">
@@ -723,7 +987,7 @@ export default function Warehouses() {
                   <th>Транспорт</th>
                   <th className="text-center">Пріоритет</th>
                   <th className="text-center">Статус</th>
-                  {canManageWarehouses && <th>Дії</th>}
+                  {canManageWarehouses && <th style={{ textAlign: 'right' }}>Дії</th>}
                 </tr>
               </thead>
               <tbody>
@@ -742,15 +1006,15 @@ export default function Warehouses() {
                        <span className="badge badge-success">✅ Доставлено</span>}
                     </td>
                     {canManageWarehouses && (
-                      <td>
-                        <div className="actions-flex">
-                          <button className="btn btn-secondary btn-sm" onClick={() => handleDownloadPDF(s.id)} title="Завантажити накладну">📄 Друк ТТН</button>
+                      <td className="shipment-actions-cell">
+                        <div className="shipment-actions-inner">
                           {s.status === 'PENDING' && (
-                            <button className="btn btn-info btn-sm" onClick={() => handleStartShipment(s.id)} title="Підтвердити виїзд">🚀 Відправити</button>
+                            <button className="btn btn-info btn-sm" onClick={() => handleStartShipment(s.id)}>🚀 Відправити</button>
                           )}
                           {s.status === 'IN_TRANSIT' && (
                             <button className="btn btn-primary btn-sm" onClick={() => handleReceiveShipment(s.id)}>📦 Прийняти</button>
                           )}
+                          <button className="btn btn-secondary btn-sm" onClick={() => handleDownloadPDF(s.id)} title="Завантажити накладну">📄 Друк ТТН</button>
                         </div>
                       </td>
                     )}
@@ -772,7 +1036,8 @@ export default function Warehouses() {
       )}
 
       {activeTab === 'map' && (
-        <div className="map-container-wrapper">
+        <div className={`map-outer-wrapper${dispatchTargetWarehouse ? ' has-sidebar' : ''}`}>
+          <div className="map-container-wrapper">
           {warehousesWithCoords.length === 0 ? (
             <div className="empty-state"><h3>Немає об'єктів на карті</h3></div>
           ) : (
@@ -811,96 +1076,107 @@ export default function Warehouses() {
                   <DraggableMarker key={w.id} warehouse={w} icon={w.location_type === 'MOBILE' ? mobileIcon : stationaryIcon} unitName={units.find(u => u.id === w.unit_id)?.name || 'Невідомо'} onDragEnd={handleMarkerDragEnd} onViewInventory={handleViewInventory} onDispatchTrip={handleOpenDispatch} onHover={setHoveredUnitId} />
                 ))}
               </MapContainer>
+            </>
+          )}
+          </div>
 
-              {dispatchTargetWarehouse && (
-                <div className="dispatch-sidebar">
-                  <div className="dispatch-header">
-                    <h3>🚚 Формування рейсу</h3>
-                    <button onClick={handleCloseDispatch} className="close-btn">&times;</button>
+          {dispatchTargetWarehouse && (
+            <div className="dispatch-sidebar">
+              <div className="dispatch-header">
+                <h3>🚚 Формування рейсу</h3>
+                <button onClick={handleCloseDispatch} className="close-btn">&times;</button>
+              </div>
+
+              <div className="dispatch-content">
+                <p style={{marginBottom: '20px', fontSize: '13px', color: 'var(--text-muted)'}}>Одержувач: <strong style={{color:'var(--text-bright)'}}>{dispatchTargetWarehouse.name}</strong></p>
+
+                <div className="form-group">
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)', marginBottom: '6px', display: 'block' }}>Звідки (Склад відправник)</label>
+                  <SearchableSelect
+                    options={allowedSourceWarehouses.map(w => ({ value: String(w.id), label: w.name }))}
+                    value={String(dispatchParentWarehouse?.id ?? '')}
+                    onChange={val => handleSourceChange(val)}
+                    placeholder="Оберіть склад вище по ієрархії..."
+                    inlineDropdown
+                  />
+                </div>
+
+                {activeRoadRoute && (
+                  <div className={`route-info-box ${activeRoadRoute.error ? 'route-error' : 'route-success'}`}>
+                    {activeRoadRoute.isLoading ? '⏳ Прокладання маршруту...' : activeRoadRoute.error ? <span>{activeRoadRoute.error}</span> : <div style={{display: 'flex', justifyContent: 'space-between'}}><span>Відстань: <strong>{activeRoadRoute.distance} км</strong></span><span>Час: <strong>~{activeRoadRoute.duration} хв</strong></span></div>}
                   </div>
+                )}
 
-                  <div className="dispatch-content">
-                    <p style={{marginBottom: '20px', fontSize: '13px', color: 'var(--text-muted)'}}>Одержувач: <strong style={{color:'#0f172a'}}>{dispatchTargetWarehouse.name}</strong></p>
+                <div className="form-group">
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)', marginBottom: '6px', display: 'block' }}>Пріоритет</label>
+                  <select className="erp-input" value={dispatchPriority} onChange={e => setDispatchPriority(e.target.value)}>
+                    <option value="NORMAL">🟢 Звичайний (Плановий)</option>
+                    <option value="URGENT">🔴 Терміновий</option>
+                  </select>
+                </div>
 
-                    <div className="form-group">
-                      <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)', marginBottom: '6px', display: 'block' }}>Звідки (Склад відправник)</label>
-                      <select className="erp-input" value={dispatchParentWarehouse?.id || ''} onChange={e => handleSourceChange(e.target.value)}>
-                        <option value="" disabled>Оберіть склад вище по ієрархії...</option>
-                        {allowedSourceWarehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-                      </select>
-                    </div>
+                <div className="form-group">
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)', marginBottom: '6px', display: 'block' }}>Транспорт та Водій</label>
+                  <SearchableSelect
+                    options={availableVehicles.map(v => ({ value: v.id, label: `${v.brand} (${v.plate_number}) • ${v.capacity_kg} кг` }))}
+                    value={selectedVehicleId}
+                    onChange={val => setSelectedVehicleId(val)}
+                    placeholder={dispatchParentWarehouse ? 'Оберіть вільний ТЗ...' : 'Спочатку оберіть склад-відправника'}
+                    disabled={!dispatchParentWarehouse}
+                    inlineDropdown
+                  />
+                  {dispatchParentWarehouse && availableVehicles.length === 0 && (
+                    <span style={{ fontSize: '11px', color: 'var(--warning)', marginTop: '4px', display: 'block' }}>⚠️ Немає доступного транспорту для цього маршруту</span>
+                  )}
+                </div>
 
-                    {activeRoadRoute && (
-                      <div className={`route-info-box ${activeRoadRoute.error ? 'route-error' : 'route-success'}`}>
-                        {activeRoadRoute.isLoading ? '⏳ Прокладання маршруту...' : activeRoadRoute.error ? <span>{activeRoadRoute.error}</span> : <div style={{display: 'flex', justifyContent: 'space-between'}}><span>Відстань: <strong>{activeRoadRoute.distance} км</strong></span><span>Час: <strong>~{activeRoadRoute.duration} хв</strong></span></div>}
-                      </div>
-                    )}
-
-                    <div className="form-group">
-                      <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)', marginBottom: '6px', display: 'block' }}>Пріоритет</label>
-                      <select className="erp-input" value={dispatchPriority} onChange={e => setDispatchPriority(e.target.value)}>
-                        <option value="NORMAL">🟢 Звичайний (Плановий)</option>
-                        <option value="URGENT">🔴 Терміновий</option>
-                      </select>
-                    </div>
-
-                    <div className="form-group">
-                      <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text)', marginBottom: '6px', display: 'block' }}>Транспорт та Водій</label>
-                      <select className="erp-input" value={selectedVehicleId} onChange={e => setSelectedVehicleId(e.target.value)} disabled={!dispatchParentWarehouse}>
-                        <option value="" disabled>{dispatchParentWarehouse ? 'Оберіть вільний ТЗ...' : 'Спочатку оберіть склад-відправника'}</option>
-                        {availableVehicles.map(v => <option key={v.id} value={v.id}>{v.brand} ({v.plate_number}) • {v.capacity_kg} кг</option>)}
-                      </select>
-                      {dispatchParentWarehouse && availableVehicles.length === 0 && (
-                        <span style={{ fontSize: '11px', color: 'var(--warning)', marginTop: '4px', display: 'block' }}>⚠️ Немає доступного транспорту для цього маршруту</span>
-                      )}
-                    </div>
-
-                    {selectedVehicle && activeRoadRoute && !activeRoadRoute.error && (
-                      <div className="fuel-forecast-box">
-                        <strong>⛽ Прогноз пального:</strong><br/>
-                        {selectedVehicle.fuel_norm ? `${((parseFloat(activeRoadRoute.distance) * 2 / 100) * selectedVehicle.fuel_norm).toFixed(1)} л` : 'Не вказана норма'}
-                      </div>
-                    )}
-
-                    <h4 style={{marginTop: '24px', fontSize: '14px', color: 'var(--text-bright)'}}>📦 Вантажний маніфест</h4>
-                    <div className="manifest-container">
-                      <select className="erp-input" style={{ marginBottom: '8px' }} value={itemToAdd} onChange={e => setItemToAdd(e.target.value)}>
-                        <option value="" disabled>Оберіть майно...</option>
-                        {warehouseInventory.map(item => <option key={item.id} value={item.id} disabled={getRemainingAvailable(item.id) <= 0}>{item.name}</option>)}
-                      </select>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <input type="number" className="erp-input" placeholder="К-сть" value={qtyToAdd} onChange={e => setQtyToAdd(e.target.value)} style={{flex: 1}}/>
-                        <button className="btn btn-secondary" onClick={handleAddToManifest}>+ Додати</button>
-                      </div>
-                    </div>
-
-                    <div className="manifest-table-wrapper">
-                      <table className="manifest-table">
-                        <thead><tr><th>Товар</th><th>К-сть</th><th>Вага</th><th></th></tr></thead>
-                        <tbody>
-                          {manifest.map(m => (
-                            <tr key={m.item.id}>
-                              <td>{m.item.name}</td><td>{m.quantity}</td><td>{(getSafeWeight(m.item) * m.quantity).toFixed(1)} кг</td>
-                              <td style={{textAlign: 'right'}}><button style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px' }} onClick={() => handleRemoveFromManifest(m.item.id)}>&times;</button></td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <div className={`weight-summary ${isOverweight ? 'weight-error' : 'weight-ok'}`}>
-                      <strong>Вага: {currentTotalWeight.toFixed(1)} кг</strong>
-                      <span>Ліміт: {selectedVehicle?.capacity_kg || 0} кг</span>
-                    </div>
+                {selectedVehicle && activeRoadRoute && !activeRoadRoute.error && (
+                  <div className="fuel-forecast-box">
+                    <strong>⛽ Прогноз пального:</strong><br/>
+                    {selectedVehicle.fuel_norm ? `${((parseFloat(activeRoadRoute.distance) * 2 / 100) * selectedVehicle.fuel_norm).toFixed(1)} л` : 'Не вказана норма'}
                   </div>
+                )}
 
-                  <div className="dispatch-footer">
-                    <button className="btn btn-secondary" style={{flex: 1}} onClick={handleCloseDispatch}>Скасувати</button>
-                    <button className="btn btn-primary" style={{flex: 1}} onClick={handleDispatchSubmit} disabled={isOverweight || manifest.length === 0 || !selectedVehicleId}>Відправити 🚀</button>
+                <h4 style={{marginTop: '24px', fontSize: '14px', color: 'var(--text-bright)'}}>📦 Вантажний маніфест</h4>
+                <div className="manifest-container">
+                  <SearchableSelect
+                    options={warehouseInventory.map(item => ({ value: item.id, label: item.name + (getRemainingAvailable(item.id) <= 0 ? ' (вичерп.)' : '') }))}
+                    value={itemToAdd}
+                    onChange={val => setItemToAdd(val)}
+                    placeholder="Оберіть майно..."
+                    inlineDropdown
+                  />
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input type="number" className="erp-input" placeholder="К-сть" value={qtyToAdd} onChange={e => setQtyToAdd(e.target.value)} style={{flex: 1}}/>
+                    <button className="btn btn-secondary" onClick={handleAddToManifest}>+ Додати</button>
                   </div>
                 </div>
-              )}
-            </>
+
+                <div className="manifest-table-wrapper">
+                  <table className="manifest-table">
+                    <thead><tr><th>Товар</th><th>К-сть</th><th>Вага</th><th></th></tr></thead>
+                    <tbody>
+                      {manifest.map(m => (
+                        <tr key={m.item.id}>
+                          <td>{m.item.name}</td><td>{m.quantity}</td><td>{(getSafeWeight(m.item) * m.quantity).toFixed(1)} кг</td>
+                          <td style={{textAlign: 'right'}}><button style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '16px' }} onClick={() => handleRemoveFromManifest(m.item.id)}>&times;</button></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className={`weight-summary ${isOverweight ? 'weight-error' : 'weight-ok'}`}>
+                  <strong>Вага: {currentTotalWeight.toFixed(1)} кг</strong>
+                  <span>Ліміт: {selectedVehicle?.capacity_kg || 0} кг</span>
+                </div>
+              </div>
+
+              <div className="dispatch-footer">
+                <button className="btn btn-secondary" style={{flex: 1}} onClick={handleCloseDispatch}>Скасувати</button>
+                <button className="btn btn-primary" style={{flex: 1}} onClick={handleDispatchSubmit} disabled={isOverweight || manifest.length === 0 || !selectedVehicleId}>Відправити 🚀</button>
+              </div>
+            </div>
           )}
         </div>
       )}

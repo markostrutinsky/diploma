@@ -158,12 +158,15 @@ func (r *SupplyRequestRepository) EscalateStatus(ctx context.Context, db DBExecu
 	return result.RowsAffected() > 0, nil
 }
 
-// GetRequestsForDispatch витягує вибрані заявки та розраховує їхню загальну вагу
+// GetRequestsForDispatch витягує вибрані заявки, їхню вагу та цільовий склад
 func (r *SupplyRequestRepository) GetRequestsForDispatch(ctx context.Context, db DBExecutor, reqIDs []string) ([]models.RequestItem, error) {
 	query := `
-		SELECT sr.id::text, res.name, (res.weight_kg * sr.quantity) as weight_kg
+		SELECT sr.id::text,
+		       COALESCE(res.name, sr.resource_name, 'Невідомий ресурс') AS name,
+		       (COALESCE(res.weight_kg, 1.0) * sr.quantity) AS weight_kg,
+		       COALESCE(sr.target_warehouse_id::text, '') AS target_warehouse_id
 		FROM supply_requests sr
-		JOIN resources res ON sr.resource_id = res.id
+		LEFT JOIN resources res ON sr.resource_id = res.id
 		WHERE sr.id = ANY($1) AND sr.status IN ('PENDING', 'APPROVED')
 	`
 	rows, err := db.Query(ctx, query, reqIDs)
@@ -175,7 +178,7 @@ func (r *SupplyRequestRepository) GetRequestsForDispatch(ctx context.Context, db
 	var items []models.RequestItem
 	for rows.Next() {
 		var item models.RequestItem
-		if err := rows.Scan(&item.ID, &item.Name, &item.WeightKg); err != nil {
+		if err := rows.Scan(&item.ID, &item.Name, &item.WeightKg, &item.TargetWarehouseID); err != nil {
 			return nil, err
 		}
 		items = append(items, item)
@@ -183,14 +186,39 @@ func (r *SupplyRequestRepository) GetRequestsForDispatch(ctx context.Context, db
 	return items, nil
 }
 
-// GetAvailableVehicles витягує всі вільні фургони та вантажівки
-func (r *SupplyRequestRepository) GetAvailableVehicles(ctx context.Context, db DBExecutor) ([]models.VehicleBin, error) {
+// GetAvailableVehicles повертає вільні авто для Smart Розподілу.
+// Повертає тільки транспорт, що фізично знаходиться на складі відправника
+// або складі отримувача. Ніякої ієрархії — лише ці два склади.
+// Якщо fromWarehouseID порожній — шукає тільки на складі отримувача.
+func (r *SupplyRequestRepository) GetAvailableVehicles(ctx context.Context, db DBExecutor, fromWarehouseID string, targetWarehouseID string) ([]models.VehicleBin, error) {
+	var args []any
+	var warehouseFilter string
+
+	if fromWarehouseID != "" {
+		args = []any{fromWarehouseID, targetWarehouseID}
+		warehouseFilter = `v.current_warehouse_id IN ($1, $2)`
+	} else {
+		args = []any{targetWarehouseID}
+		warehouseFilter = `v.current_warehouse_id = $1`
+	}
+
+	tFilter := tenantFilter(ctx, "v", "AND", &args)
+
 	query := `
-		SELECT id::text, brand || ' ' || COALESCE(plate_number, ''), capacity_kg
-		FROM vehicles
-		WHERE status = 'ACTIVE' AND type IN ('VAN', 'TRUCK', 'PICKUP')
+		SELECT v.id::text, v.brand || ' ' || COALESCE(v.plate_number, ''), v.capacity_kg,
+		       v.fuel_norm, v.tank_capacity,
+		       GREATEST(0, COALESCE((
+		         SELECT SUM(CASE WHEN record_type = 'REFUEL' THEN liters ELSE -liters END)
+		         FROM fuel_records WHERE vehicle_id = v.id
+		       ), 0)) AS current_fuel_liters
+		FROM vehicles v
+		WHERE v.status = 'ACTIVE'
+		  AND v.driver_id IS NOT NULL
+		  AND v.type IN ('VAN', 'TRUCK', 'PICKUP')
+		  AND ` + warehouseFilter + tFilter + `
+		ORDER BY v.capacity_kg ASC
 	`
-	rows, err := db.Query(ctx, query)
+	rows, err := db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -199,13 +227,14 @@ func (r *SupplyRequestRepository) GetAvailableVehicles(ctx context.Context, db D
 	var vehicles []models.VehicleBin
 	for rows.Next() {
 		var v models.VehicleBin
-		if err := rows.Scan(&v.ID, &v.Name, &v.MaxWeight); err != nil {
+		if err := rows.Scan(&v.ID, &v.Name, &v.MaxWeight, &v.FuelNorm, &v.TankCapacity, &v.FuelLiters); err != nil {
 			return nil, err
 		}
 		v.UsedWeight = 0
-		v.Items = make([]models.RequestItem, 0) // Ініціалізуємо порожній масив
+		v.Items = make([]models.RequestItem, 0)
 		vehicles = append(vehicles, v)
 	}
+
 	return vehicles, nil
 }
 

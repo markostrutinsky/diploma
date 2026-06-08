@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, Navigate } from 'react-router-dom'
 import toast from 'react-hot-toast' 
 import { api } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
@@ -17,8 +17,11 @@ export default function Login() {
   const [resetEmail, setResetEmail] = useState('')
   const [isResetting, setIsResetting] = useState(false)
 
-  const { login } = useAuth()
+  const { login, user } = useAuth()
   const navigate = useNavigate()
+
+  // Якщо вже залогінений — переадресовуємо на головну
+  if (user) return <Navigate to="/" replace />
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -205,7 +205,7 @@ export const ACTIONS = {
     ROLES.REGION_LOGISTICIAN,
     ROLES.BRANCH_LOGISTICIAN,
     ROLES.DEPT_SUPERVISOR,
-    ROLES.EMPLOYEE,
+    // EMPLOYEE не має доступу до /requests — вони працюють з рейсами (/my-shipments)
   ],
   request_approve: [
     ROLES.SYSTEM_ADMIN,

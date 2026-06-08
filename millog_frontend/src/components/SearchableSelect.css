@@ -1,0 +1,152 @@
+.ss-container {
+  position: relative;
+  width: 100%;
+  border-radius: 6px;
+  overflow: hidden; /* Ховаємо темні кути браузерного button фону */
+}
+
+/* Trigger button looks like the regular erp-input select */
+.ss-trigger {
+  width: 100%;
+  display: flex !important; /* Перевизначаємо display:block від erp-input */
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+  gap: 8px;
+  overflow: hidden; /* Обрізаємо текст всередині кнопки */
+  border-radius: 6px !important; /* Явне заокруглення щоб не було темних кутів */
+}
+
+.ss-trigger:disabled,
+.ss-disabled .ss-trigger {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ss-trigger-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.ss-arrow {
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* Dropdown panel — позиція задається динамічно через style (position: fixed) */
+.ss-dropdown {
+  z-index: 99999;
+  background: var(--bg-card, #1e293b);
+  border: 1px solid var(--border, #334155);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  min-width: 220px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Інлайн-режим: без fixed позиціонування, скролиться з контентом */
+.ss-dropdown-inline {
+  position: static !important;
+  margin-top: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Search */
+.ss-search-wrap {
+  position: relative;
+  padding: 8px 8px 4px;
+  border-bottom: 1px solid var(--border, #334155);
+}
+
+.ss-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 28px 6px 10px;
+  background: var(--bg-input, #0f172a);
+  border: 1px solid var(--border, #334155);
+  border-radius: 6px;
+  color: var(--text, #f1f5f9);
+  font-size: 13px;
+  outline: none;
+}
+
+.ss-search:focus {
+  border-color: var(--accent, #6366f1);
+}
+
+.ss-clear-btn {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-muted, #94a3b8);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 4px;
+  line-height: 1;
+}
+
+/* List */
+.ss-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 0;
+  max-height: 220px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+
+.ss-list::-webkit-scrollbar {
+  width: 6px;
+}
+.ss-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.ss-list::-webkit-scrollbar-thumb {
+  background: var(--border, #334155);
+  border-radius: 3px;
+}
+
+.ss-item {
+  padding: 8px 14px;
+  font-size: 13px;
+  color: var(--text, #f1f5f9);
+  cursor: pointer;
+  transition: background 0.1s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ss-item:hover {
+  background: var(--bg-hover, #1e3a5f);
+}
+
+.ss-item-selected {
+  background: rgba(99, 102, 241, 0.2);
+  color: #818cf8;
+  font-weight: 600;
+}
+
+.ss-item-empty {
+  color: var(--text-muted, #94a3b8);
+  font-style: italic;
+}
+
+.ss-item-none {
+  color: var(--text-muted, #94a3b8);
+  font-style: italic;
+  cursor: default;
+}

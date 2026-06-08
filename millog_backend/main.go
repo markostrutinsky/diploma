@@ -89,6 +89,7 @@ func main() {
 	reqRepo := repositories.NewSupplyRequestRepository()
 	unitRepo := repositories.NewUnitRepository()
 	volReqRepo := repositories.NewContractorRequestRepository()
+	membershipRepo := repositories.NewContractorMembershipRepository()
 	vehicleRepo := repositories.NewVehicleRepository()
 	fuelRepo := repositories.NewFuelRepository()
 	warehouseRepo := repositories.NewWarehouseRepository()
@@ -109,13 +110,15 @@ func main() {
 	// Тепер створюємо сервіси, які залежать від notificationService
 	invService := services.NewInventoryService(catRepo, resRepo, userRepo, dbPool, notificationService)
 	reqService := services.NewRequestService(reqRepo, resRepo, userRepo, dbPool, notificationService)
-	volReqService := services.NewContractorRequestService(volReqRepo, dbPool)
+	volReqService := services.NewContractorRequestService(volReqRepo, membershipRepo, dbPool)
+	membershipService := services.NewContractorMembershipService(membershipRepo, dbPool)
 
 	authService := services.NewAuthService(userRepo, unitRepo, tokenRepo, refreshTokenRepo, dbPool, emailService, jwtSecret)
 	invHandler := handlers.NewInventoryHandler(invService, auditService, limitationService, authService)
 	reqHandler := handlers.NewRequestHandler(reqService, auditService, slaMonitor)
 	unitHandler := handlers.NewUnitHandler(unitService, auditService)
 	volReqHandler := handlers.NewContractorRequestHandler(volReqService, auditService)
+	membershipHandler := handlers.NewContractorMembershipHandler(membershipService, auditService)
 	analyticsHandler := handlers.NewAnalyticsHandler(analyticsService, auditService)
 	warehouseHandler := handlers.NewWarehouseHandler(warehouseService, auditService, limitationService, authService)
 
@@ -229,14 +232,18 @@ func main() {
 			inv.DELETE("/resources/:id", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.Delete)
 			inv.POST("/resources/:id/assign", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.Assign)
 			inv.GET("/my-equipment", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.GetMyEquipment)
+			inv.POST("/assignments/:id/report", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.ReportEquipment)
 			inv.POST("/issue", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.IssueResource)
 			inv.POST("/shipments", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.CreateShipment)
 			inv.GET("/warehouse/:id", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.GetByWarehouse)
 			inv.POST("/shipments/:id/start", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.StartShipment)
 			inv.POST("/shipments/:id/receive", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.ReceiveShipment)
+			inv.POST("/shipments/:id/refuel", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.LogShipmentRefuel)
+			inv.GET("/shipments/:id/refuels", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.GetShipmentRefuels)
 			inv.GET("/shipments", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.ListShipments)
 			inv.GET("/shipments/my", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.ListMyShipments)
 			inv.GET("/shipments/:id/pdf", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.DownloadShipmentPDF)
+			inv.GET("/shipments/:id/gps-distance", middleware.AuthMiddleware(jwtSecret, dbPool), invHandler.GetShipmentGPSDistance)
 			inv.GET("/resources/:id/qr", invHandler.DownloadResourceQR)
 			inv.PATCH("/categories/:id", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.UpdateCategory)
 			inv.DELETE("/categories/:id", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.DeleteCategory)
@@ -282,6 +289,24 @@ func main() {
 			contractorReqs.POST("/:id/cancel", middleware.RequireAnyRole(models.ContractorRequestCreatorRoles), volReqHandler.Cancel)
 		}
 
+		// CONTRACTOR memberships: підрядник співпрацює з організаціями за їх схваленням.
+		// Глобальний підрядник бачить крос-tenant дошку, але брати завдання організації
+		// може лише після підтвердження адміністратором цієї організації.
+		contractorMemberships := api.Group("/contractor-memberships")
+		contractorMemberships.Use(middleware.AuthMiddleware(jwtSecret, dbPool))
+		{
+			// Self-view підрядника: список організацій та статусів співпраці
+			contractorMemberships.GET("/mine", middleware.RequireAnyRole([]models.UserRole{models.RoleContractor}), membershipHandler.ListMine)
+
+			// Підрядник самостійно подає заявку на співпрацю з організацією
+			contractorMemberships.POST("/apply", middleware.RequireAnyRole([]models.UserRole{models.RoleContractor}), membershipHandler.Apply)
+
+			// Адмін організації: перегляд та рішення щодо підрядників
+			contractorMemberships.GET("", middleware.RequireAnyRole(models.ContractorRequestCreatorRoles), membershipHandler.ListForTenant)
+			contractorMemberships.POST("/:id/approve", middleware.RequireAnyRole(models.ContractorRequestCreatorRoles), membershipHandler.Approve)
+			contractorMemberships.POST("/:id/reject", middleware.RequireAnyRole(models.ContractorRequestCreatorRoles), membershipHandler.Reject)
+		}
+
 		// Fuel records: logists + commanders create; logists + commanders view
 		vehicleGroup := api.Group("/vehicles")
 		vehicleGroup.Use(middleware.AuthMiddleware(jwtSecret, dbPool))
@@ -302,6 +327,7 @@ func main() {
 			vehicleGroup.PATCH("/:id", vehicleHandler.Update)
 			vehicleGroup.DELETE("/:id", vehicleHandler.Delete)
 			vehicleGroup.GET("/available-for-route", vehicleHandler.GetAvailableForShipment)
+			vehicleGroup.GET("/:id/shipments", invHandler.GetShipmentsByVehicle)
 		}
 
 		// Захищений endpoint для скачування файлів ТО (лише для авторизованих)

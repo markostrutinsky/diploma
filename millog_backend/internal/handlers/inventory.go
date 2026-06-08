@@ -6,6 +6,7 @@ import (
 	"Omnilog_backend/internal/services"
 	"context"
 	"fmt"
+	"math"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -241,6 +242,24 @@ func (h *InventoryHandler) WriteOff(c *gin.Context) {
 		return
 	}
 
+	// 🛡️ Ієрархічна перевірка: BRANCH/DEPT рівень не може видавати з регіонального складу.
+	// TENANT_ADMIN та SYSTEM_ADMIN (UnitID == 0) мають доступ до всіх ресурсів.
+	claimsVal, _ := c.Get("claims")
+	if claims, ok := claimsVal.(*middleware.Claims); ok && claims.UnitID != 0 {
+		resource, err := h.invService.GetResource(c.Request.Context(), resourceID)
+		if err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": "ресурс не знайдено"})
+			return
+		}
+		allowed, err := h.invService.IsUnitInSubtree(c.Request.Context(), claims.UnitID, resource.UnitID)
+		if err != nil || !allowed {
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "Недостатньо прав: ресурс належить до іншого рівня ієрархії",
+			})
+			return
+		}
+	}
+
 	err := h.invService.WriteOff(c.Request.Context(), resourceID, req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -385,7 +404,7 @@ func (h *InventoryHandler) IssueResource(c *gin.Context) {
 		unitID = &val
 	}
 
-	err := h.invService.IssueResource(c.Request.Context(), unitID, req)
+	err := h.invService.IssueResource(c.Request.Context(), unitID, string(claims.Role), req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -396,6 +415,31 @@ func (h *InventoryHandler) IssueResource(c *gin.Context) {
 	}(userID)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Майно успішно видано користувачу"})
+}
+
+// ReportEquipment — рапорт користувача про майно (зламано/втрачено/зношено)
+func (h *InventoryHandler) ReportEquipment(c *gin.Context) {
+	userID := c.GetString("user_id")
+	assignmentID := c.Param("id")
+
+	var req struct {
+		Reason string `json:"reason" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Вкажіть причину запиту"})
+		return
+	}
+
+	if err := h.invService.ReportEquipment(c.Request.Context(), userID, assignmentID, req.Reason); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	go func(uID string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "REPORT", "RESOURCE_ASSIGNMENT", assignmentID, "Подано рапорт щодо майна: "+req.Reason)
+	}(userID)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Рапорт успішно відправлено"})
 }
 
 func (h *InventoryHandler) CreateShipment(c *gin.Context) {
@@ -460,17 +504,169 @@ func (h *InventoryHandler) ListMyShipments(c *gin.Context) {
 func (h *InventoryHandler) ReceiveShipment(c *gin.Context) {
 	userID := c.GetString("user_id")
 	shipmentID := c.Param("id")
-	err := h.invService.ReceiveShipment(c.Request.Context(), shipmentID)
+
+	// Зчитуємо фактичний пробіг і дані GPS для аудиту
+	var body struct {
+		ActualKm     float64 `json:"actual_km"`
+		GpsKm        float64 `json:"gps_km"`        // пробіг по GPS (0 якщо немає)
+		RouteStatus  string  `json:"route_status"`  // "on_route" | "deviated" | "unknown"
+		DeviationPct float64 `json:"deviation_pct"` // відхилення у %
+	}
+	_ = c.ShouldBindJSON(&body)
+
+	// Захист від явної фальсифікації: якщо є GPS і введений пробіг менший за 60% від GPS
+	if body.GpsKm > 0 && body.ActualKm > 0 {
+		minAllowed := body.GpsKm * 0.6
+		if body.ActualKm < minAllowed {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": fmt.Sprintf("Введений пробіг (%.1f км) значно менший за GPS-трек (%.1f км). Мінімально допустиме значення: %.1f км. Якщо є обґрунтування — зверніться до адміністратора.", body.ActualKm, body.GpsKm, minAllowed),
+			})
+			return
+		}
+	}
+
+	err := h.invService.ReceiveShipment(c.Request.Context(), shipmentID, body.ActualKm)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	go func(uID string, sID string) {
-		_ = h.auditService.LogAction(context.Background(), uID, "UPDATE", "SHIPMENT", sID, "Вантаж прийнято на склад")
-	}(userID, shipmentID)
+	// Формуємо деталі для аудит-логу
+	auditNote := fmt.Sprintf("Вантаж прийнято. Пробіг: %.1f км", body.ActualKm)
+	if body.GpsKm > 0 {
+		auditNote += fmt.Sprintf(", GPS: %.1f км", body.GpsKm)
+		if body.RouteStatus == "on_route" {
+			auditNote += " ✅ маршрут виконано"
+		} else if body.RouteStatus == "deviated" {
+			auditNote += fmt.Sprintf(" ⚠️ відхилення %.0f%%", body.DeviationPct)
+		}
+	} else {
+		auditNote += " (GPS не записувався)"
+	}
+
+	go func(uID string, sID string, note string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "UPDATE", "SHIPMENT", sID, note)
+	}(userID, shipmentID, auditNote)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Вантаж успішно прийнято на склад!"})
+}
+
+// GetShipmentGPSDistance — розраховує фактичний пробіг рейсу на основі GPS-треку.
+// Повертає відстань по GPS (якщо є точки) і планову відстань OSRM для порівняння.
+// GET /api/inventory/shipments/:id/gps-distance
+func (h *InventoryHandler) GetShipmentGPSDistance(c *gin.Context) {
+	shipmentID := c.Param("id")
+	ctx := c.Request.Context()
+
+	// Отримуємо інформацію про рейс: vehicle_id, started_at, distance_km
+	var vehicleID string
+	var startedAt *string
+	var plannedKm float64
+	err := h.invService.GetDB().QueryRow(ctx,
+		`SELECT vehicle_id, TO_CHAR(started_at, 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), COALESCE(distance_km, 0)
+		 FROM shipments WHERE id = $1`, shipmentID,
+	).Scan(&vehicleID, &startedAt, &plannedKm)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "рейс не знайдено"})
+		return
+	}
+
+	// Якщо рейс ще не стартував — GPS точок немає
+	if startedAt == nil || *startedAt == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"has_gps":        false,
+			"gps_km":         0,
+			"points":         0,
+			"planned_km":     plannedKm,
+			"planned_rt_km":  math.Round(plannedKm*2*10) / 10,
+			"suggested_km":   math.Round(plannedKm*2*10) / 10,
+			"source":         "osrm",
+			"route_status":   "unknown",
+			"deviation_pct":  0,
+			"min_allowed_km": 0,
+		})
+		return
+	}
+
+	// Запитуємо GPS точки з моменту старту рейсу до зараз
+	rows, err := h.invService.GetDB().Query(ctx,
+		`SELECT latitude, longitude FROM gps_locations
+		 WHERE vehicle_id = $1 AND timestamp >= $2::timestamptz
+		 ORDER BY timestamp ASC`, vehicleID, *startedAt,
+	)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"has_gps": false, "gps_km": 0, "points": 0, "planned_km": plannedKm, "planned_rt_km": math.Round(plannedKm*2*10) / 10, "suggested_km": math.Round(plannedKm*2*10) / 10, "source": "osrm", "route_status": "unknown", "deviation_pct": 0, "min_allowed_km": 0})
+		return
+	}
+	defer rows.Close()
+
+	type point struct{ lat, lon float64 }
+	var points []point
+	for rows.Next() {
+		var p point
+		if rows.Scan(&p.lat, &p.lon) == nil {
+			points = append(points, p)
+		}
+	}
+
+	if len(points) < 2 {
+		suggestedKm := math.Round(plannedKm*2*10) / 10
+		c.JSON(http.StatusOK, gin.H{
+			"has_gps":        false,
+			"gps_km":         0,
+			"points":         len(points),
+			"planned_km":     plannedKm,
+			"planned_rt_km":  suggestedKm,
+			"suggested_km":   suggestedKm,
+			"source":         "osrm",
+			"route_status":   "unknown",
+			"deviation_pct":  0,
+			"min_allowed_km": 0,
+		})
+		return
+	}
+
+	// Haversine по всіх точках треку
+	const R = 6371.0
+	totalKm := 0.0
+	for i := 1; i < len(points); i++ {
+		lat1 := points[i-1].lat * math.Pi / 180
+		lon1 := points[i-1].lon * math.Pi / 180
+		lat2 := points[i].lat * math.Pi / 180
+		lon2 := points[i].lon * math.Pi / 180
+		dlat := lat2 - lat1
+		dlon := lon2 - lon1
+		a := math.Sin(dlat/2)*math.Sin(dlat/2) + math.Cos(lat1)*math.Cos(lat2)*math.Sin(dlon/2)*math.Sin(dlon/2)
+		c2 := 2 * math.Atan2(math.Sqrt(a), math.Sqrt(1-a))
+		totalKm += R * c2
+	}
+	gpsKm := math.Round(totalKm*10) / 10 // округлення до 0.1 км
+
+	// Порівнюємо GPS з плановим маршрутом (туди і назад = planned * 2)
+	plannedRoundTrip := plannedKm * 2
+	deviationPct := 0.0
+	routeStatus := "unknown"
+	if plannedRoundTrip > 0 && gpsKm > 0 {
+		deviationPct = math.Abs(gpsKm-plannedRoundTrip) / plannedRoundTrip * 100
+		if deviationPct <= 20 {
+			routeStatus = "on_route" // ±20% — вважається що маршрут виконаний
+		} else {
+			routeStatus = "deviated"
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"has_gps":        true,
+		"gps_km":         gpsKm,
+		"points":         len(points),
+		"planned_km":     plannedKm,
+		"planned_rt_km":  math.Round(plannedRoundTrip*10) / 10,
+		"suggested_km":   gpsKm,
+		"source":         "gps",
+		"route_status":   routeStatus,
+		"deviation_pct":  math.Round(deviationPct*10) / 10,
+		"min_allowed_km": math.Round(gpsKm*0.6*10) / 10,
+	})
 }
 
 func (h *InventoryHandler) StartShipment(c *gin.Context) {
@@ -488,6 +684,49 @@ func (h *InventoryHandler) StartShipment(c *gin.Context) {
 	}(userID, shipmentID)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Рейс розпочато! Гарної дороги 🚚"})
+}
+
+// LogShipmentRefuel — водій реєструє дозаправку під час рейсу.
+// POST /api/inventory/shipments/:id/refuel
+func (h *InventoryHandler) LogShipmentRefuel(c *gin.Context) {
+	userID := c.GetString("user_id")
+	shipmentID := c.Param("id")
+
+	var req models.LogShipmentRefuelRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Некоректні дані: " + err.Error()})
+		return
+	}
+
+	refuel, err := h.invService.LogShipmentRefuel(c.Request.Context(), shipmentID, userID, &req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	go func(uID string, sID string, liters float64) {
+		note := fmt.Sprintf("Дозаправка в дорозі: %.1f л", liters)
+		_ = h.auditService.LogAction(context.Background(), uID, "CREATE", "SHIPMENT_REFUEL", sID, note)
+	}(userID, shipmentID, req.Liters)
+
+	c.JSON(http.StatusCreated, refuel)
+}
+
+// GetShipmentRefuels — список усіх дозаправок конкретного рейсу.
+// GET /api/inventory/shipments/:id/refuels
+func (h *InventoryHandler) GetShipmentRefuels(c *gin.Context) {
+	shipmentID := c.Param("id")
+
+	refuels, err := h.invService.GetShipmentRefuels(c.Request.Context(), shipmentID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if refuels == nil {
+		refuels = []*models.ShipmentRefuel{}
+	}
+	c.JSON(http.StatusOK, refuels)
 }
 
 func (h *InventoryHandler) DownloadShipmentPDF(c *gin.Context) {
@@ -812,4 +1051,19 @@ func (h *InventoryHandler) smartCategoryLookup(ctx context.Context, name string,
 	}
 
 	return "", fmt.Errorf("невідома помилка отримання ID нової категорії")
+}
+
+// GetShipmentsByVehicle — повертає список рейсів для конкретного авто
+func (h *InventoryHandler) GetShipmentsByVehicle(c *gin.Context) {
+	vehicleID := c.Param("id")
+	if vehicleID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "vehicle id is required"})
+		return
+	}
+	list, err := h.invService.ListShipmentsByVehicle(c.Request.Context(), vehicleID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка завантаження рейсів"})
+		return
+	}
+	c.JSON(http.StatusOK, list)
 }

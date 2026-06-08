@@ -67,7 +67,8 @@ export default function Layout({ children }: LayoutProps) {
     )
   }
 
-  const showSidebar = !!token
+  const PUBLIC_ROUTES = ['/login', '/signup', '/register', '/bootstrap', '/setup-password']
+  const showSidebar = !!token && !PUBLIC_ROUTES.includes(location.pathname)
 
   // --- ГРУПИ ДОСТУПУ (синхронізовано з маршрутами у App.tsx) ---
   const canSeeAnalytics = hasRole(userRole, ROLE_GROUPS.analytics)
@@ -141,10 +142,10 @@ export default function Layout({ children }: LayoutProps) {
                   GPS Трекінг
                 </Link>
                 <Link to="/maintenance" className={location.pathname === '/maintenance' ? 'active' : ''}>
-                  Графік технічного обслуговування
+                  Графік ТО
                 </Link>
                 <Link to="/fuel-anomalies" className={location.pathname === '/fuel-anomalies' ? 'active' : ''}>
-                  Контроль витрат пального
+                  Контроль пального
                 </Link>
               </>
             )}
@@ -183,6 +184,13 @@ export default function Layout({ children }: LayoutProps) {
             {(isCONTRACTOR || canManageContracts) && (
               <Link to="/contractor-requests" className={location.pathname === '/contractor-requests' ? 'active' : ''}>
                 {isCONTRACTOR ? 'Відкриті завдання' : 'Заявки підрядникам'}
+              </Link>
+            )}
+
+            {/* Схвалення підрядників (тільки менеджери, не самі підрядники) */}
+            {canManageContracts && (
+              <Link to="/admin/contractors" className={location.pathname === '/admin/contractors' ? 'active' : ''}>
+                Підрядники
               </Link>
             )}
 

@@ -89,10 +89,16 @@ export default function Profile() {
     }
   };
 
-  const handleReportSubmit = (e: React.FormEvent) => {
+  const handleReportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert(`Запит щодо ${reportItem?.resource_name} (Причина: ${reportReason}) успішно відправлено!`);
-    setReportItem(null);
+    if (!reportItem) return;
+    try {
+      await api.inventory.reportEquipment(reportItem.assignment_id, reportReason);
+      toast.success(`Рапорт щодо "${reportItem.resource_name}" відправлено`);
+      setReportItem(null);
+    } catch {
+      toast.error('Помилка відправки рапорту');
+    }
   };
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {

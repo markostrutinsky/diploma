@@ -52,7 +52,7 @@
   --info-bg: rgba(59, 130, 246, 0.1);
   
   /* Інше */
-  --sidebar-width: 240px;
+  --sidebar-width: 210px;
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
@@ -436,6 +436,13 @@ textarea,
   border-color: var(--border) !important;
 }
 
+/* Вирівнюємо висоту select під input — через padding, не через height */
+select {
+  box-sizing: border-box;
+  padding: 10px 12px;
+  line-height: 1.5;
+}
+
 input:focus,
 select:focus,
 textarea:focus,
@@ -470,4 +477,192 @@ table tbody tr:hover,
 .actions-dropdown-menu {
   background: var(--bg-card) !important;
   border-color: var(--border) !important;
+}
+
+/* Інструкція для підрядників */
+.contractor-guide {
+  padding: 0.5rem 0;
+  /* Картка-інструкція згортається через <details>, тому фіксовану висоту зі
+     скролом прибрано — вміст показується повністю й нічого не обрізається. */
+}
+
+/* Якщо контент таки задовгий (низькі екрани) — вмикаємо акуратний скрол,
+   але з достатнім нижнім відступом, щоб останній рядок не «з'їдався». */
+@media (min-height: 700px) {
+  .contractor-guide {
+    max-height: min(72vh, 640px);
+    overflow-y: auto;
+    padding-right: 0.6rem;
+    padding-bottom: 0.75rem;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-light) transparent;
+  }
+}
+
+/* Акуратний скролбар усередині інструкції (WebKit) */
+.contractor-guide::-webkit-scrollbar {
+  width: 8px;
+}
+
+.contractor-guide::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 4px 0;
+}
+
+.contractor-guide::-webkit-scrollbar-thumb {
+  background: var(--border-light);
+  border-radius: 4px;
+}
+
+.contractor-guide::-webkit-scrollbar-thumb:hover {
+  background: var(--border-hover, var(--text-muted));
+}
+
+.guide-section {
+  margin-bottom: 1.5rem;
+}
+
+.guide-section:last-child {
+  margin-bottom: 0;
+}
+
+.guide-section h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-bright);
+  margin: 0 0 0.75rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.guide-list {
+  margin: 0;
+  padding-left: 1.5rem;
+  list-style: decimal;
+  color: var(--text);
+}
+
+.guide-list li {
+  margin-bottom: 0.75rem;
+  line-height: 1.6;
+  font-size: 0.875rem;
+}
+
+.guide-list li:last-child {
+  margin-bottom: 0;
+}
+
+.guide-list strong {
+  color: var(--text-bright);
+  font-weight: 600;
+}
+
+.guide-tips {
+  margin: 0;
+  padding-left: 1.5rem;
+  list-style: disc;
+  color: var(--text);
+}
+
+.guide-tips li {
+  margin-bottom: 0.6rem;
+  line-height: 1.6;
+  font-size: 0.875rem;
+}
+
+.guide-tips li:last-child {
+  margin-bottom: 0;
+}
+
+.guide-tips strong {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.status-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+  padding: 0.5rem;
+  background: var(--bg-input);
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.status-item .badge {
+  min-width: 120px;
+  text-align: center;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
+.status-item span:last-child {
+  color: var(--text-muted);
+  flex: 1 1 auto;
+  min-width: 0;
+  word-break: break-word;
+}
+
+/* Запобігаємо виходу довгого тексту за межі картки інструкції */
+.contractor-guide .guide-list,
+.contractor-guide .guide-tips,
+.contractor-guide .guide-list li,
+.contractor-guide .guide-tips li {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* Дозволяємо рядку статусу переноситись на вузьких екранах */
+.status-item {
+  flex-wrap: wrap;
+}
+
+/* ============================================
+   ІНСТРУКЦІЯ ПІДРЯДНИКА — ЗГОРТАНИЙ ДРОПДАУН
+   ============================================ */
+.contractor-guide-widget {
+  overflow: hidden;
+}
+
+.contractor-guide-widget > summary.widget-header {
+  cursor: pointer;
+  list-style: none;
+  justify-content: flex-start;
+  margin-bottom: 0;
+}
+
+.contractor-guide-widget > summary.widget-header h3 {
+  margin-right: auto;
+}
+
+.contractor-guide-widget > summary.widget-header::-webkit-details-marker {
+  display: none;
+}
+
+.contractor-guide-widget > summary.widget-header::after {
+  content: '▾';
+  margin-left: 0.75rem;
+  font-size: 1rem;
+  color: var(--text-muted);
+  transition: transform 0.2s ease;
+}
+
+.contractor-guide-widget[open] > summary.widget-header {
+  margin-bottom: 1.25rem;
+}
+
+.contractor-guide-widget[open] > summary.widget-header::after {
+  transform: rotate(180deg);
+}
+
+.contractor-guide-widget > summary.widget-header:hover h3 {
+  color: var(--accent-light);
 }

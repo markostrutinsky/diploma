@@ -20,11 +20,13 @@ func (r *VehicleRepository) Create(ctx context.Context, db DBExecutor, v *models
 	if tid == "" {
 		query := `
         INSERT INTO vehicles (
-            brand, model, plate_number, type, capacity_kg, status, driver_id, tank_capacity, fuel_norm
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            brand, model, plate_number, type, capacity_kg, status, driver_id,
+            tank_capacity, fuel_norm, home_warehouse_id, current_warehouse_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)
         RETURNING id, maintenance_interval_km, last_maintenance_odometer, created_at, updated_at`
 		err := db.QueryRow(ctx, query,
-			v.Brand, v.Model, v.PlateNumber, v.Type, v.CapacityKg, v.Status, v.DriverID, v.TankCapacity, v.FuelNorm,
+			v.Brand, v.Model, v.PlateNumber, v.Type, v.CapacityKg, v.Status, v.DriverID,
+			v.TankCapacity, v.FuelNorm, v.HomeWarehouseID,
 		).Scan(&v.ID, &v.MaintenanceIntervalKm, &v.LastMaintenanceOdometer, &v.CreatedAt, &v.UpdatedAt)
 		if err != nil {
 			return fmt.Errorf("помилка створення авто: %w", err)
@@ -34,12 +36,14 @@ func (r *VehicleRepository) Create(ctx context.Context, db DBExecutor, v *models
 
 	query := `
         INSERT INTO vehicles (
-            brand, model, plate_number, type, capacity_kg, status, driver_id, tank_capacity, fuel_norm, tenant_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            brand, model, plate_number, type, capacity_kg, status, driver_id,
+            tank_capacity, fuel_norm, home_warehouse_id, current_warehouse_id, tenant_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10, $11)
         RETURNING id, maintenance_interval_km, last_maintenance_odometer, created_at, updated_at`
 
 	err := db.QueryRow(ctx, query,
-		v.Brand, v.Model, v.PlateNumber, v.Type, v.CapacityKg, v.Status, v.DriverID, v.TankCapacity, v.FuelNorm, tid,
+		v.Brand, v.Model, v.PlateNumber, v.Type, v.CapacityKg, v.Status, v.DriverID,
+		v.TankCapacity, v.FuelNorm, v.HomeWarehouseID, tid,
 	).Scan(&v.ID, &v.MaintenanceIntervalKm, &v.LastMaintenanceOdometer, &v.CreatedAt, &v.UpdatedAt)
 	if err != nil {
 		return fmt.Errorf("помилка створення авто: %w", err)
@@ -64,7 +68,9 @@ func (r *VehicleRepository) GetAll(ctx context.Context, db DBExecutor) ([]models
         )
         SELECT 
             v.id, v.brand, v.model, v.plate_number, v.type, v.capacity_kg, v.status, v.driver_id, u.full_name as driver_name, 
-            v.current_warehouse_id, v.tank_capacity, v.fuel_norm, 
+            v.home_warehouse_id, wh.name as home_warehouse_name,
+            v.current_warehouse_id, wc.name as current_warehouse_name,
+            v.tank_capacity, v.fuel_norm, 
             v.maintenance_interval_km, v.last_maintenance_odometer, v.created_at, v.updated_at,
             COALESCE((
                 SELECT odometer_km FROM fuel_records 
@@ -74,10 +80,16 @@ func (r *VehicleRepository) GetAll(ctx context.Context, db DBExecutor) ([]models
             COALESCE(
                 (vs.last_odo - vs.first_odo)::float / 
                 NULLIF(EXTRACT(EPOCH FROM (vs.last_date - vs.first_date))/86400, 0), 
-            0) as avg_km_per_day
+            0) as avg_km_per_day,
+            GREATEST(0, COALESCE((
+                SELECT SUM(CASE WHEN record_type = 'REFUEL' THEN liters ELSE -liters END)
+                FROM fuel_records WHERE vehicle_id = v.id
+            ), 0)) AS current_fuel_liters
 
         FROM vehicles v
         LEFT JOIN users u ON v.driver_id = u.id
+        LEFT JOIN warehouses wh ON wh.id = v.home_warehouse_id
+        LEFT JOIN warehouses wc ON wc.id = v.current_warehouse_id
         LEFT JOIN VehicleStats vs ON v.id = vs.vehicle_id` + tFilter + `
         ORDER BY v.created_at DESC
     `
@@ -91,11 +103,12 @@ func (r *VehicleRepository) GetAll(ctx context.Context, db DBExecutor) ([]models
 	var vehicles []models.Vehicle
 	for rows.Next() {
 		var v models.Vehicle
-		// Додали &v.AvgKmPerDay в Scan
 		err := rows.Scan(
 			&v.ID, &v.Brand, &v.Model, &v.PlateNumber, &v.Type, &v.CapacityKg, &v.Status, &v.DriverID, &v.DriverName,
-			&v.CurrentWarehouseID, &v.TankCapacity, &v.FuelNorm, &v.MaintenanceIntervalKm, &v.LastMaintenanceOdometer,
-			&v.CreatedAt, &v.UpdatedAt, &v.CurrentOdometer, &v.AvgKmPerDay,
+			&v.HomeWarehouseID, &v.HomeWarehouseName,
+			&v.CurrentWarehouseID, &v.CurrentWarehouseName,
+			&v.TankCapacity, &v.FuelNorm, &v.MaintenanceIntervalKm, &v.LastMaintenanceOdometer,
+			&v.CreatedAt, &v.UpdatedAt, &v.CurrentOdometer, &v.AvgKmPerDay, &v.CurrentFuelLiters,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("помилка сканування рядка авто: %w", err)
@@ -146,7 +159,9 @@ func (r *VehicleRepository) GetByID(ctx context.Context, id string, db DBExecuto
         )
         SELECT 
             v.id, v.brand, v.model, v.plate_number, v.type, v.capacity_kg, v.status, v.driver_id, u.full_name as driver_name, 
-            v.current_warehouse_id, v.tank_capacity, v.fuel_norm, 
+            v.home_warehouse_id, wh.name as home_warehouse_name,
+            v.current_warehouse_id, wc.name as current_warehouse_name,
+            v.tank_capacity, v.fuel_norm, 
             v.maintenance_interval_km, v.last_maintenance_odometer, v.created_at, v.updated_at,
             COALESCE((
                 SELECT odometer_km FROM fuel_records 
@@ -159,6 +174,8 @@ func (r *VehicleRepository) GetByID(ctx context.Context, id string, db DBExecuto
             0) as avg_km_per_day
         FROM vehicles v
         LEFT JOIN users u ON v.driver_id = u.id
+        LEFT JOIN warehouses wh ON wh.id = v.home_warehouse_id
+        LEFT JOIN warehouses wc ON wc.id = v.current_warehouse_id
         LEFT JOIN VehicleStats vs ON v.id = vs.vehicle_id
         WHERE v.id = $1` + tFilter + `
     `
@@ -166,7 +183,9 @@ func (r *VehicleRepository) GetByID(ctx context.Context, id string, db DBExecuto
 	var v models.Vehicle
 	err := db.QueryRow(ctx, query, args...).Scan(
 		&v.ID, &v.Brand, &v.Model, &v.PlateNumber, &v.Type, &v.CapacityKg, &v.Status, &v.DriverID, &v.DriverName,
-		&v.CurrentWarehouseID, &v.TankCapacity, &v.FuelNorm, &v.MaintenanceIntervalKm, &v.LastMaintenanceOdometer,
+		&v.HomeWarehouseID, &v.HomeWarehouseName,
+		&v.CurrentWarehouseID, &v.CurrentWarehouseName,
+		&v.TankCapacity, &v.FuelNorm, &v.MaintenanceIntervalKm, &v.LastMaintenanceOdometer,
 		&v.CreatedAt, &v.UpdatedAt, &v.CurrentOdometer, &v.AvgKmPerDay,
 	)
 
@@ -370,20 +389,29 @@ func (r *VehicleRepository) Delete(ctx context.Context, db DBExecutor, id string
 	return err
 }
 
-// GetAvailableForRoute повертає вільні авто, які належать підрозділу відправника АБО отримувача
-func (r *VehicleRepository) GetAvailableForRoute(ctx context.Context, db DBExecutor, senderUnitID int64, receiverUnitID int64) ([]models.Vehicle, error) {
-	args := []any{senderUnitID, receiverUnitID}
+// GetAvailableForRoute повертає вільні авто, що фізично знаходяться на складі відправника АБО отримувача.
+// Також включає машини, чий home_warehouse — один з цих складів (навіть якщо current = NULL).
+func (r *VehicleRepository) GetAvailableForRoute(ctx context.Context, db DBExecutor, fromWarehouseID string, toWarehouseID string) ([]models.Vehicle, error) {
+	args := []any{fromWarehouseID, toWarehouseID}
 	tFilter := tenantFilter(ctx, "v", "AND", &args)
 	query := `
 		SELECT v.id, v.brand, v.model, v.plate_number, v.type, v.capacity_kg, 
 		       v.status, v.driver_id, v.tank_capacity, v.fuel_norm, 
 		       v.maintenance_interval_km, v.last_maintenance_odometer, 
-		       v.created_at, v.updated_at
+		       v.created_at, v.updated_at,
+		       GREATEST(0, COALESCE((
+		         SELECT SUM(CASE WHEN record_type = 'REFUEL' THEN liters ELSE -liters END)
+		         FROM fuel_records WHERE vehicle_id = v.id
+		       ), 0)) AS current_fuel_liters
 		FROM vehicles v
-		INNER JOIN users u ON v.driver_id = u.id
-		WHERE v.status = 'ACTIVE' 
-		  AND (u.unit_id = $1 OR u.unit_id = $2)` + tFilter + `
-		ORDER BY v.brand, v.model
+		WHERE v.status = 'ACTIVE'
+		  AND v.driver_id IS NOT NULL
+		  AND v.type IN ('VAN', 'TRUCK', 'PICKUP')
+		  AND (
+		    v.current_warehouse_id IN ($1, $2)
+		    OR (v.current_warehouse_id IS NULL AND v.home_warehouse_id IN ($1, $2))
+		  )` + tFilter + `
+		ORDER BY v.capacity_kg ASC
 	`
 
 	rows, err := db.Query(ctx, query, args...)
@@ -399,7 +427,7 @@ func (r *VehicleRepository) GetAvailableForRoute(ctx context.Context, db DBExecu
 			&v.ID, &v.Brand, &v.Model, &v.PlateNumber, &v.Type, &v.CapacityKg,
 			&v.Status, &v.DriverID, &v.TankCapacity, &v.FuelNorm,
 			&v.MaintenanceIntervalKm, &v.LastMaintenanceOdometer,
-			&v.CreatedAt, &v.UpdatedAt,
+			&v.CreatedAt, &v.UpdatedAt, &v.CurrentFuelLiters,
 		)
 		if err != nil {
 			return nil, err

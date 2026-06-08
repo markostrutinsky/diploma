@@ -57,6 +57,7 @@ type Resource struct {
 	UnitType       UnitMeasurement   `json:"unit_type"`
 	SerialNumber   string            `json:"serial_number"`
 	Barcode        string            `json:"barcode"`
+	Location       string            `json:"location"` // Місце зберігання (наприклад "Полиця А-3")
 	Condition      ResourceCondition `json:"condition"`
 	MinQuantity    int               `json:"min_quantity"`
 	IssuedQuantity int               `json:"issued_quantity"`
@@ -81,6 +82,7 @@ type CreateResourceRequest struct {
 	UnitType     UnitMeasurement   `json:"unit_type" binding:"required,oneof=PCS KIT KG L"`
 	SerialNumber string            `json:"serial_number"`
 	Barcode      string            `json:"barcode"`
+	Location     string            `json:"location"`
 	Condition    ResourceCondition `json:"condition" binding:"omitempty,oneof=NEW USED WRITTEN_OFF"`
 	MinQuantity  int               `json:"min_quantity"`
 	WeightKg     float64           `json:"weight_kg"`
@@ -93,6 +95,8 @@ type UpdateResourceRequest struct {
 	Quantity     *int               `json:"quantity"`
 	WarehouseID  *string            `json:"warehouse_id"`
 	SerialNumber *string            `json:"serial_number"`
+	Barcode      *string            `json:"barcode"`
+	Location     *string            `json:"location"`
 	Condition    *ResourceCondition `json:"condition"`
 	MinQuantity  *int               `json:"min_quantity"`
 	WeightKg     *float64           `json:"weight_kg"`
@@ -183,4 +187,25 @@ type BulkImportResponse struct {
 	Successfully   int      `json:"successfully"`
 	Failed         int      `json:"failed"`
 	Errors         []string `json:"errors,omitempty"` // Список помилок по рядках
+}
+
+// ShipmentRefuel — одна дозаправка водія під час рейсу
+type ShipmentRefuel struct {
+	ID          string    `json:"id"`
+	ShipmentID  string    `json:"shipment_id"`
+	VehicleID   string    `json:"vehicle_id"`
+	Liters      float64   `json:"liters"`
+	OdometerKm  *int      `json:"odometer_km,omitempty"`
+	StationName *string   `json:"station_name,omitempty"`
+	CostUAH     *float64  `json:"cost_uah,omitempty"`
+	CreatedBy   *string   `json:"created_by,omitempty"`
+	TenantID    *string   `json:"tenant_id,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+type LogShipmentRefuelRequest struct {
+	Liters      float64  `json:"liters"       binding:"required,gt=0"`
+	OdometerKm  *int     `json:"odometer_km"`
+	StationName *string  `json:"station_name"`
+	CostUAH     *float64 `json:"cost_uah"`
 }

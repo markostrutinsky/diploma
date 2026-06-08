@@ -4,7 +4,10 @@
 .warehouses-page {
   padding: 24px;
   background-color: var(--bg-input);
-  min-height: 100vh;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .warehouses-page .page-header {
@@ -19,7 +22,7 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-  overflow: hidden;
+  overflow: visible;
   margin-top: 16px;
 }
 
@@ -32,6 +35,7 @@
   border-spacing: 0;
   text-align: left;
 }
+
 
 .warehouses-page .data-table thead th {
   background-color: var(--bg-input);
@@ -73,6 +77,19 @@
   align-items: center;
 }
 
+.warehouses-page .shipment-actions-cell {
+  text-align: right;
+}
+
+.warehouses-page .shipment-actions-inner {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
 /* ==========================================
    БЕЙДЖІ ТА СТАТУСИ
 ========================================== */
@@ -91,18 +108,40 @@
 .warehouses-page .badge-neutral { background: var(--bg-input); color: var(--text); border: 1px solid var(--border); }
 
 /* ==========================================
+   ОБГОРТКА КАРТИ + БІЧНА ПАНЕЛЬ
+========================================== */
+/* Обгортка карти + бічна панель теж flex: 1 */
+.warehouses-page .map-outer-wrapper {
+  display: flex;
+  gap: 16px;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+/* Карта займає весь простір, коли немає сайдбару */
+.warehouses-page .map-outer-wrapper .map-container-wrapper {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Коли сайдбар є — карта звужується */
+.warehouses-page .map-outer-wrapper.has-sidebar .map-container-wrapper {
+  flex: 1;
+}
+
+/* ==========================================
    БОКОВА ПАНЕЛЬ "ФОРМУВАННЯ РЕЙСУ"
 ========================================== */
 .warehouses-page .dispatch-sidebar {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  bottom: 16px;
-  width: 420px;
+  width: 400px;
+  flex-shrink: 0;
+  /* Висота береться з flex-контейнера */
+  min-height: 0;
   background-color: var(--bg-card);
   border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-  z-index: 1000;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -140,6 +179,7 @@
 .warehouses-page .dispatch-content {
   padding: 20px;
   overflow-y: auto;
+  overflow-x: visible;
   flex: 1;
 }
 
@@ -189,7 +229,8 @@
    КАРТА ТА ПОПАПИ
 ========================================== */
 .warehouses-page .map-container-wrapper {
-  height: 700px;
+  flex: 1;
+  min-height: 0;
   width: 100%;
   border-radius: 12px;
   overflow: hidden;
@@ -220,28 +261,28 @@
 ========================================= */
 .warehouses-page .warehouse-action-buttons {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   justify-content: flex-start;
   align-items: center;
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
 .warehouses-page .wh-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 0 16px;
-  height: 36px;
+  gap: 5px;
+  padding: 0 12px;
+  height: 32px;
   border-radius: 6px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
-  
-  border: none; 
+  border: none;
   outline: none;
   box-shadow: none;
   background-image: none;
-  
   transition: background-color 0.2s ease;
   white-space: nowrap;
   margin: 0;
@@ -275,4 +316,55 @@
 
 .warehouses-page .empty-state {
   padding: 40px; text-align: center; color: var(--text-muted); font-size: 15px;
+}
+
+/* =========================================
+   DARK THEME: LEAFLET POPUP & TOOLTIP
+========================================= */
+.warehouses-page .leaflet-popup-content-wrapper,
+.leaflet-popup-content-wrapper {
+  background: var(--bg-card, #1e293b) !important;
+  color: var(--text, #e2e8f0) !important;
+  border: 1px solid var(--border, #334155) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+}
+
+.warehouses-page .leaflet-popup-tip,
+.leaflet-popup-tip {
+  background: var(--bg-card, #1e293b) !important;
+}
+
+.warehouses-page .leaflet-popup-close-button,
+.leaflet-popup-close-button {
+  color: var(--text-muted, #94a3b8) !important;
+}
+
+.warehouses-page .leaflet-tooltip,
+.leaflet-tooltip {
+  background: var(--bg-card, #1e293b) !important;
+  color: var(--text, #e2e8f0) !important;
+  border: 1px solid var(--border, #334155) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5) !important;
+  font-family: 'Inter', system-ui, sans-serif !important;
+  padding: 8px 12px !important;
+  font-size: 13px !important;
+}
+
+.warehouses-page .leaflet-tooltip::before,
+.leaflet-tooltip::before {
+  border-right-color: var(--border, #334155) !important;
+}
+
+.warehouses-page .leaflet-tooltip-left::before {
+  border-left-color: var(--border, #334155) !important;
+}
+
+.warehouses-page .leaflet-tooltip-top::before {
+  border-top-color: var(--border, #334155) !important;
+}
+
+.warehouses-page .leaflet-tooltip-bottom::before {
+  border-bottom-color: var(--border, #334155) !important;
 }

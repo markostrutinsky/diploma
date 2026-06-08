@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { api, type ContractorRequest, type Unit } from '../api/client'
+import toast from 'react-hot-toast'
+import { api, type ContractorRequest, type Unit, type ContractorMembership, type ContractorMembershipStatus } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import { usePermissions } from '../hooks/usePermissions'
 import Pagination from '../components/Pagination'
@@ -20,11 +21,13 @@ export default function ContractorRequests() {
   const [requests, setRequests] = useState<ContractorRequest[]>([])
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([])
   const [units, setUnits] = useState<Unit[]>([])
+  const [warehouses, setWarehouses] = useState<{ id: string; name: string }[]>([])
   const [resources, setResources] = useState<any[]>([])
+  const [memberships, setMemberships] = useState<ContractorMembership[]>([])
   const [loading, setLoading] = useState(true)
   
   const [showCreateForm, setShowCreateForm] = useState(false)
-  const [createForm, setCreateForm] = useState({ title: '', description: '' })
+  const [createForm, setCreateForm] = useState({ title: '', description: '', target_warehouse_id: '' })
   const [selectedUnitId, setSelectedUnitId] = useState<number | ''>('')
 
   const [acceptModalId, setAcceptModalId] = useState<string | null>(null)
@@ -46,12 +49,14 @@ export default function ContractorRequests() {
   const [volPage, setVolPage] = useState(0)
   const VOL_PAGE_SIZE = 20
 
+  // Ролі, що можуть приймати завдання підрядника на баланс.
+  // Має збігатися з backend models.ContractorRequestCreatorRoles.
   const inventoryRoles = [
-    'ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 
-    'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN', 'REGION_STOREKEEPER', 
+    'SYSTEM_ADMIN', 'TENANT_ADMIN', 'ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER',
+    'REGION_LOGISTICIAN', 'BRANCH_LOGISTICIAN', 'REGION_STOREKEEPER',
     'BRANCH_STOREKEEPER', 'DEPT_SUPERVISOR'
   ]
-  
+
   const perms = usePermissions()
   const canCreateRequest = perms.can('contractor_request_create')
   const canTakeRequest = perms.can('contractor_request_take')
@@ -59,10 +64,13 @@ export default function ContractorRequests() {
 
   const canManageThisRequest = (requestUnitId?: number | null) => {
     if (!user || !inventoryRoles.includes(user.role)) return false;
-    if (['ADMIN', 'REGION_DIRECTOR', 'REGION_LOGISTICIAN', 'REGION_STOREKEEPER'].includes(user.role)) {
+    // Адміни та регіональні ролі приймають завдання будь-якого підрозділу.
+    if (['SYSTEM_ADMIN', 'TENANT_ADMIN', 'ADMIN', 'REGION_DIRECTOR', 'REGION_LOGISTICIAN', 'REGION_STOREKEEPER'].includes(user.role)) {
       return true;
     }
-    return requestUnitId === user.unit_id;
+    // Решта (рівень філії/відділу) — лише завдання свого підрозділу.
+    // Якщо у завдання не вказано підрозділ — теж дозволяємо (його приймуть на головний склад).
+    return requestUnitId == null || requestUnitId === user.unit_id;
   }
 
   const getPlannedQuantity = (title: string) => {
@@ -75,7 +83,6 @@ export default function ContractorRequests() {
   }
 
   const loadData = () => {
-    setLoading(true)
     api.contractorRequests.list()
       .then((data) => setRequests(Array.isArray(data) ? data : []))
       .catch(console.error)
@@ -83,8 +90,18 @@ export default function ContractorRequests() {
   }
 
   const loadCategories = () => {
+    // Підрядник не має доступу до категорій складу (та й не потребує їх) → не смикаємо 403.
+    if (isCONTRACTOR) return
     api.inventory.listCategories()
       .then((data) => setCategories(data || []))
+      .catch(console.error)
+  }
+
+  const loadWarehouses = () => {
+    // Підрядник не має доступу до складів організації → пропускаємо, щоб не ловити 403.
+    if (isCONTRACTOR) return
+    api.warehouses.list()
+      .then((data) => setWarehouses(data || []))
       .catch(console.error)
   }
 
@@ -94,6 +111,16 @@ export default function ContractorRequests() {
         .then((data) => setResources(data || []))
         .catch(console.error)
     }
+  }
+
+  // Членства підрядника: з якими організаціями він уже співпрацює / подав заявку.
+  // Потрібно, щоб згрупувати дошку по організаціях і показати правильну дію
+  // (Співпрацювати / очікує / можна брати).
+  const loadMemberships = () => {
+    if (!isCONTRACTOR) return
+    api.contractorMemberships.mine()
+      .then((data) => setMemberships(Array.isArray(data) ? data : []))
+      .catch(console.error)
   }
 
   useEffect(() => {
@@ -107,7 +134,9 @@ export default function ContractorRequests() {
   useEffect(() => {
     loadData()
     loadCategories()
+    loadWarehouses()
     loadResources()
+    loadMemberships()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -121,32 +150,75 @@ export default function ContractorRequests() {
         unit_id: selectedUnitId ? Number(selectedUnitId) : undefined
       }
 
-            await api.contractorRequests.create(body)
+      await api.contractorRequests.create(body)
       setShowCreateForm(false)
-      setCreateForm({ title: '', description: '' })
+      setCreateForm({ title: '', description: '', target_warehouse_id: '' })
       setSelectedUnitId('') 
+      toast.success('Заявку опубліковано')
       loadData()
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Помилка')
+      toast.error(err instanceof Error ? err.message : 'Помилка')
     }
   }
 
   const handleTake = async (id: string) => {
-    try { await api.contractorRequests.take(id); loadData() } catch (err) { alert(err instanceof Error ? err.message : 'Помилка') }
+    try {
+      await api.contractorRequests.take(id)
+      toast.success('Завдання взято в роботу')
+      loadData()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Помилка')
+    }
+  }
+
+  // Підрядник надсилає заявку на співпрацю з організацією (не беручи завдання).
+  const handleApply = async (tenantId: string, tenantName?: string) => {
+    const org = tenantName ? `«${tenantName}»` : 'організацією'
+    try {
+      const res = await api.contractorMemberships.apply(tenantId)
+      if (res.status === 'APPROVED') {
+        toast.success(`Співпрацю з ${org} підтверджено — можете брати завдання.`)
+      } else if (res.status === 'REJECTED') {
+        toast.error(`Організація ${org} відхилила вашу заявку на співпрацю.`)
+      } else {
+        toast.success(`Заявку на співпрацю з ${org} надіслано. Очікуйте підтвердження адміністратора.`)
+      }
+      loadMemberships()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Не вдалося надіслати заявку')
+    }
   }
 
   const handleDeliver = async (id: string) => {
-    try { await api.contractorRequests.deliver(id); loadData() } catch (err) { alert(err instanceof Error ? err.message : 'Помилка') }
+    try {
+      await api.contractorRequests.deliver(id)
+      toast.success('Завдання позначено доставленим')
+      loadData()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Помилка')
+    }
   }
 
   const handleReject = async (id: string) => {
     if (!window.confirm("Ви впевнені, що хочете відхилити цю доставку (наприклад, через брак або невідповідність)?")) return;
-    try { await api.contractorRequests.reject(id); loadData() } catch (err) { alert(err instanceof Error ? err.message : 'Помилка') }
+    try {
+      await api.contractorRequests.reject(id)
+      toast.success('Доставку відхилено')
+      loadData()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Помилка')
+    }
   }
 
   const handleCancel = async (id: string) => {
     if (!window.confirm("Скасувати заявку? Вона зникне зі списку доступних завдань для підрядників.")) return;
-    try { await api.contractorRequests.cancel(id); loadData() } catch (err) { alert(err instanceof Error ? err.message : 'Помилка') }
+    try {
+      await api.contractorRequests.cancel(id)
+      toast.success('Заявку скасовано')
+      loadData()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Помилка')
+    }
   }
 
   const submitAccept = async (e: React.FormEvent) => {
@@ -188,10 +260,11 @@ export default function ContractorRequests() {
 
       setAcceptModalId(null)
       setNameMismatchWarning(false) 
+      toast.success('Майно прийнято на баланс')
       loadData()
       loadResources() 
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Помилка прийомки на склад')
+      toast.error(err instanceof Error ? err.message : 'Помилка прийомки на склад')
     }
   }
 
@@ -225,6 +298,45 @@ export default function ContractorRequests() {
       case 'CANCELED': return 'danger'
       default: return 'neutral'
     }
+  }
+
+  // Статус співпраці підрядника з кожною організацією (tenant_id → статус).
+  const membershipByTenant: Record<string, ContractorMembershipStatus> = {}
+  for (const m of memberships) membershipByTenant[m.tenant_id] = m.status
+
+  // Групуємо відкриті завдання за організацією-замовником. Так підрядник бачить дошку
+  // згрупованою, а кнопка «Співпрацювати» з'являється ОДИН раз на організацію (а не біля
+  // кожної заявки), навіть якщо організація опублікувала десятки потреб.
+  const openGroups: { tenantId: string; tenantName: string; items: ContractorRequest[] }[] = []
+  if (isCONTRACTOR) {
+    const indexByTenant: Record<string, number> = {}
+    for (const r of displayedRequests) {
+      const tid = r.tenant_id || 'unknown'
+      if (indexByTenant[tid] === undefined) {
+        indexByTenant[tid] = openGroups.length
+        openGroups.push({ tenantId: tid, tenantName: r.tenant_name || 'Організація', items: [] })
+      }
+      openGroups[indexByTenant[tid]].items.push(r)
+    }
+  }
+
+  // Дія/статус співпраці на рівні організації (показуємо в заголовку групи).
+  const renderCollabAction = (tenantId: string, tenantName: string) => {
+    const status = membershipByTenant[tenantId]
+    if (status === 'APPROVED') {
+      return <span className="collab-badge collab-approved">✓ Ви співпрацюєте</span>
+    }
+    if (status === 'PENDING') {
+      return <span className="collab-badge collab-pending">⏳ Заявку надіслано · очікує підтвердження</span>
+    }
+    if (status === 'REJECTED') {
+      return <span className="collab-badge collab-rejected">✕ Співпрацю відхилено</span>
+    }
+    return (
+      <button className="btn btn-primary btn-sm collab-btn" onClick={() => handleApply(tenantId, tenantName)}>
+        🤝 Співпрацювати
+      </button>
+    )
   }
 
   if (loading) {
@@ -294,6 +406,23 @@ export default function ContractorRequests() {
                   placeholder="Вкажіть точну модель, бажані характеристики або терміни постачання..."
                   rows={4}
                 />
+              </div>
+
+              <div className="form-group" style={{ marginTop: '15px' }}>
+                <label>📍 Склад призначення (куди доставити)</label>
+                <select 
+                  value={createForm.target_warehouse_id} 
+                  onChange={(e) => setCreateForm({ ...createForm, target_warehouse_id: e.target.value })}
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #ced4da' }}
+                >
+                  <option value="">-- Оберіть склад --</option>
+                  {warehouses.map(w => (
+                    <option key={w.id} value={w.id}>{w.name}</option>
+                  ))}
+                </select>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '6px', marginBottom: 0 }}>
+                  Підрядник побачить цей склад у деталях завдання
+                </p>
               </div>
               
               {user?.role === 'ADMIN' && (
@@ -484,7 +613,11 @@ export default function ContractorRequests() {
                 <li key={r.id}>
                   <div className="request-info">
                     <strong>{r.title}</strong>
-                    {r.unit_name && <span className="unit-badge">🏢 {r.unit_name}</span>}
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                      {isCONTRACTOR && r.tenant_name && <span className="unit-badge org-badge">🏛️ {r.tenant_name}</span>}
+                      {r.unit_name && <span className="unit-badge">🏢 {r.unit_name}</span>}
+                      {r.warehouse_name && <span className="unit-badge" style={{ background: 'var(--info-bg)', color: 'var(--info)' }}>📍 {r.warehouse_name}</span>}
+                    </div>
                     {r.description && <p className="request-desc">{r.description}</p>}
                   </div>
                   <button className="btn btn-success btn-sm" onClick={() => handleDeliver(r.id)}>
@@ -497,8 +630,74 @@ export default function ContractorRequests() {
         </div>
       )}
 
+      {isCONTRACTOR ? (
+        <div className="card">
+          <h2>Відкриті завдання</h2>
+          {displayedRequests.length === 0 ? (
+            <p className="empty-state">
+              {searchQuery ? `За запитом "${searchQuery}" нічого не знайдено` : 'Наразі немає відкритих завдань'}
+            </p>
+          ) : (
+            <div className="org-groups">
+              {openGroups.map((g) => {
+                const status = membershipByTenant[g.tenantId]
+                const approved = status === 'APPROVED'
+                return (
+                  <div className="org-group" key={g.tenantId}>
+                    <div className="org-group-header">
+                      <div className="org-group-title">
+                        <span className="org-group-name">🏛️ {g.tenantName}</span>
+                        <span className="org-group-count">завдань: {g.items.length}</span>
+                      </div>
+                      {renderCollabAction(g.tenantId, g.tenantName)}
+                    </div>
+
+                    {!approved && (
+                      <p className="org-group-hint">
+                        {status === 'PENDING'
+                          ? '⏳ Щойно адміністратор підтвердить співпрацю — ви зможете брати завдання цієї організації.'
+                          : status === 'REJECTED'
+                            ? '✕ Організація відхилила вашу заявку, тож її завдання поки недоступні.'
+                            : 'Натисніть «Співпрацювати», щоб подати заявку й отримати доступ до завдань цієї організації.'}
+                      </p>
+                    )}
+
+                    <ul className="request-list">
+                      {g.items.map((r) => (
+                        <li key={r.id} className={approved ? '' : 'request-locked'}>
+                          <div className="request-info">
+                            <strong>{r.title}</strong>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                              {r.unit_name && <span className="unit-badge">🏢 {r.unit_name}</span>}
+                              {r.warehouse_name && <span className="unit-badge" style={{ background: 'var(--info-bg)', color: 'var(--info)' }}>📍 {r.warehouse_name}</span>}
+                            </div>
+                            {r.description && <p className="request-desc">{r.description}</p>}
+                            <div className="request-meta">
+                              <span className="badge badge-warning">{STATUS_LABELS['OPEN']}</span>
+                              <span className="request-date">{new Date(r.created_at).toLocaleDateString('uk-UA')}</span>
+                            </div>
+                          </div>
+                          <div className="action-buttons-row">
+                            {approved ? (
+                              <button className="btn btn-primary btn-sm take-btn" onClick={() => handleTake(r.id)}>
+                                Взяти в роботу
+                              </button>
+                            ) : (
+                              <span className="lock-hint">🔒 Потрібне підтвердження</span>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      ) : (
       <div className="card">
-        <h2>{isCONTRACTOR ? 'Відкриті завдання' : 'Історія та статус заявок'}</h2>
+        <h2>Історія та статус заявок</h2>
         {displayedRequests.length === 0 ? (
           <p className="empty-state">
             {searchQuery ? `За запитом "${searchQuery}" нічого не знайдено` : 'Наразі немає записів'}
@@ -510,7 +709,11 @@ export default function ContractorRequests() {
               <li key={r.id}>
                 <div className="request-info">
                   <strong>{r.title}</strong>
-                  {r.unit_name && <span className="unit-badge">🏢 {r.unit_name}</span>}
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+                    {isCONTRACTOR && r.tenant_name && <span className="unit-badge org-badge">🏛️ {r.tenant_name}</span>}
+                    {r.unit_name && <span className="unit-badge">🏢 {r.unit_name}</span>}
+                    {r.warehouse_name && <span className="unit-badge" style={{ background: 'var(--info-bg)', color: 'var(--info)' }}>📍 {r.warehouse_name}</span>}
+                  </div>
                   {r.description && <p className="request-desc">{r.description}</p>}
                   
                   <div className="request-meta">
@@ -594,6 +797,7 @@ export default function ContractorRequests() {
           </>
         )}
       </div>
+      )}
     </div>
   )
 }

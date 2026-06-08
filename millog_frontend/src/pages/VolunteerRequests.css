@@ -1,3 +1,7 @@
+.contractor-requests-page {
+  background-color: transparent;
+}
+
 .contractor-requests-page .page-header {
   display: flex;
   justify-content: space-between;
@@ -7,34 +11,52 @@
 
 .contractor-requests-page .card {
   margin-bottom: 1.5rem;
+  background-color: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
 }
 
 .contractor-requests-page .card h2 {
   margin: 0 0 1rem;
   font-size: 1rem;
+  color: var(--text);
 }
 
 .request-list {
   list-style: none;
   margin: 0;
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 .request-list li {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  padding: 1rem;
-  border-bottom: 1px solid var(--border);
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  /* Кожна заявка — окрема "картка в картці". !important перебиває глобальне
+     правило `li { background: transparent !important }` із dark-override.css,
+     через яке заявки зливались із фоном сторінки. */
+  background-color: var(--bg-card-hover) !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
 }
 
-.request-list li:last-child {
-  border-bottom: none;
+.request-list li:hover {
+  border-color: var(--border-light);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 .request-list strong {
   display: block;
   margin-bottom: 0.25rem;
+  color: var(--text);
 }
 
 .request-list p {
@@ -46,6 +68,42 @@
 .request-date {
   font-size: 0.75rem;
   color: var(--text-muted);
+}
+
+/* Бейджі підрозділу / складу / організації у картці заявки */
+.unit-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Бейдж організації-замовника (показуємо підряднику на крос-tenant дошці) */
+.org-badge {
+  background: var(--accent-dark) !important;
+  color: #fff !important;
+}
+
+.request-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.filters-bar {
+  margin-bottom: 24px;
+  background-color: var(--bg-card);
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
 }
 
 .request-list .badge {
@@ -114,4 +172,114 @@
 
 .btn-action-small.btn-secondary:hover {
   background-color: var(--border);
+}
+
+/* ============================================================
+   ДОШКА ПІДРЯДНИКА, ЗГРУПОВАНА ЗА ОРГАНІЗАЦІЯМИ
+   ============================================================ */
+.org-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* Картка-обгортка однієї організації. Навмисно НЕ містить "card" у назві класу,
+   щоб глобальний dark-override (div[class*="card"]) не перебивав фон. */
+.org-group {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-card);
+}
+
+.org-group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.85rem 1.1rem;
+  background: var(--bg-input);
+  border-bottom: 1px solid var(--border);
+}
+
+.org-group-title {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.org-group-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.org-group-count {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-card-hover);
+  padding: 2px 9px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.org-group-hint {
+  margin: 0;
+  padding: 0.65rem 1.1rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  border-bottom: 1px dashed var(--border);
+}
+
+.org-group .request-list {
+  padding: 0.9rem 1.1rem;
+}
+
+/* Бейдж статусу співпраці у заголовку організації */
+.collab-badge {
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 14px;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+
+.collab-approved {
+  background: var(--success-bg);
+  color: var(--success);
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.collab-pending {
+  background: var(--warning-bg);
+  color: var(--warning);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.collab-rejected {
+  background: var(--error-bg);
+  color: var(--error);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.collab-btn {
+  white-space: nowrap;
+}
+
+/* Заблокована заявка (організація ще не підтвердила співпрацю) */
+.request-locked {
+  opacity: 0.7;
+}
+
+.lock-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  white-space: nowrap;
 }

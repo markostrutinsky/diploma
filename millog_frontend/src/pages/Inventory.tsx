@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import Pagination from '../components/Pagination';
 import './Inventory.css';
+import SearchableSelect from '../components/SearchableSelect';
 
 export default function Inventory() {
   const navigate = useNavigate();
@@ -32,7 +33,7 @@ export default function Inventory() {
   const [writeOffError, setWriteOffError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'active' | 'written_off'>('active');
   const [editModalId, setEditModalId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ name: '', min_quantity: 0 });
+  const [editForm, setEditForm] = useState({ name: '', min_quantity: 0, serial_number: '', location: '', unit_price: 0, barcode: '' });
   const [resourceToDelete, setResourceToDelete] = useState<Resource | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   
@@ -479,16 +480,13 @@ export default function Inventory() {
         <h1>Облік ресурсу</h1>
         <div className="page-actions">
           {units.length > 0 && (
-            <select 
-              value={filterUnitId} 
-              onChange={(e) => setFilterUnitId(e.target.value ? parseInt(e.target.value, 10) : '')} 
-              className="filter-select erp-input"
-            >
-              <option value="">Всі орг. одиниці</option>
-              {units.map((u) => (
-                <option key={u.id} value={u.id}>{u.name}</option>
-              ))}
-            </select>
+            <SearchableSelect
+              options={units.map(u => ({ value: String(u.id), label: u.name }))}
+              value={filterUnitId !== '' ? String(filterUnitId) : ''}
+              onChange={(val) => setFilterUnitId(val ? parseInt(val, 10) : '')}
+              emptyLabel="Всі орг. одиниці"
+              className="filter-select"
+            />
           )}
           {canManageCategories && (
             <button className="btn btn-secondary" onClick={() => setShowCategoryForm(true)}>
@@ -596,10 +594,12 @@ export default function Inventory() {
             <form onSubmit={handleCreateResource}>
               <div className="form-group">
                 <label>Категорія <span style={{color: '#ef4444'}}>*</span></label>
-                <select className="erp-input" value={newRes.category_id} onChange={(e) => setNewRes({ ...newRes, category_id: e.target.value })} required>
-                  <option value="">Оберіть категорію</option>
-                  {categories.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
-                </select>
+                <SearchableSelect
+                  options={categories.map(c => ({ value: c.id, label: c.name }))}
+                  value={newRes.category_id}
+                  onChange={(val) => setNewRes({ ...newRes, category_id: val })}
+                  placeholder="Оберіть категорію"
+                />
               </div>
               
               <div className="form-group">
@@ -616,22 +616,47 @@ export default function Inventory() {
                   onChange={(e) => setNewRes({ ...newRes, barcode: e.target.value })} 
                 />
               </div>
+
+              <div className="form-row-2">
+                <div className="form-group">
+                  <label>Серійний номер (необов'язково)</label>
+                  <input
+                    className="erp-input"
+                    placeholder="Напр. SN-20240315-001"
+                    value={(newRes as any).serial_number || ''}
+                    onChange={(e) => setNewRes({ ...newRes, serial_number: e.target.value } as any)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Місце зберігання (необов'язково)</label>
+                  <input
+                    className="erp-input"
+                    placeholder="Напр. Полиця А-3, Стелаж 2"
+                    value={(newRes as any).location || ''}
+                    onChange={(e) => setNewRes({ ...newRes, location: e.target.value } as any)}
+                  />
+                </div>
+              </div>
               
               <div className="form-row-2">
                 <div className="form-group">
                   <label>Власник (Орг. одиниця) <span style={{color: '#ef4444'}}>*</span></label>
-                  <select className="erp-input" value={newRes.unit_id ?? ''} onChange={(e) => { setNewRes({ ...newRes, unit_id: e.target.value ? parseInt(e.target.value, 10) : undefined, warehouse_id: '' }) }} required>
-                    <option value="" disabled>Оберіть орг. одиницю</option>
-                    {units.map((u) => (<option key={u.id} value={u.id}>{u.name}</option>))}
-                  </select>
+                  <SearchableSelect
+                    options={units.map(u => ({ value: String(u.id), label: u.name }))}
+                    value={newRes.unit_id != null ? String(newRes.unit_id) : ''}
+                    onChange={(val) => setNewRes({ ...newRes, unit_id: val ? parseInt(val, 10) : undefined, warehouse_id: '' })}
+                    placeholder="Оберіть орг. одиницю"
+                  />
                 </div>
                 
                 <div className="form-group">
                   <label>Склад (Локація) <span style={{color: '#ef4444'}}>*</span></label>
-                  <select className="erp-input" value={newRes.warehouse_id} onChange={(e) => setNewRes({ ...newRes, warehouse_id: e.target.value })} required>
-                    <option value="" disabled>-- Оберіть конкретний склад --</option>
-                    {availableWarehousesForNew.map((w) => (<option key={w.id} value={w.id}>{w.name}</option>))}
-                  </select>
+                  <SearchableSelect
+                    options={availableWarehousesForNew.map(w => ({ value: w.id, label: w.name }))}
+                    value={newRes.warehouse_id}
+                    onChange={(val) => setNewRes({ ...newRes, warehouse_id: val })}
+                    placeholder="-- Оберіть конкретний склад --"
+                  />
                 </div>
               </div>
               
@@ -691,12 +716,12 @@ export default function Inventory() {
               </div>
               <div className="form-group text-left">
                 <label>Отримувач</label>
-                <select className="erp-input" value={assignModalData.user_id} onChange={(e) => setAssignModalData({ ...assignModalData, user_id: e.target.value })} required>
-                  <option value="" disabled>-- Оберіть особу --</option>
-                  {allowedUsersForAssignment.map((u) => (
-                    <option key={u.id} value={u.id}>{u.full_name || u.email}</option>
-                  ))}
-                </select>
+                <SearchableSelect
+                  options={allowedUsersForAssignment.map(u => ({ value: u.id, label: u.full_name || u.email }))}
+                  value={assignModalData.user_id}
+                  onChange={(val) => setAssignModalData({ ...assignModalData, user_id: val })}
+                  placeholder="-- Оберіть особу --"
+                />
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => { setAssignModalData(null); setAssignError(null); }}>Скасувати</button>
@@ -730,9 +755,29 @@ export default function Inventory() {
                 <label>Назва ресурсу</label>
                 <input className="erp-input" value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} required />
               </div>
+              <div className="form-row-2">
+                <div className="form-group">
+                  <label>Мінімальний залишок</label>
+                  <input className="erp-input" type="number" min="0" value={editForm.min_quantity.toString()} onChange={(e) => { const val = parseInt(e.target.value, 10); setEditForm({ ...editForm, min_quantity: isNaN(val) ? 0 : val }) }} required />
+                </div>
+                <div className="form-group">
+                  <label>Ціна за одиницю (грн)</label>
+                  <input className="erp-input" type="number" min="0" step="0.01" placeholder="0.00" value={editForm.unit_price || ''} onChange={(e) => setEditForm({ ...editForm, unit_price: parseFloat(e.target.value) || 0 })} />
+                </div>
+              </div>
+              <div className="form-row-2">
+                <div className="form-group">
+                  <label>Серійний номер</label>
+                  <input className="erp-input" placeholder="Напр. SN-20240315-001" value={editForm.serial_number} onChange={(e) => setEditForm({ ...editForm, serial_number: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Штрих-код</label>
+                  <input className="erp-input" placeholder="Відскануйте або введіть вручну" value={editForm.barcode} onChange={(e) => setEditForm({ ...editForm, barcode: e.target.value })} />
+                </div>
+              </div>
               <div className="form-group">
-                <label>Мінімальний залишок</label>
-                <input className="erp-input" type="number" min="0" value={editForm.min_quantity.toString()} onChange={(e) => { const val = parseInt(e.target.value, 10); setEditForm({ ...editForm, min_quantity: isNaN(val) ? 0 : val }) }} required />
+                <label>Місце зберігання</label>
+                <input className="erp-input" placeholder="Напр. Полиця А-3, Стелаж 2" value={editForm.location} onChange={(e) => setEditForm({ ...editForm, location: e.target.value })} />
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setEditModalId(null)}>Скасувати</button>
@@ -997,21 +1042,23 @@ export default function Inventory() {
                 <div className="form-group">
                   {/* Замінили "Підрозділ-власник" */}
                   <label>Власник (Орг. одиниця)</label> 
-                  <select className="erp-input" value={importUnitId} onChange={(e) => { setImportUnitId(Number(e.target.value)); setImportWarehouseId(''); }} required>
-                    {/* Замінили "-- Оберіть підрозділ --" */}
-                    <option value="">-- Оберіть орг. одиницю --</option> 
-                    {units.map((u) => (<option key={u.id} value={u.id}>{u.name}</option>))}
-                  </select>
+                  <SearchableSelect
+                    options={units.map(u => ({ value: String(u.id), label: u.name }))}
+                    value={importUnitId !== '' ? String(importUnitId) : ''}
+                    onChange={(val) => { setImportUnitId(val ? Number(val) : ''); setImportWarehouseId(''); }}
+                    placeholder="-- Оберіть орг. одиницю --"
+                  />
                 </div>
                 
                 <div className="form-group">
                   <label>Цільовий склад</label>
-                  <select className="erp-input" value={importWarehouseId} onChange={(e) => setImportWarehouseId(e.target.value)} required disabled={!importUnitId}>
-                    <option value="">-- Оберіть склад --</option>
-                    {warehouses.filter(w => Number(w.unit_id) === Number(importUnitId)).map((w) => (
-                      <option key={w.id} value={w.id}>{w.name}</option>
-                    ))}
-                  </select>
+                  <SearchableSelect
+                    options={warehouses.filter(w => Number(w.unit_id) === Number(importUnitId)).map(w => ({ value: w.id, label: w.name }))}
+                    value={importWarehouseId}
+                    onChange={(val) => setImportWarehouseId(val)}
+                    placeholder="-- Оберіть склад --"
+                    disabled={!importUnitId}
+                  />
                 </div>
               </div>
 
@@ -1140,7 +1187,7 @@ export default function Inventory() {
                                           {r.quantity > 0 && (
                                             <button style={{color: '#2563eb'}} onClick={() => { setAssignModalData({ resource: r, quantity: 1, user_id: '' }); setActiveMenuId(null); }}>👤 Видати співробітнику</button>
                                           )}
-                                          <button onClick={() => { setEditForm({ name: r.name, min_quantity: r.min_quantity }); setEditModalId(r.id); setActiveMenuId(null); }}>✏️ Редагувати</button>
+                                          <button onClick={() => { setEditForm({ name: r.name, min_quantity: r.min_quantity, serial_number: r.serial_number || '', location: r.location || '', unit_price: r.unit_price || 0, barcode: r.barcode || '' }); setEditModalId(r.id); setActiveMenuId(null); }}>✏️ Редагувати</button>
                                           <button onClick={() => { setWriteOffModalData({ resource: r, quantity: r.quantity }); setActiveMenuId(null); }}>📦 Списати зі складу</button>
                                           <div className="dropdown-divider"></div>
                                         </>

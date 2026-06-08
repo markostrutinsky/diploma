@@ -18,12 +18,12 @@ interface Shipment {
   created_at: string;
   started_at?: string;
   delivered_at?: string;
+  distance_km?: number;
   items?: Array<{ resource_name: string; quantity: number; unit: string }>;
 }
 
 export default function MyShipments() {
   const { token } = useAuth();
-  // GPS тепер глобальний — живе в GPSContext, не залежить від цієї сторінки
   const { gpsStatus, lastCoords, hasActiveShipment, refreshActiveShipment } = useGPS();
 
   const [shipments, setShipments] = useState<Shipment[]>([]);
@@ -31,6 +31,11 @@ export default function MyShipments() {
   const [activeTab, setActiveTab] = useState<'pending' | 'in_transit' | 'delivered'>('pending');
   const [shipmentsPage, setShipmentsPage] = useState(0);
   const SHIPMENTS_PAGE_SIZE = 20;
+
+  // Модалка підтвердження доставки з фактичним пробігом
+  const [completeModal, setCompleteModal] = useState<{ shipmentId: string; plannedKm: number } | null>(null);
+  const [actualKm, setActualKm] = useState('');
+  const [isCompleting, setIsCompleting] = useState(false);
 
   useEffect(() => { setShipmentsPage(0); }, [activeTab]);
 
@@ -77,21 +82,33 @@ export default function MyShipments() {
     }
   };
 
-  const handleCompleteShipment = async (shipmentId: string) => {
+  const handleCompleteShipment = async (shipmentId: string, plannedKm: number) => {
+    setCompleteModal({ shipmentId, plannedKm });
+    setActualKm(plannedKm > 0 ? String(Math.round(plannedKm)) : '');
+  };
+
+  const handleConfirmComplete = async () => {
+    if (!completeModal) return;
     const authToken = token || getInMemoryToken();
     if (!authToken) return;
+    setIsCompleting(true);
     const toastId = toast.loading('Завершуємо рейс...');
     try {
-      const res = await fetch(`/api/inventory/shipments/${shipmentId}/receive`, {
+      const km = parseInt(actualKm, 10) || 0;
+      const res = await fetch(`/api/inventory/shipments/${completeModal.shipmentId}/receive`, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${authToken}` },
+        headers: { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' },
         credentials: 'include',
+        body: JSON.stringify({ actual_km: km }),
       });
       if (!res.ok) { const e = await res.json(); throw new Error(e.error || 'Помилка'); }
-      toast.success('Рейс завершено! ✅', { id: toastId });
+      toast.success(`Рейс завершено! Одометр оновлено на +${km} км ✅`, { id: toastId });
+      setCompleteModal(null);
       await loadMyShipments();
     } catch (err: any) {
       toast.error(err.message || 'Помилка завершення рейсу', { id: toastId });
+    } finally {
+      setIsCompleting(false);
     }
   };
 
@@ -230,7 +247,7 @@ export default function MyShipments() {
                     <button className="btn-start" onClick={() => handleStartShipment(shipment.id)}>🚀 Почати рейс</button>
                   )}
                   {shipment.status === 'IN_TRANSIT' && (
-                    <button className="btn-complete" onClick={() => handleCompleteShipment(shipment.id)}>✅ Підтвердити доставку</button>
+                    <button className="btn-complete" onClick={() => handleCompleteShipment(shipment.id, shipment.distance_km || 0)}>✅ Підтвердити доставку</button>
                   )}
                 </div>
               </div>
@@ -246,6 +263,44 @@ export default function MyShipments() {
           </>
         )}
       </div>
+
+      {/* Модалка підтвердження доставки з фактичним пробігом */}
+      {completeModal && (
+        <div className="modal-overlay" style={{ zIndex: 1000 }} onClick={() => !isCompleting && setCompleteModal(null)}>
+          <div className="modal" style={{ maxWidth: '420px' }} onClick={e => e.stopPropagation()}>
+            <h3>✅ Підтвердити доставку</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '20px' }}>
+              Вкажіть фактичний пробіг цього рейсу. Система автоматично запише витрату пального та оновить одометр авто.
+            </p>
+            <div style={{ marginBottom: '8px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                Фактичний пробіг (км) <span style={{ color: '#ef4444' }}>*</span>
+              </label>
+              <input
+                type="number"
+                min="1"
+                className="erp-input"
+                style={{ width: '100%', boxSizing: 'border-box' }}
+                value={actualKm}
+                onChange={e => setActualKm(e.target.value)}
+                disabled={isCompleting}
+                autoFocus
+              />
+              {completeModal.plannedKm > 0 && (
+                <span style={{ display: 'block', fontSize: '11px', color: '#64748b', marginTop: '5px' }}>
+                  Планова відстань маршруту: <strong>{completeModal.plannedKm} км</strong>. Якщо маршрут відрізнявся — введіть реальний пробіг.
+                </span>
+              )}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
+              <button className="btn btn-secondary" onClick={() => setCompleteModal(null)} disabled={isCompleting}>Скасувати</button>
+              <button className="btn btn-primary" onClick={handleConfirmComplete} disabled={isCompleting || !actualKm || parseInt(actualKm) < 1}>
+                {isCompleting ? 'Зберігаємо...' : 'Завершити рейс'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

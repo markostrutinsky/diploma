@@ -137,14 +137,14 @@ const KPIDashboard: React.FC = () => {
           <div className="kpi-icon">💰</div>
           <div className="kpi-content">
             <h3>TCO - Вартість на одиницю</h3>
-            <div className="kpi-value">€{kpiData.tco.cost_per_unit.toFixed(2)}</div>
+            <div className="kpi-value">{kpiData.tco.cost_per_unit.toFixed(2)} ₴</div>
             <div className="kpi-meta">
               {kpiData.tco.total_units_shipped} доставлено
             </div>
             <div className="kpi-detail">
-              Паливо: €{kpiData.tco.total_fuel_cost.toFixed(2)} 
-              <span className={kpiData.tco.trend === 'down' ? 'trend-down' : 'trend-up'}>
-                {kpiData.tco.trend === 'down' ? ' ↓' : ' ↑'}
+              Паливо: {kpiData.tco.total_fuel_cost.toFixed(2)} ₴ 
+              <span className={kpiData.tco.trend === 'down' ? 'trend-down' : kpiData.tco.trend === 'up' ? 'trend-up' : 'trend-stable'}>
+                {kpiData.tco.trend === 'down' ? ' ↓' : kpiData.tco.trend === 'up' ? ' ↑' : ' →'}
               </span>
             </div>
           </div>
@@ -171,7 +171,7 @@ const KPIDashboard: React.FC = () => {
         <div className={`kpi-card metric-${kpiData.depletion_forecast.action_required ? 'danger' : 'good'}`}>
           <div className="kpi-icon">📉</div>
           <div className="kpi-content">
-            <h3>Прогноз - Скичення</h3>
+            <h3>Прогноз - Скорочення запасів</h3>
             <div className="kpi-forecast">
               <div className="forecast-item urgent">
                 <span className="forecast-days">7 днів</span>
@@ -210,12 +210,12 @@ const KPIDashboard: React.FC = () => {
       {(kpiData.depletion_forecast.within_7_days.length > 0 ||
         kpiData.depletion_forecast.within_14_days.length > 0) && (
         <div className="kpi-action-section">
-          <h3>📋 Рекомендації</h3>
+          <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>⚡ Є товари що закінчуються:</span>
           <button className="btn-primary" onClick={() => window.location.href = '/inventory'}>
-            Переглянути склад
+            📦 Переглянути склад
           </button>
           <button className="btn-secondary" onClick={() => window.location.href = '/requests'}>
-            Створити заявку
+            📋 Створити заявку
           </button>
         </div>
       )}

@@ -4,6 +4,7 @@ import { usePermissions } from '../hooks/usePermissions'
 import { useNavigate } from 'react-router-dom'
 import Pagination from '../components/Pagination'
 import './AdminUsers.css'
+import SearchableSelect from '../components/SearchableSelect'
 
 // Ролі власника організації — мають однакові права в UI (повний доступ в межах tenant).
 // TENANT_ADMIN — нова назва, ADMIN — застаріле ім'я, SYSTEM_ADMIN — платформний адмін.
@@ -371,39 +372,24 @@ export default function AdminUsers() {
 
               <div className="form-group">
                 <label>{editingUser ? 'Нова посада' : 'Посада'}</label>
-                <select
+                <SearchableSelect
+                  options={availableRoles.map(r => ({ value: r.value, label: r.label }))}
                   value={form.role}
-                  onChange={(e) => {
-                    const newRole = e.target.value as UserRole
-                    setForm({ ...form, role: newRole, unit_id: undefined }) 
-                  }}
+                  onChange={(val) => setForm({ ...form, role: val as UserRole, unit_id: undefined })}
                   disabled={availableRoles.length === 0}
-                >
-                  {availableRoles.map((r) => (
-                    <option key={r.value} value={r.value}>{r.label}</option>
-                  ))}
-                </select>
+                  placeholder="Оберіть посаду..."
+                />
               </div>
 
               <div className="form-group">
                 <label>{editingUser ? 'Нова орг. одиниця' : 'Орг. одиниця (залиште пустим для Резерву)'}</label>
-                <select
-                  value={form.unit_id ?? ''}
-                  onChange={(e) => {
-                    const val = e.target.value
-                    setForm({ ...form, unit_id: val ? parseInt(val, 10) : undefined })
-                  }}
+                <SearchableSelect
+                  options={formUnits.map(u => ({ value: String(u.id), label: `${u.name} (${UNIT_TYPE_NAMES[u.unit_type] || u.unit_type})` }))}
+                  value={form.unit_id != null ? String(form.unit_id) : ''}
+                  onChange={(val) => setForm({ ...form, unit_id: val ? parseInt(val, 10) : undefined })}
                   disabled={formUnits.length === 0}
-                >
-                  <option value="">
-                    {formUnits.length === 0 ? 'Немає доступних орг. одиниць (буде в резерві)' : '-- В Кадровий резерв --'}
-                  </option>
-                  {formUnits.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.name} ({UNIT_TYPE_NAMES[u.unit_type] || u.unit_type})
-                    </option>
-                  ))}
-                </select>
+                  emptyLabel={formUnits.length === 0 ? 'Немає доступних орг. одиниць (буде в резерві)' : '-- В Кадровий резерв --'}
+                />
               </div>
 
               {error && <div className="form-error modal-alert">{error}</div>}

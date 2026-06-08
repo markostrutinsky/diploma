@@ -166,6 +166,11 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ quantity }),
       }),
+    issueResource: (data: { resource_id: string; user_id: string; quantity: number; notes?: string; warehouse_id?: string }) =>
+      request<{ message: string }>('/inventory/issue', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
     updateResource: (id: string, data: Partial<Resource>) => 
       request<Resource>(`/inventory/resources/${id}`, {
         method: 'PATCH',
@@ -196,6 +201,11 @@ export const api = {
         body: JSON.stringify(data),
       }),
     getMyEquipment: () => request<MyEquipmentItem[]>('/inventory/my-equipment'),
+    reportEquipment: (assignmentId: string, reason: string) =>
+      request<{ message: string }>(`/inventory/assignments/${assignmentId}/report`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      }),
     getByWarehouse: (warehouseId: string) => 
       request<InventoryItem[]>(`/inventory/warehouse/${warehouseId}`),
 
@@ -272,10 +282,19 @@ export const api = {
         body: JSON.stringify(body),
       }),
 
-    smartDispatchPreview: (requestIds: string[]) =>
+    logShipmentRefuel: (shipmentId: string, payload: LogShipmentRefuelPayload) =>
+      request<ShipmentRefuel>(`/inventory/shipments/${shipmentId}/refuel`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+
+    getShipmentRefuels: (shipmentId: string) =>
+      request<ShipmentRefuel[]>(`/inventory/shipments/${shipmentId}/refuels`),
+
+    smartDispatchPreview: (requestIds: string[], fromWarehouseId?: string) =>
       request<SmartDispatchResult>('/requests/smart-dispatch-preview', {
         method: 'POST',
-        body: JSON.stringify({ request_ids: requestIds }),
+        body: JSON.stringify({ request_ids: requestIds, from_warehouse_id: fromWarehouseId || '' }),
       }),
 
     smartDispatchConfirm: (payload: {
@@ -417,6 +436,30 @@ export const api = {
       request<{ message: string }>(`/contractor-requests/${id}/cancel`, { method: 'POST' }),
   },
 
+  // Членства підрядників (схвалення співпраці організацією)
+  contractorMemberships: {
+    // Адмін організації: список підрядників, що подалися/схвалені/відхилені
+    list: (status?: string) =>
+      request<ContractorMembership[]>(`/contractor-memberships${status ? `?status=${status}` : ''}`),
+
+    approve: (id: string) =>
+      request<{ message: string }>(`/contractor-memberships/${id}/approve`, { method: 'POST' }),
+
+    reject: (id: string) =>
+      request<{ message: string }>(`/contractor-memberships/${id}/reject`, { method: 'POST' }),
+
+    // Self-view підрядника: з якими організаціями він співпрацює
+    mine: () =>
+      request<ContractorMembership[]>('/contractor-memberships/mine'),
+
+    // Підрядник самостійно надсилає заявку на співпрацю з організацією
+    apply: (tenantId: string) =>
+      request<{ status: ContractorMembershipStatus; message: string }>('/contractor-memberships/apply', {
+        method: 'POST',
+        body: JSON.stringify({ tenant_id: tenantId }),
+      }),
+  },
+
   vehicles: {
     list: async (): Promise<Vehicle[]> => {
       return request('/vehicles');
@@ -472,6 +515,9 @@ export const api = {
     getDriverHistory: async (vehicleId: string): Promise<DriverHistoryRecord[]> => {
       return request(`/vehicles/${vehicleId}/drivers`);
     },
+    getShipmentHistory: async (vehicleId: string): Promise<VehicleShipmentRecord[]> => {
+      return request(`/vehicles/${vehicleId}/shipments`);
+    },
     update: async (id: string, data: Partial<Vehicle>): Promise<void> => {
       return request(`/vehicles/${id}`, {
         method: 'PATCH',
@@ -483,8 +529,8 @@ export const api = {
         method: 'DELETE',
       });
     },
-    getAvailableForRoute: (senderUnitID: number, receiverUnitID: number) => 
-      request<Vehicle[]>(`/vehicles/available-for-route?sender_unit_id=${senderUnitID}&receiver_unit_id=${receiverUnitID}`),
+    getAvailableForRoute: (fromWarehouseID: string, toWarehouseID: string) => 
+      request<Vehicle[]>(`/vehicles/available-for-route?from_warehouse_id=${fromWarehouseID}&to_warehouse_id=${toWarehouseID}`),
   },
   warehouses: {
     list: async (): Promise<Warehouse[]> => {
@@ -682,6 +728,8 @@ export interface ContractorRequest {
   created_by: string
   unit_id?: number;
   unit_name?: string;
+  target_warehouse_id?: string;
+  warehouse_name?: string;
   title: string
   description: string
   status: string
@@ -689,6 +737,25 @@ export interface ContractorRequest {
   taken_at?: string
   completed_at?: string
   created_at: string
+  tenant_id?: string;
+  tenant_name?: string;
+}
+
+export type ContractorMembershipStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface ContractorMembership {
+  id: string;
+  contractor_id: string;
+  tenant_id: string;
+  status: ContractorMembershipStatus;
+  note?: string | null;
+  requested_at: string;
+  decided_at?: string | null;
+  decided_by?: string | null;
+  contractor_name?: string;
+  contractor_email?: string;
+  contractor_phone?: string | null;
+  tenant_name?: string;
 }
 
 export interface AcceptContractorPayload {
@@ -782,6 +849,7 @@ export interface Resource {
   quantity: number
   serial_number: string
   barcode?: string
+  location?: string;       // Місце зберігання (полиця, секція тощо)
   unit_type: 'PCS' | 'KIT' | 'KG' | 'L';
   condition: 'NEW' | 'USED' | 'WRITTEN_OFF';
   min_quantity: number
@@ -789,6 +857,7 @@ export interface Resource {
   assigned_to_user_name?: string;
   weight_kg: number;
   unit_price: number;
+  issued_quantity?: number;
 }
 export interface AssignResourceRequest {
   quantity: number;
@@ -804,13 +873,14 @@ export interface CreateResourceRequest {
   quantity: number;
   unit_type: 'PCS' | 'KIT' | 'KG' | 'L';
   serial_number?: string;
-  barcode?: string
+  barcode?: string;
+  location?: string;
   condition?: 'NEW' | 'USED' | 'WRITTEN_OFF';
   min_quantity: number;
   weight_kg: number;
   unit_price?: number;
 }
-export type RequestStatus = 'PENDING' | 'APPROVED' | 'DISPATCHED' | 'REJECTED' | 'COMPLETED' | 'OPEN';
+export type RequestStatus = 'PENDING' | 'APPROVED' | 'LOADING' | 'DISPATCHED' | 'REJECTED' | 'COMPLETED' | 'OPEN';
 
 export interface SupplyRequest {
   id: string
@@ -853,6 +923,11 @@ export interface Vehicle {
   driver_name?: string;
   avg_km_per_day?: number;
   predicted_maint_date?: string;
+  home_warehouse_id?: string;
+  home_warehouse_name?: string;
+  current_warehouse_id?: string;
+  current_warehouse_name?: string;
+  current_fuel_liters?: number;
 }
 
 export interface FuelRecord {
@@ -885,6 +960,24 @@ export interface DriverHistoryRecord {
   driver_id: string | null;
   driver_name: string;
   assigned_at: string;
+}
+
+export interface VehicleShipmentRecord {
+  id: string;
+  vehicle_id: string;
+  vehicle_plate: string;
+  from_warehouse_id: string;
+  from_warehouse_name: string;
+  to_warehouse_id: string;
+  to_warehouse_name: string;
+  status: 'PENDING' | 'IN_TRANSIT' | 'DELIVERED';
+  priority: string;
+  direction: string;
+  distance_km: number;
+  actual_km: number;
+  created_at: string;
+  started_at?: string;
+  delivered_at?: string;
 }
 
 export interface TransferResourceRequest {
@@ -924,6 +1017,25 @@ export interface ShipmentRecord {
   priority: 'NORMAL' | 'URGENT';
   status: 'DISPATCHED' | 'DELIVERED';
   created_at: string;
+}
+
+export interface ShipmentRefuel {
+  id: string;
+  shipment_id: string;
+  vehicle_id: string;
+  liters: number;
+  odometer_km?: number;
+  station_name?: string;
+  cost_uah?: number;
+  created_by?: string;
+  created_at: string;
+}
+
+export interface LogShipmentRefuelPayload {
+  liters: number;
+  odometer_km?: number;
+  station_name?: string;
+  cost_uah?: number;
 }
 
 export interface AuditLog {
@@ -988,6 +1100,9 @@ export interface VehicleBin {
   max_weight: number;
   used_weight: number;
   items: RequestItem[];
+  fuel_liters?: number;
+  fuel_norm?: number;
+  tank_capacity?: number;
 }
 
 export interface SmartDispatchResult {

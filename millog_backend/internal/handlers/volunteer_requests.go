@@ -4,6 +4,7 @@ import (
 	"Omnilog_backend/internal/models"
 	"Omnilog_backend/internal/services"
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -57,8 +58,12 @@ func (h *ContractorRequestHandler) Create(c *gin.Context) {
 // Список заявок
 func (h *ContractorRequestHandler) List(c *gin.Context) {
 	status := c.Query("status")
+	userID := c.GetString("user_id")
+	roleVal, _ := c.Get("user_role")
+	role, _ := roleVal.(models.UserRole)
+	isContractor := role == models.RoleContractor
 
-	list, err := h.svc.List(c.Request.Context(), models.ContractorRequestStatus(status))
+	list, err := h.svc.List(c.Request.Context(), models.ContractorRequestStatus(status), isContractor, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -76,7 +81,17 @@ func (h *ContractorRequestHandler) Take(c *gin.Context) {
 	userID := c.GetString("user_id")
 	id := c.Param("id")
 
-	if err := h.svc.UpdateStatus(c.Request.Context(), id, userID, models.ContractorTaken); err != nil {
+	if err := h.svc.Take(c.Request.Context(), id, userID); err != nil {
+		// Підряднику бракує схвалення організації → 403 з машинним кодом для фронтенду.
+		var mre *services.MembershipRequiredError
+		if errors.As(err, &mre) {
+			c.JSON(http.StatusForbidden, gin.H{
+				"error":             mre.Message,
+				"code":              "MEMBERSHIP_REQUIRED",
+				"membership_status": mre.Status,
+			})
+			return
+		}
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

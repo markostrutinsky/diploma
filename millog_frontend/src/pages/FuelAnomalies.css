@@ -1,6 +1,5 @@
 .anomalies-container {
   padding: 2rem;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
   min-height: 100vh;
 }
 
@@ -11,14 +10,14 @@
 
 .anomalies-header h1 {
   font-size: 2.5rem;
-  color: #1f2937;
+  color: var(--text-primary);
   margin-bottom: 0.5rem;
   font-weight: 700;
 }
 
 .anomalies-header p {
   font-size: 1.1rem;
-  color: #6b7280;
+  color: var(--text-muted);
 }
 
 .anomalies-stats {
@@ -35,8 +34,8 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   text-align: center;
   transition: all 0.3s ease;
-  border-top: 4px solid #3b82f6;
   border: 1px solid var(--border);
+  border-top: 4px solid #3b82f6;
 }
 
 .stat-card.monitored {
@@ -64,11 +63,12 @@
   font-size: 2.5rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
+  color: var(--text-primary);
 }
 
 .stat-label {
   font-size: 0.95rem;
-  color: #6b7280;
+  color: var(--text-muted);
   font-weight: 500;
 }
 
@@ -160,13 +160,13 @@
 .vehicle-info h3 {
   margin: 0 0 0.5rem 0;
   font-size: 1.25rem;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .anomaly-type {
   display: inline-block;
   background: rgba(239, 68, 68, 0.15);
-  color: #991b1b;
+  color: #f87171;
   padding: 0.25rem 0.75rem;
   border-radius: 4px;
   font-size: 0.85rem;
@@ -179,7 +179,7 @@
   font-size: 0.85rem;
   font-weight: 600;
   background: rgba(245, 158, 11, 0.15);
-  color: #92400e;
+  color: #f59e0b;
 }
 
 .card-content {
@@ -192,7 +192,7 @@
 
 .risk-label {
   font-weight: 600;
-  color: #6b7280;
+  color: var(--text-muted);
   margin-bottom: 0.5rem;
   font-size: 0.9rem;
 }
@@ -215,7 +215,7 @@
 .risk-value {
   font-size: 1.25rem;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .confidence-section,
@@ -229,12 +229,12 @@
 .confidence-section .label,
 .detection-section .label {
   font-weight: 600;
-  color: #6b7280;
+  color: var(--text-muted);
 }
 
 .confidence-section .value,
 .detection-section .value {
-  color: #1f2937;
+  color: var(--text-primary);
   font-weight: 500;
 }
 
@@ -245,7 +245,7 @@
 .details-section .label {
   display: block;
   font-weight: 600;
-  color: #6b7280;
+  color: var(--text-muted);
   margin-bottom: 0.5rem;
   font-size: 0.9rem;
 }
@@ -255,7 +255,7 @@
   padding: 0.75rem;
   background: var(--bg-input);
   border-radius: 6px;
-  color: #1f2937;
+  color: var(--text-primary);
   font-size: 0.9rem;
   line-height: 1.5;
   border-left: 3px solid #3b82f6;
@@ -276,7 +276,7 @@
 
 .loss-item .label {
   font-weight: 600;
-  color: #92400e;
+  color: #f59e0b;
 }
 
 .loss-value {
@@ -288,12 +288,12 @@
 .ai-badge {
   margin-top: 1rem;
   padding: 0.75rem;
-  background: rgba(59, 130, 246, 0.1);
-  color: #0369a1;
+  background: rgba(59, 130, 246, 0.12);
+  color: #60a5fa;
   border-radius: 6px;
   font-size: 0.85rem;
   font-weight: 500;
-  border: 1px solid #bae6fd;
+  border: 1px solid rgba(59, 130, 246, 0.25);
 }
 
 .card-actions {
@@ -326,13 +326,13 @@
 }
 
 .btn-alert {
-  background: rgba(239, 68, 68, 0.15);
-  color: #991b1b;
-  border: 1px solid #fecaca;
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .btn-alert:hover {
-  background: rgba(239, 68, 68, 0.2);
+  background: rgba(239, 68, 68, 0.22);
 }
 
 .no-data {
@@ -352,14 +352,14 @@
   text-align: center;
   padding: 2rem;
   font-size: 1.1rem;
-  color: #6b7280;
+  color: var(--text-muted);
 }
 
 .error-message {
-  background: rgba(239, 68, 68, 0.15);
-  color: #991b1b;
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
   border-radius: 8px;
-  border: 1px solid #fecaca;
+  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 @media (max-width: 768px) {
@@ -412,9 +412,9 @@
 .fuel-modal-details, .fuel-modal-steps {
   margin-top: 16px; padding: 14px;
   background: rgba(249, 115, 22, 0.1); border-left: 3px solid #f97316;
-  border-radius: 6px; color: #7c2d12; font-size: 13px; line-height: 1.55;
+  border-radius: 6px; color: var(--text-primary); font-size: 13px; line-height: 1.55;
 }
-.fuel-modal-steps { background: rgba(59, 130, 246, 0.1); border-left-color: #3b82f6; color: #1e3a8a; }
+.fuel-modal-steps { background: rgba(59, 130, 246, 0.1); border-left-color: #3b82f6; }
 .fuel-modal-details p { margin: 6px 0 0; }
 .fuel-modal-steps ol { margin: 8px 0 0 18px; padding: 0; }
 .fuel-modal-steps li { margin-bottom: 4px; }

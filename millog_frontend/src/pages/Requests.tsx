@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useEffect, useState, useMemo, useRef } from 'react'
 import { api, type SupplyRequest, type Resource, type Vehicle, type Warehouse, type User, type Unit, type VehicleBin, type RequestItem } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
 import { usePermissions } from '../hooks/usePermissions'
 import { PaywallBadge } from '../components/FeatureGate'
 import toast from 'react-hot-toast'
 import Pagination from '../components/Pagination'
+import SearchableSelect from '../components/SearchableSelect'
 import './Requests.css'
 
 const APPROVAL_MATRIX: Record<string, string[]> = {
@@ -35,7 +36,6 @@ export default function Requests() {
   const [requests, setRequests] = useState<SupplyRequest[]>([])
   const [resources, setResources] = useState<Resource[]>([])
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
-  const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [units, setUnits] = useState<Unit[]>([]) 
   
@@ -66,40 +66,45 @@ export default function Requests() {
     priority: 'NORMAL'
   })
 
+  // Окремий стейт для авто у модалці ручного рейсу — щоб оновлення списку авто
+  // не перерендерювало всю велику сторінку із заявками.
+  const [dispatchVehicles, setDispatchVehicles] = useState<Vehicle[]>([])
+  const [dispatchVehiclesLoading, setDispatchVehiclesLoading] = useState(false)
+  // Ref на актуальний масив warehouses, щоб useEffect нижче міг читати
+  // свіжі дані без warehouses у deps (інакше loadData() щоразу міняє посилання
+  // і ефект перезапускається, що й спричиняє «миготіння» модалки).
+  const warehousesRef = useRef<Warehouse[]>([])
+
   useEffect(() => {
     if (dispatchForm.from_warehouse_id && dispatchForm.to_warehouse_id) {
-      
-      const fromWh = warehouses.find(w => String(w.id) === String(dispatchForm.from_warehouse_id));
-      const toWh = warehouses.find(w => String(w.id) === String(dispatchForm.to_warehouse_id));
-
-      if (fromWh?.unit_id && toWh?.unit_id) {
-        api.vehicles.getAvailableForRoute(fromWh.unit_id, toWh.unit_id)
-          .then(data => {
-            // 🔥 ГОЛОВНИЙ ФІКС: Якщо бекенд прислав null, робимо з нього порожній масив
+      setDispatchVehiclesLoading(true)
+      api.vehicles.getAvailableForRoute(dispatchForm.from_warehouse_id, dispatchForm.to_warehouse_id)
+        .then(data => {
             const safeData = Array.isArray(data) ? data : [];
-            
-            setVehicles(safeData);
-            
+            setDispatchVehicles(safeData);
             if (dispatchForm.vehicle_id && !safeData.find(v => String(v.id) === String(dispatchForm.vehicle_id))) {
               setDispatchForm(prev => ({ ...prev, vehicle_id: '' }));
             }
           })
           .catch(err => {
             console.error("Помилка завантаження авто:", err);
-          });
-      } else {
-        setVehicles([]);
-      }
+          })
+          .finally(() => setDispatchVehiclesLoading(false));
     } else {
-      setVehicles([]);
+      setDispatchVehicles([]);
     }
-  }, [dispatchForm.from_warehouse_id, dispatchForm.to_warehouse_id, warehouses]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatchForm.from_warehouse_id, dispatchForm.to_warehouse_id]);
   // --- СТЕЙТИ ДЛЯ SMART РОЗПОДІЛУ (AI) ---
   const [showSmartPreview, setShowSmartPreview] = useState(false)
   const [smartRoutes, setSmartRoutes] = useState<VehicleBin[]>([])
   const [unassignedItems, setUnassignedItems] = useState<RequestItem[]>([])
-  // Склад-відправник для Smart Розподілу (обирається перед підтвердженням).
+  // Склад-відправник для Smart Розподілу (обирається ДО запуску алгоритму).
   const [smartFromWarehouseId, setSmartFromWarehouseId] = useState('')
+  // Чи вже запустили розрахунок після вибору складу
+  const [smartPreviewCalculated, setSmartPreviewCalculated] = useState(false)
+  const [smartPreviewLoading, setSmartPreviewLoading] = useState(false)
+  const [smartNoVehiclesMsg, setSmartNoVehiclesMsg] = useState('')
 
   const [rejectModalData, setRejectModalData] = useState<SupplyRequest | null>(null)
   const [rejectComment, setRejectComment] = useState('')
@@ -112,14 +117,12 @@ export default function Requests() {
   const hasSmartDispatch = perms.hasFeature('smart_dispatch')
 
   const loadData = async () => {
-    setLoading(true)
     try {
-      const [reqs, resRes, uniqueRes, whs, vehs, usersRes, unitsRes] = await Promise.all([
+      const [reqs, resRes, uniqueRes, whs, usersRes, unitsRes] = await Promise.all([
         api.requests.list().catch(() => []),
         api.inventory.listResources(undefined).catch(() => []),
         api.inventory.getUniqueResourceNames(undefined).catch(() => []), // Завантажуємо унікальні назви
         api.warehouses.list().catch(() => []),
-        api.vehicles.list().catch(() => []),
         api.users.getVisible().catch(() => []),
         api.units.list().catch(() => []) 
       ])
@@ -133,7 +136,7 @@ export default function Requests() {
       console.log('🔍 Unique resources count:', Array.isArray(uniqueRes) ? uniqueRes.length : 0)
       const whsArray = Array.isArray(whs) ? whs : []
       setWarehouses(whsArray)
-      setVehicles(Array.isArray(vehs) ? vehs : [])
+      warehousesRef.current = whsArray  // оновлюємо ref синхронно зі стейтом
       setUsers(Array.isArray(usersRes) ? usersRes : [])
       setUnits(Array.isArray(unitsRes) ? unitsRes : [])
       
@@ -201,51 +204,13 @@ export default function Requests() {
     }, 0)
   }, [selectedRequestsDetails, resources])
 
-  const selectedVehicle = vehicles.find(v => v.id === dispatchForm.vehicle_id)
+  const selectedVehicle = dispatchVehicles.find(v => v.id === dispatchForm.vehicle_id)
   const isOverweight = selectedVehicle ? currentTotalWeight > selectedVehicle.capacity_kg : false
   const fillPercentage = selectedVehicle ? Math.min(100, (currentTotalWeight / selectedVehicle.capacity_kg) * 100) : 0
   let barStatusClass = fillPercentage >= 100 ? 'bar-critical' : fillPercentage > 80 ? 'bar-warning' : 'bar-safe' 
 
   const allowedSourceWarehouses = useMemo(() => {
-    if (!dispatchForm.to_warehouse_id || units.length === 0) return [];
-    const targetWarehouse = warehouses.find(w => w.id === dispatchForm.to_warehouse_id);
-    if (!targetWarehouse) return [];
-    const targetUnit = units.find(u => u.id === targetWarehouse.unit_id);
-    if (!targetUnit) return [];
-
-    // Для ADMIN / REGION_DIRECTOR знімаємо обмеження "тільки ancestors у ієрархії":
-    // вони логістично бачать усю мережу і можуть забирати з будь-якого складу
-    // (головне — щоб там було достатньо потрібних ресурсів).
-    const isCrossUnitOperator =
-      user?.role === 'ADMIN' || user?.role === 'REGION_DIRECTOR' || user?.role === 'REGION_LOGISTICIAN';
-
-    const allowedUnitIds = new Set<number>();
-    allowedUnitIds.add(targetUnit.id);
-
-    // Збираємо предків (вгору по ієрархії)
-    let currentParentId = targetUnit.parent_id;
-    let depth = 0;
-    while (currentParentId && depth < 20) {
-      allowedUnitIds.add(currentParentId);
-      const parentNode = units.find(u => u.id === currentParentId);
-      currentParentId = parentNode?.parent_id;
-      depth++;
-    }
-
-    // Збираємо нащадків (вниз по ієрархії) для підтримки UPSTREAM рейсів
-    const collectDescendants = (parentId: number, maxDepth = 20, currentDepth = 0) => {
-      if (currentDepth >= maxDepth) return;
-      const children = units.filter(u => u.parent_id === parentId);
-      children.forEach(child => {
-        allowedUnitIds.add(child.id);
-        collectDescendants(child.id, maxDepth, currentDepth + 1);
-      });
-    };
-    collectDescendants(targetUnit.id);
-
-    const hierarchicallyAllowed = warehouses.filter(w =>
-      (isCrossUnitOperator || allowedUnitIds.has(w.unit_id)) && w.id !== dispatchForm.to_warehouse_id
-    );
+    if (!dispatchForm.to_warehouse_id) return [];
 
     // Збираємо список необхідних ресурсів з обраних заявок
     const requiredItems = selectedRequestsDetails.reduce((acc, req) => {
@@ -256,8 +221,12 @@ export default function Requests() {
       return acc;
     }, {} as Record<string, number>);
 
-    // Фільтруємо склади - показуємо тільки ті, де є ВСІ потрібні ресурси у достатній кількості
-    return hierarchicallyAllowed.filter(w => {
+    // Показуємо будь-який склад (крім складу-призначення),
+    // де є ВСІ потрібні ресурси у достатній кількості.
+    // Ієрархічного обмеження немає: ресурс може фізично знаходитись
+    // в будь-якому складі незалежно від гілки організаційного дерева.
+    return warehouses.filter(w => {
+      if (w.id === dispatchForm.to_warehouse_id) return false;
       for (const [name, neededQty] of Object.entries(requiredItems)) {
         const availableQty = resources
           .filter(r => r.warehouse_id === w.id && r.name === name)
@@ -266,7 +235,7 @@ export default function Requests() {
       }
       return true;
     });
-  }, [dispatchForm.to_warehouse_id, warehouses, units, selectedRequestsDetails, resources, user?.role]);
+  }, [dispatchForm.to_warehouse_id, warehouses, selectedRequestsDetails, resources]);
 
   const canApproveThis = useMemo(() => (r: SupplyRequest) => {
   if (!user) return false;
@@ -314,6 +283,16 @@ export default function Requests() {
     if (!selectedVehicle) return toast.error('Оберіть транспорт!')
     if (!dispatchForm.from_warehouse_id) return toast.error('Оберіть склад відправник!')
     if (isOverweight) return toast.error(`Перевантаження! Максимум ${selectedVehicle.capacity_kg} кг`)
+
+    // Перевірка пального
+    const MIN_FUEL_LITERS = 5;
+    const vehicleFuel = selectedVehicle.current_fuel_liters ?? 0;
+    if (vehicleFuel < MIN_FUEL_LITERS) {
+      return toast.error(
+        `⛽ Неможливо відправити рейс! Машина "${selectedVehicle.brand} (${selectedVehicle.plate_number})" має лише ${vehicleFuel.toFixed(1)} л пального. Заправте мінімум ${MIN_FUEL_LITERS} л перед рейсом.`,
+        { duration: 7000 }
+      );
+    }
 
     const toastId = 'dispatch_toast'
     toast.loading('Формуємо збірний рейс...', { id: toastId })
@@ -375,25 +354,43 @@ export default function Requests() {
       );
     }
 
+    // Синхронізуємо to_warehouse_id щоб allowedSourceWarehouses працював у модалці.
+    const commonTarget = Array.from(targets)[0] || '';
+    setDispatchForm(prev => ({ ...prev, to_warehouse_id: commonTarget }));
+    setSmartFromWarehouseId('');
+    setSmartRoutes([]);
+    setUnassignedItems([]);
+    setSmartPreviewCalculated(false);
+    setSmartNoVehiclesMsg('');
+    setShowSmartPreview(true);
+  };
+
+  // Запускається після того як користувач обрав склад-відправник у Smart модалці
+  const runSmartCalculation = async (overrideFromId?: string) => {
+    const fromId = overrideFromId ?? smartFromWarehouseId;
+    if (!fromId) return toast.error('Оберіть склад відправник!');
+
+    setSmartPreviewLoading(true);
+    setSmartNoVehiclesMsg('');
     const toastId = toast.loading('🧠 Алгоритм First-Fit Decreasing аналізує вантаж...');
-    
+
     try {
-      const data = await api.inventory.smartDispatchPreview(Array.from(selectedReqIds));
-      
+      const data = await api.inventory.smartDispatchPreview(Array.from(selectedReqIds), fromId);
+
       setSmartRoutes(data.routes || []);
       setUnassignedItems(data.unassigned || []);
+      setSmartPreviewCalculated(true);
 
-      // Синхронізуємо to_warehouse_id у загальній формі, щоб мемоізований
-      // allowedSourceWarehouses працював і для модалки Smart Розподілу.
-      const commonTarget = Array.from(targets)[0] || '';
-      setDispatchForm(prev => ({ ...prev, to_warehouse_id: commonTarget }));
-      setSmartFromWarehouseId('');
-
-      setShowSmartPreview(true);
-      
       toast.success('Оптимальний розподіл знайдено!', { id: toastId });
     } catch (error: any) {
-      toast.error(error.message || 'Не вдалося прорахувати маршрути', { id: toastId });
+      const msg = error.message || 'Не вдалося прорахувати маршрути';
+      setSmartNoVehiclesMsg(msg);
+      setSmartRoutes([]);
+      setUnassignedItems([]);
+      setSmartPreviewCalculated(true);
+      toast.dismiss(toastId);
+    } finally {
+      setSmartPreviewLoading(false);
     }
   };
 
@@ -404,6 +401,16 @@ export default function Requests() {
     }
     if (smartRoutes.length === 0) {
       return toast.error('Немає маршрутів для відправки.');
+    }
+
+    // Перевірка пального: жодна машина не повинна мати < 5л
+    const MIN_FUEL_LITERS = 5;
+    const emptyVehicles = smartRoutes.filter(r => (r.fuel_liters ?? 0) < MIN_FUEL_LITERS);
+    if (emptyVehicles.length > 0) {
+      return toast.error(
+        `⛽ Неможливо відправити рейси! Машини не мають достатньо пального (потрібно мінімум ${MIN_FUEL_LITERS} л): ${emptyVehicles.map(r => r.name).join(', ')}`,
+        { duration: 7000 }
+      );
     }
 
     const toastId = toast.loading('🚀 Формуємо серію рейсів...');
@@ -488,7 +495,8 @@ export default function Requests() {
   const statusLabel: Record<string, string> = { 
     PENDING: 'Очікує', 
     APPROVED: 'Затверджено', 
-    DISPATCHED: 'В дорозі', 
+    LOADING: 'Завантажується',
+    DISPATCHED: 'В дорозі',
     REJECTED: 'Відхилено', 
     COMPLETED: 'Виконано', 
     OPEN: 'Відкрито',
@@ -496,8 +504,11 @@ export default function Requests() {
   }
   
   const availableVehicles = useMemo(() => {
-    return vehicles.filter(v => v.status === 'ACTIVE' && (v.type === 'VAN' || v.type === 'TRUCK' || v.type === 'PICKUP'))
-  }, [vehicles])
+    // Фільтруємо авто зі списку маршруту (dispatchVehicles), що повернув бекенд.
+    // Бекенд вже повертає тільки ACTIVE авто цього маршруту, але фільтруємо
+    // ще раз по типу кузова для надійності.
+    return dispatchVehicles.filter(v => v.status === 'ACTIVE' && (v.type === 'VAN' || v.type === 'TRUCK' || v.type === 'PICKUP'))
+  }, [dispatchVehicles])
 
   if (loading) return <div className="page-loading"><div className="spinner" /></div>
 
@@ -510,7 +521,21 @@ export default function Requests() {
   return (
     <div className="requests-page">
       
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', paddingTop: '16px', flexWrap: 'wrap', gap: '16px' }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '16px',
+        position: 'sticky',
+        top: '-2rem',
+        zIndex: 100,
+        backgroundColor: 'var(--bg-body, #1a1a2e)',
+        padding: 'calc(2rem + 16px) 0 12px 0',
+        margin: '-2rem 0 8px 0',
+        borderBottom: '1px solid var(--border-color, rgba(255,255,255,0.08))',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.6)',
+      }}>
         <div>
           <h1 style={{ margin: '0 0 6px 0', fontSize: '1.75rem', fontWeight: 'bold', color: 'var(--text-bright)' }}>
             Заявки на постачання
@@ -589,6 +614,7 @@ export default function Requests() {
             <option value="ALL">Всі статуси</option>
             <option value="PENDING">⏳ Очікують погодження</option>
             <option value="APPROVED">📦 Затверджені (Очікують логістику)</option>
+            <option value="LOADING">🔄 Завантажуються (Рейс сформовано)</option>
             <option value="DISPATCHED">🚛 В дорозі (Прямують на склад)</option>
             <option value="COMPLETED">✅ Доставлені на склад</option>
             <option value="REJECTED">❌ Відхилені логістом</option>
@@ -609,94 +635,140 @@ export default function Requests() {
       {showSmartPreview && (
         <div className="modal-overlay" onClick={() => setShowSmartPreview(false)}>
           <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '24px' }}>
-              <div style={{ fontSize: '2.5rem', background: 'rgba(139, 92, 246, 0.12)', padding: '10px', borderRadius: '12px' }}>🧠</div>
-              <div>
-                <h3 className="modal-title" style={{ margin: 0, fontSize: '1.4rem' }}>Інтелектуальна маршрутизація</h3>
-                <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: '13px' }}>
-                  Алгоритм оптимального пакування (First-Fit Decreasing) розподілив вантаж
-                </p>
-              </div>
+            <div style={{ marginBottom: '20px' }}>
+              <h3 className="modal-title" style={{ margin: '0 0 4px 0' }}>✨ Інтелектуальна маршрутизація</h3>
+              <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '13px' }}>
+                Алгоритм First-Fit Decreasing підбере машини зі складу відправника або отримувача
+              </p>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '30px', maxHeight: '50vh', overflowY: 'auto', paddingRight: '5px' }}>
-              {smartRoutes.map((route, idx) => {
-                const fillPercentage = Math.min(100, (route.used_weight / route.max_weight) * 100);
-                const isOverweight = fillPercentage >= 100;
-
-                return (
-                  <div key={idx} className="smart-route-card">
-                    <div className="smart-route-header">
-                      <strong style={{ color: 'var(--text-bright)', fontSize: '1.1rem' }}>🚛 {route.name}</strong>
-                      <span className={`badge ${isOverweight ? 'badge-critical' : 'badge-success'}`}>
-                        Завантажено: {Math.round(fillPercentage)}%
-                      </span>
-                    </div>
-                    
-                    {/* Прогрес-бар */}
-                    <div className="smart-route-progress-bg">
-                      <div 
-                        className={`smart-route-progress-fill ${isOverweight ? 'bg-red' : 'bg-purple'}`} 
-                        style={{ width: `${fillPercentage}%` }}
-                      ></div>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                      <span>0 кг</span>
-                      <span>{route.used_weight.toFixed(1)} / {route.max_weight} кг</span>
-                    </div>
-
-                    <ul className="smart-route-items">
-                      {route.items.map((item: any) => (
-                        <li key={item.id}>📦 {item.name} <span className="smart-item-weight">— {item.weight_kg} кг</span></li>
-                      ))}
-                    </ul>
-                  </div>
-                )
-              })}
-
-              {unassignedItems.length > 0 && (
-                <div className="smart-unassigned-card">
-                  <strong style={{ color: '#b91c1c', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    ⚠️ Не вистачило вільних машин для:
-                  </strong>
-                  <ul className="smart-route-items mt-2">
-                    {unassignedItems.map((item: any) => (
-                      <li key={item.id} style={{ color: '#991b1b' }}>
-                        {item.name} <span className="smart-item-weight" style={{ color: '#b91c1c' }}>({item.weight_kg} кг)</span>
-                      </li>
-                    ))}
-                  </ul>
+            {/* КРОК 1: Оберіть склад-відправник — розрахунок запускається автоматично */}
+            <div className="form-group" style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text)', marginBottom: '6px' }}>
+                📦 Склад-відправник <span className="required">*</span>
+              </label>
+              <SearchableSelect
+                options={allowedSourceWarehouses.map(w => {
+                  const u = units.find(unit => unit.id === w.unit_id);
+                  return { value: w.id, label: `${w.name}${u ? ` (${u.name})` : ''}` };
+                })}
+                value={smartFromWarehouseId}
+                onChange={val => {
+                  setSmartFromWarehouseId(val);
+                  setSmartPreviewCalculated(false);
+                  setSmartRoutes([]);
+                  setUnassignedItems([]);
+                  setSmartNoVehiclesMsg('');
+                  // Автоматично запускаємо розрахунок після вибору складу
+                  if (val) {
+                    setTimeout(() => runSmartCalculation(val), 0);
+                  }
+                }}
+                placeholder="Оберіть склад відправника..."
+                searchPlaceholder="Пошук складу..."
+              />
+              {allowedSourceWarehouses.length === 0 && (
+                <span className="error-text" style={{ marginTop: '4px' }}>
+                  Немає доступних складів для цих заявок!
+                </span>
+              )}
+              {smartPreviewLoading && (
+                <div style={{ marginTop: '8px', fontSize: '13px', color: 'var(--text-muted)' }}>
+                  ⏳ Алгоритм First-Fit Decreasing аналізує вантаж...
                 </div>
               )}
             </div>
 
-            {/* Вибір складу-відправника для всієї серії рейсів */}
-            <div className="form-group" style={{ marginBottom: '16px' }}>
-              <label style={{ fontWeight: 600 }}>📦 Склад-відправник (спільний для всіх рейсів)</label>
-              <select
-                className="erp-input"
-                value={smartFromWarehouseId}
-                onChange={e => setSmartFromWarehouseId(e.target.value)}
-                required
-              >
-                <option value="" disabled>Оберіть склад...</option>
-                {allowedSourceWarehouses.map(w => {
-                  const u = units.find(unit => unit.id === w.unit_id);
-                  return <option key={w.id} value={w.id}>{w.name}{u ? ` (${u.name})` : ''}</option>
-                })}
-              </select>
-              {allowedSourceWarehouses.length === 0 && (
-                <span className="error-text" style={{ marginTop: '4px' }}>
-                  Немає доступних складів з достатньою кількістю майна для цих заявок!
-                </span>
-              )}
-            </div>
+            {/* КРОК 2: Результати розрахунку */}
+            {smartPreviewCalculated && (
+              <>
+                {smartNoVehiclesMsg ? (
+                  <div style={{ padding: '16px', backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', marginBottom: '16px' }}>
+                    <strong style={{ color: '#ef4444' }}>⚠️ Немає доступного транспорту</strong>
+                    <div style={{ marginTop: '6px', fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                      {smartNoVehiclesMsg}. Перевірте наявність транспорту на сторінці "Транспорт" або оберіть інший склад відправника.
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px', maxHeight: '45vh', overflowY: 'auto', paddingRight: '5px' }}>
+                    {smartRoutes.map((route, idx) => {
+                      const fillPercentage = Math.min(100, (route.used_weight / route.max_weight) * 100);
+                      const isOverweight = fillPercentage >= 100;
 
-            <div className="modal-actions">
+                      return (
+                        <div key={idx} className="smart-route-card">
+                          <div className="smart-route-header">
+                            <strong style={{ color: 'var(--text-bright)', fontSize: '1.1rem' }}>🚛 {route.name}</strong>
+                            <span className={`badge ${isOverweight ? 'badge-critical' : 'badge-success'}`}>
+                              Завантажено: {Math.round(fillPercentage)}%
+                            </span>
+                          </div>
+                          <div className="smart-route-progress-bg">
+                            <div
+                              className={`smart-route-progress-fill ${isOverweight ? 'bg-red' : 'bg-purple'}`}
+                              style={{ width: `${fillPercentage}%` }}
+                            />
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px' }}>
+                            <span>0 кг</span>
+                            <span>{route.used_weight.toFixed(1)} / {route.max_weight} кг</span>
+                          </div>
+                          {/* ⛽ Рядок пального */}
+                          {route.fuel_norm != null && route.tank_capacity != null && (
+                            (() => {
+                              const fuel = route.fuel_liters ?? 0;
+                              const tank = route.tank_capacity ?? 1;
+                              const norm = route.fuel_norm ?? 0;
+                              const fuelPct = Math.min(100, Math.round((fuel / tank) * 100));
+                              const maxRange = norm > 0 ? Math.floor(fuel / norm * 100) : null;
+                              const isFuelLow = fuelPct < 20;
+                              return (
+                                <div style={{ marginBottom: '10px', padding: '8px', background: isFuelLow ? 'rgba(239,68,68,0.08)' : 'rgba(34,197,94,0.07)', borderRadius: '6px', fontSize: '12px', border: `1px solid ${isFuelLow ? 'rgba(239,68,68,0.25)' : 'rgba(34,197,94,0.2)'}` }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                                    <span style={{ color: isFuelLow ? '#ef4444' : 'var(--text)', fontWeight: 600 }}>⛽ {fuel.toFixed(1)} / {tank} л</span>
+                                    {maxRange !== null && <span style={{ color: 'var(--text-muted)' }}>~{maxRange} км запас</span>}
+                                  </div>
+                                  <div style={{ height: '5px', background: 'var(--border)', borderRadius: '3px', overflow: 'hidden' }}>
+                                    <div style={{ height: '100%', width: `${fuelPct}%`, background: isFuelLow ? '#ef4444' : '#22c55e', borderRadius: '3px' }} />
+                                  </div>
+                                  {isFuelLow && <div style={{ color: '#ef4444', marginTop: '4px' }}>⚠️ Потребує заправки перед рейсом!</div>}
+                                </div>
+                              );
+                            })()
+                          )}
+                          <ul className="smart-route-items">
+                            {route.items.map((item: any) => (
+                              <li key={item.id}>📦 {item.name} <span className="smart-item-weight">— {item.weight_kg} кг</span></li>
+                            ))}
+                          </ul>
+                        </div>
+                      )
+                    })}
+
+                    {unassignedItems.length > 0 && (
+                      <div className="smart-unassigned-card">
+                        <strong style={{ color: '#b91c1c', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          ⚠️ Не вистачило вільних машин для:
+                        </strong>
+                        <ul className="smart-route-items mt-2">
+                          {unassignedItems.map((item: any) => (
+                            <li key={item.id} style={{ color: '#991b1b' }}>
+                              {item.name} <span className="smart-item-weight" style={{ color: '#b91c1c' }}>({item.weight_kg} кг)</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+
+            <div className="modal-actions" style={{ justifyContent: 'flex-end' }}>
               <button type="button" className="btn btn-secondary" onClick={() => setShowSmartPreview(false)}>Скасувати</button>
-              <button 
-                type="button" 
-                className="btn btn-success" 
+              <button
+                type="button"
+                className="btn btn-success"
                 onClick={confirmSmartRoutes}
                 disabled={smartRoutes.length === 0 || !smartFromWarehouseId}
               >
@@ -774,31 +846,45 @@ export default function Requests() {
               <div className="summary-total">Загальна розрахункова вага: {currentTotalWeight.toFixed(1)} кг</div>
             </div>
             <form onSubmit={handleDispatchSubmit}>
-              <div className="form-row-2 gap-16 mb-16">
-                <div className="form-group flex-1 mb-0">
+              <div className="dispatch-row">
+                <div className="dispatch-col">
                   <label>Звідки відправляємо <span className="required">*</span></label>
-                  <select 
-                    className="erp-input" 
-                    value={dispatchForm.from_warehouse_id} 
-                    onChange={(e) => setDispatchForm(prev => ({ ...prev, from_warehouse_id: e.target.value }))}
-                    required
-                  >
-                    <option value="">Оберіть склад-відправника</option>
-                    {allowedSourceWarehouses.map(w => {
+                  <SearchableSelect
+                    options={allowedSourceWarehouses.map(w => {
                       const u = units.find(unit => unit.id === w.unit_id);
-                      return <option key={w.id} value={w.id}>{w.name} ({u?.name})</option>
+                      return { value: w.id, label: `${w.name}${u ? ` (${u.name})` : ''}` };
                     })}
-                  </select>
-                  <div style={{ marginTop: '4px', fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                    � Оберіть склад, з якого відправляти ресурси
-                  </div>
+                    value={dispatchForm.from_warehouse_id}
+                    onChange={(val) => {
+                      setDispatchVehiclesLoading(true);
+                      setDispatchVehicles([]);
+                      setDispatchForm(prev => ({ ...prev, from_warehouse_id: val, vehicle_id: '' }));
+                    }}
+                    placeholder="Оберіть склад-відправника"
+                    searchPlaceholder="Пошук складу..."
+                  />
                 </div>
-                <div className="form-group flex-1 mb-0">
-                  <label>Куди (Заблоковано системою)</label>
-                  <select className="erp-input" value={dispatchForm.to_warehouse_id} disabled style={{ backgroundColor: 'var(--bg-hover)', color: 'var(--text)', cursor: 'not-allowed' }}>
-                    {warehouses.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-                  </select>
+                <div className="dispatch-col">
+                  <label>🔒 Куди (фіксований системою)</label>
+                  <input
+                    type="text"
+                    className="dispatch-locked-field"
+                    value={warehouses.find(w => w.id === dispatchForm.to_warehouse_id)?.name || '—'}
+                    disabled
+                    readOnly
+                  />
                 </div>
+              </div>
+              <div className="form-group mb-8">
+                <label>Пріоритет рейсу</label>
+                <select
+                  className="erp-input"
+                  value={dispatchForm.priority}
+                  onChange={e => setDispatchForm({...dispatchForm, priority: e.target.value})}
+                >
+                  <option value="NORMAL">🟢 Звичайний (Плановий)</option>
+                  <option value="URGENT">🔴 Терміновий</option>
+                </select>
               </div>
               <div className="form-group mb-8">
                 <label>Вільний Транспорт</label>
@@ -807,16 +893,18 @@ export default function Requests() {
                   value={dispatchForm.vehicle_id} 
                   onChange={e => setDispatchForm({...dispatchForm, vehicle_id: e.target.value})} 
                   required
-                  disabled={!dispatchForm.from_warehouse_id || !dispatchForm.to_warehouse_id}
+                  disabled={!dispatchForm.from_warehouse_id || !dispatchForm.to_warehouse_id || dispatchVehiclesLoading}
                 >
                   <option value="" disabled>
-                    {!dispatchForm.from_warehouse_id || !dispatchForm.to_warehouse_id 
-                      ? "Спочатку оберіть склади відправки та отримання" 
-                      : "Оберіть транспорт..."}
+                    {dispatchVehiclesLoading
+                      ? "Завантаження транспорту..."
+                      : !dispatchForm.from_warehouse_id || !dispatchForm.to_warehouse_id 
+                        ? "Спочатку оберіть склади відправки та отримання" 
+                        : "Оберіть транспорт..."}
                   </option>
                   {availableVehicles.map(v => <option key={v.id} value={v.id}>{v.brand} ({v.plate_number}) - Макс {v.capacity_kg} кг</option>)}
                 </select>
-                {dispatchForm.from_warehouse_id && dispatchForm.to_warehouse_id && availableVehicles.length === 0 && (
+                {!dispatchVehiclesLoading && dispatchForm.from_warehouse_id && dispatchForm.to_warehouse_id && availableVehicles.length === 0 && (
                   <div style={{ marginTop: '8px', padding: '12px', backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '6px', fontSize: '13px', color: '#ef4444' }}>
                     <strong>⚠️ Немає доступного транспорту</strong>
                     <div style={{ marginTop: '4px', fontSize: '12px', lineHeight: '1.4' }}>
@@ -830,6 +918,40 @@ export default function Requests() {
                   <div className="capacity-header"><span className="capacity-label">Завантаженість кузова</span><span className={`capacity-value ${isOverweight ? 'text-critical' : 'text-normal'}`}>{fillPercentage.toFixed(1)}% ({currentTotalWeight.toFixed(1)} / {selectedVehicle.capacity_kg} кг)</span></div>
                   <div className="progress-bg"><div className={`progress-fill ${barStatusClass}`} style={{ width: `${fillPercentage}%` }} /></div>
                 </div>
+              )}
+              {/* ⛽ Індикатор пального */}
+              {selectedVehicle && (
+                (() => {
+                  const fuel = selectedVehicle.current_fuel_liters ?? 0;
+                  const norm = selectedVehicle.fuel_norm ?? 0;
+                  const tank = selectedVehicle.tank_capacity ?? 1;
+                  const maxRangeKm = norm > 0 ? Math.floor(fuel / norm * 100) : null;
+                  const fuelPct = Math.min(100, Math.round((fuel / tank) * 100));
+                  const isFuelLow = fuelPct < 20;
+                  return (
+                    <div style={{ marginTop: '12px', padding: '12px', backgroundColor: isFuelLow ? 'rgba(239,68,68,0.08)' : 'rgba(34,197,94,0.07)', border: `1px solid ${isFuelLow ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.25)'}`, borderRadius: '8px', fontSize: '13px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <span style={{ fontWeight: 600, color: isFuelLow ? '#ef4444' : 'var(--text)' }}>⛽ Пальне: {fuel.toFixed(1)} / {tank} л</span>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{norm} л/100 км</span>
+                      </div>
+                      <div style={{ height: '6px', background: 'var(--border)', borderRadius: '4px', overflow: 'hidden', marginBottom: '6px' }}>
+                        <div style={{ height: '100%', width: `${fuelPct}%`, background: isFuelLow ? '#ef4444' : '#22c55e', borderRadius: '4px', transition: 'width 0.3s' }} />
+                      </div>
+                      {maxRangeKm !== null && (
+                        <div style={{ color: isFuelLow ? '#ef4444' : 'var(--text-muted)', fontSize: '12px' }}>
+                          {isFuelLow
+                            ? `⚠️ Мало пального! Запас ходу ~${maxRangeKm} км. Заправте перед рейсом.`
+                            : `🗺 Запас ходу ~${maxRangeKm} км`}
+                        </div>
+                      )}
+                      {fuel === 0 && (
+                        <div style={{ color: '#ef4444', fontWeight: 600, fontSize: '12px', marginTop: '4px' }}>
+                          🚫 Бак порожній! Рейс неможливий без заправки.
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()
               )}
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowDispatchModal(false)}>Скасувати</button>
@@ -911,7 +1033,7 @@ export default function Requests() {
                     )}
                   </td>
                   <td>
-                    <span className={`badge badge-${r.status === 'PENDING' ? 'warning' : r.status === 'APPROVED' ? 'success' : r.status === 'DISPATCHED' ? 'warning' : r.status === 'REJECTED' ? 'danger' : 'neutral'}`}>
+                    <span className={`badge badge-${r.status === 'PENDING' ? 'warning' : r.status === 'APPROVED' ? 'success' : r.status === 'LOADING' ? 'info' : r.status === 'DISPATCHED' ? 'warning' : r.status === 'REJECTED' ? 'danger' : 'neutral'}`}>
                       {statusLabel[r.status] || r.status}
                     </span>
                   </td>
@@ -944,6 +1066,8 @@ export default function Requests() {
                         </div>
                       ) : r.status === 'APPROVED' ? (
                         <span className="status-text-waiting">{isLocked ? '⛔ Інший напрямок' : 'Очікує логістику'}</span>
+                      ) : r.status === 'LOADING' ? (
+                        <span className="status-text-waiting" style={{ color: '#6366f1' }}>📦 Завантажується</span>
                       ) : r.status === 'DISPATCHED' ? (
                         <span className="status-text-waiting" style={{ color: '#d97706' }}>🚛 В дорозі</span>
                       ) : (
@@ -975,31 +1099,21 @@ export default function Requests() {
             <form onSubmit={handleCreate}>
               <div className="form-group">
                 <label>Ресурс <span className="required">*</span></label>
-                <select 
-                  className="erp-input" 
-                  value={newReq.resource_name} 
-                  onChange={(e) => {
-                    const selectedResource = uniqueResources.find(r => r.name === e.target.value);
-                    setNewReq({ 
-                      ...newReq, 
-                      resource_name: e.target.value,
+                <SearchableSelect
+                  options={uniqueResources.map(r => ({ value: r.name, label: r.name }))}
+                  value={newReq.resource_name}
+                  onChange={(val) => {
+                    const selectedResource = uniqueResources.find(r => r.name === val);
+                    setNewReq({
+                      ...newReq,
+                      resource_name: val,
                       resource_category_id: selectedResource?.category_id || '',
-                      target_warehouse_id: '' // Скидаємо склад при зміні ресурсу
-                    })
-                  }} 
-                  onClick={(e) => {
-                    console.log('Select clicked!', e);
-                    e.stopPropagation();
+                      target_warehouse_id: ''
+                    });
                   }}
-                  required
-                >
-                  {!newReq.resource_name && <option value="" disabled>Оберіть ресурс</option>}
-                  {uniqueResources.map((r, idx) => (
-                    <option key={idx} value={r.name}>
-                      {r.name}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Оберіть ресурс"
+                  searchPlaceholder="Пошук ресурсу..."
+                />
               </div>
               <div className="form-group">
                 <label>Кількість <span className="required">*</span></label>
@@ -1017,29 +1131,17 @@ export default function Requests() {
               </div>
               <div className="form-group">
                 <label>Куди доставити? <span className="required">*</span></label>
-                <select 
-                  className="erp-input" 
-                  value={newReq.target_warehouse_id} 
-                  onChange={(e) => setNewReq({ ...newReq, target_warehouse_id: e.target.value })} 
-                  onClick={(e) => {
-                    console.log('Warehouse select clicked!', e);
-                    e.stopPropagation();
-                  }}
-                  required
+                <SearchableSelect
+                  options={warehouses.map(w => {
+                    const u = units.find(unit => unit.id === w.unit_id);
+                    return { value: w.id, label: `${w.name}${u ? ` (${u.name})` : ''}` };
+                  })}
+                  value={newReq.target_warehouse_id}
+                  onChange={(val) => setNewReq({ ...newReq, target_warehouse_id: val })}
+                  placeholder={newReq.resource_name ? 'Оберіть склад призначення...' : 'Спочатку оберіть ресурс'}
+                  searchPlaceholder="Пошук складу..."
                   disabled={!newReq.resource_name}
-                >
-                  {!newReq.target_warehouse_id && <option value="" disabled>
-                    {newReq.resource_name ? 'Оберіть склад призначення...' : 'Спочатку оберіть ресурс'}
-                  </option>}
-                  {warehouses.map((w) => {
-                      const u = units.find(unit => unit.id === w.unit_id);
-                      return (
-                        <option key={w.id} value={w.id}>
-                          {w.name} {u ? `(${u.name})` : ''}
-                        </option>
-                      );
-                    })}
-                </select>
+                />
               </div>
 
               <div className="modal-actions">

@@ -94,10 +94,12 @@ TRUNCATE_TABLES = [
     "resources",
     "resource_categories",
     "warehouses",
+    "vehicles",
     "refresh_tokens",
     "invite_tokens",
     "users",
     "units",
+    "tenants",
 ]
 
 
@@ -128,9 +130,9 @@ class UserSpec:
     status: str = "ACTIVE"
 
 
-def ensure_unit(cur, parent_id: int | None, name: str, unit_type: str, tier: str) -> int:
+def ensure_unit(cur, parent_id: int | None, name: str, unit_type: str, tier: str, tenant_id: str) -> int:
     row = cur.execute(
-        "SELECT id FROM units WHERE name = %s AND unit_type = %s", (name, unit_type)
+        "SELECT id FROM units WHERE name = %s AND unit_type = %s AND tenant_id = %s", (name, unit_type, tenant_id)
     ).fetchone()
     if row:
         cur.execute(
@@ -139,17 +141,38 @@ def ensure_unit(cur, parent_id: int | None, name: str, unit_type: str, tier: str
         )
         return row["id"]
     row = cur.execute(
-        """INSERT INTO units (parent_id, name, unit_type, subscription_tier)
-           VALUES (%s, %s, %s, %s) RETURNING id""",
-        (parent_id, name, unit_type, tier),
+        """INSERT INTO units (parent_id, name, unit_type, subscription_tier, tenant_id)
+           VALUES (%s, %s, %s, %s, %s) RETURNING id""",
+        (parent_id, name, unit_type, tier, tenant_id),
     ).fetchone()
     return row["id"]
 
 
-def ensure_user(cur, spec: UserSpec, unit_ids: dict[str, int]) -> str:
+def ensure_tenant(cur, name: str, slug: str, tier: str, owner_email: str) -> str:
+    """Створює або оновлює tenant"""
+    row = cur.execute("SELECT id FROM tenants WHERE slug = %s", (slug,)).fetchone()
+    if row:
+        cur.execute(
+            """UPDATE tenants SET name=%s, subscription_tier=%s, owner_email=%s, 
+                                  subscription_expires_at=NOW() + INTERVAL '365 days',
+                                  is_active=TRUE, updated_at=NOW()
+               WHERE id=%s""",
+            (name, tier, owner_email, row["id"]),
+        )
+        return row["id"]
+    row = cur.execute(
+        """INSERT INTO tenants (name, slug, subscription_tier, owner_email, 
+                                subscription_expires_at, is_active)
+           VALUES (%s, %s, %s, %s, NOW() + INTERVAL '365 days', TRUE) RETURNING id""",
+        (name, slug, tier, owner_email),
+    ).fetchone()
+    return row["id"]
+
+
+def ensure_user(cur, spec: UserSpec, unit_ids: dict[str, int], tenant_id: str) -> str:
     username = spec.email.split("@")[0]
     unit_id = unit_ids.get(spec.unit_key) if spec.unit_key else None
-    row = cur.execute("SELECT id FROM users WHERE email = %s", (spec.email,)).fetchone()
+    row = cur.execute("SELECT id FROM users WHERE email = %s AND tenant_id = %s", (spec.email, tenant_id)).fetchone()
     if row:
         cur.execute(
             """UPDATE users SET full_name=%s, role=%s, status=%s, unit_id=%s,
@@ -159,38 +182,38 @@ def ensure_user(cur, spec: UserSpec, unit_ids: dict[str, int]) -> str:
         )
         return row["id"]
     row = cur.execute(
-        """INSERT INTO users (username, email, full_name, password_hash, role, status, unit_id)
-           VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id""",
-        (username, spec.email, spec.full_name, PASSWORD_HASH, spec.role, spec.status, unit_id),
+        """INSERT INTO users (username, email, full_name, password_hash, role, status, unit_id, tenant_id)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+        (username, spec.email, spec.full_name, PASSWORD_HASH, spec.role, spec.status, unit_id, tenant_id),
     ).fetchone()
     return row["id"]
 
 
-def ensure_category(cur, name: str, description: str) -> str:
+def ensure_category(cur, name: str, description: str, tenant_id: str) -> str:
     row = cur.execute(
-        "SELECT id FROM resource_categories WHERE name = %s", (name,)
+        "SELECT id FROM resource_categories WHERE name = %s AND tenant_id = %s", (name, tenant_id)
     ).fetchone()
     if row:
         return row["id"]
     row = cur.execute(
-        "INSERT INTO resource_categories (name, description) VALUES (%s, %s) RETURNING id",
-        (name, description),
+        "INSERT INTO resource_categories (name, description, tenant_id) VALUES (%s, %s, %s) RETURNING id",
+        (name, description, tenant_id),
     ).fetchone()
     return row["id"]
 
 
 def ensure_warehouse(
-    cur, unit_id: int, name: str, lat: float, lon: float, location_type: str = "STATIONARY"
+    cur, unit_id: int, name: str, lat: float, lon: float, tenant_id: str, location_type: str = "STATIONARY"
 ) -> str:
     row = cur.execute(
-        "SELECT id FROM warehouses WHERE name = %s AND unit_id = %s", (name, unit_id)
+        "SELECT id FROM warehouses WHERE name = %s AND unit_id = %s AND tenant_id = %s", (name, unit_id, tenant_id)
     ).fetchone()
     if row:
         return row["id"]
     row = cur.execute(
-        """INSERT INTO warehouses (unit_id, name, location_type, latitude, longitude)
-           VALUES (%s, %s, %s, %s, %s) RETURNING id""",
-        (unit_id, name, location_type, lat, lon),
+        """INSERT INTO warehouses (unit_id, name, location_type, latitude, longitude, tenant_id)
+           VALUES (%s, %s, %s, %s, %s, %s) RETURNING id""",
+        (unit_id, name, location_type, lat, lon, tenant_id),
     ).fetchone()
     return row["id"]
 
@@ -201,6 +224,7 @@ def insert_resource(
     category_id: str,
     unit_id: int,
     warehouse_id: str,
+    tenant_id: str,
     name: str,
     quantity: int,
     min_quantity: int = 5,
@@ -211,8 +235,8 @@ def insert_resource(
 ) -> str:
     # Перевірка по (name + warehouse_id) аби не дублювати
     row = cur.execute(
-        "SELECT id FROM resources WHERE name = %s AND warehouse_id = %s",
-        (name, warehouse_id),
+        "SELECT id FROM resources WHERE name = %s AND warehouse_id = %s AND tenant_id = %s",
+        (name, warehouse_id, tenant_id),
     ).fetchone()
     if row:
         cur.execute(
@@ -223,11 +247,11 @@ def insert_resource(
     row = cur.execute(
         """INSERT INTO resources
                (category_id, unit_id, warehouse_id, name, description, quantity,
-                unit_type, serial_number, condition, min_quantity, weight_kg)
-           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
+                unit_type, serial_number, condition, min_quantity, weight_kg, tenant_id)
+           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id""",
         (
             category_id, unit_id, warehouse_id, name, description, quantity,
-            unit_type, rnd_serial(), condition, min_quantity, weight_kg,
+            unit_type, rnd_serial(), condition, min_quantity, weight_kg, tenant_id,
         ),
     ).fetchone()
     return row["id"]
@@ -237,6 +261,7 @@ def ensure_vehicle(
     cur,
     *,
     plate: str,
+    tenant_id: str,
     brand: str,
     model: str,
     vtype: str,
@@ -245,15 +270,15 @@ def ensure_vehicle(
     norm: float,
     driver_id: str | None,
 ) -> str:
-    row = cur.execute("SELECT id FROM vehicles WHERE plate_number = %s", (plate,)).fetchone()
+    row = cur.execute("SELECT id FROM vehicles WHERE plate_number = %s AND tenant_id = %s", (plate, tenant_id)).fetchone()
     if row:
         return row["id"]
     row = cur.execute(
         """INSERT INTO vehicles
                (brand, model, plate_number, type, capacity_kg, status, driver_id,
-                tank_capacity, fuel_norm)
-           VALUES (%s, %s, %s, %s, %s, 'ACTIVE', %s, %s, %s) RETURNING id""",
-        (brand, model, plate, vtype, capacity_kg, driver_id, tank, norm),
+                tank_capacity, fuel_norm, tenant_id)
+           VALUES (%s, %s, %s, %s, %s, 'ACTIVE', %s, %s, %s, %s) RETURNING id""",
+        (brand, model, plate, vtype, capacity_kg, driver_id, tank, norm, tenant_id),
     ).fetchone()
     return row["id"]
 
@@ -370,21 +395,31 @@ def seed(conn: psycopg.Connection, reset: bool) -> None:
             print("→ Чищу БД…")
             reset_database(cur)
 
+        print("→ Створюю тенант організації…")
+        tenant_id = ensure_tenant(
+            cur, 
+            name="Omnilog Demo Organization",
+            slug="omnilog-demo",
+            tier="ENTERPRISE",  # Tenant-level tier
+            owner_email="admin@Omnilog.local"
+        )
+        print(f"   tenant_id: {tenant_id}")
+
         print("→ Створюю одиниці (units)…")
         unit_ids: dict[str, int] = {}
         for region in REGIONS:
-            rid = ensure_unit(cur, None, region["name"], "REGION", region["tier"])
+            rid = ensure_unit(cur, None, region["name"], "REGION", region["tier"], tenant_id)
             unit_ids[region["key"]] = rid
             for br in region["branches"]:
-                bid = ensure_unit(cur, rid, br["name"], "BRANCH", region["tier"])
+                bid = ensure_unit(cur, rid, br["name"], "BRANCH", region["tier"], tenant_id)
                 unit_ids[br["key"]] = bid
             if region.get("dept"):
                 d = region["dept"]
-                did = ensure_unit(cur, unit_ids[d["parent_key"]], d["name"], "DEPARTMENT", region["tier"])
+                did = ensure_unit(cur, unit_ids[d["parent_key"]], d["name"], "DEPARTMENT", region["tier"], tenant_id)
                 unit_ids[d["key"]] = did
             if region.get("team"):
                 t = region["team"]
-                tid = ensure_unit(cur, unit_ids[t["parent_key"]], t["name"], "TEAM", region["tier"])
+                tid = ensure_unit(cur, unit_ids[t["parent_key"]], t["name"], "TEAM", region["tier"], tenant_id)
                 unit_ids[t["key"]] = tid
         print(f"   створено/оновлено {len(unit_ids)} unit(s)")
 
@@ -439,11 +474,11 @@ def seed(conn: psycopg.Connection, reset: bool) -> None:
         ]
         user_ids: dict[str, str] = {}
         for spec in user_specs:
-            user_ids[spec.email] = ensure_user(cur, spec, unit_ids)
+            user_ids[spec.email] = ensure_user(cur, spec, unit_ids, tenant_id)
         print(f"   створено/оновлено {len(user_ids)} користувач(ів)")
 
         print("→ Створюю категорії ресурсів…")
-        cat_ids: dict[str, str] = {name: ensure_category(cur, name, desc) for name, desc in CATEGORIES}
+        cat_ids: dict[str, str] = {name: ensure_category(cur, name, desc, tenant_id) for name, desc in CATEGORIES}
 
         print("→ Створюю склади та ресурси…")
         warehouses_created: dict[str, str] = {}   # "region_key|name" -> wh_id
@@ -451,7 +486,7 @@ def seed(conn: psycopg.Connection, reset: bool) -> None:
         for region in REGIONS:
             reg_key = region["key"]
             for (unit_key, wh_name, lat, lon) in region["warehouses"]:
-                wh_id = ensure_warehouse(cur, unit_ids[unit_key], wh_name, lat, lon)
+                wh_id = ensure_warehouse(cur, unit_ids[unit_key], wh_name, lat, lon, tenant_id)
                 warehouses_created[f"{reg_key}|{wh_name}"] = wh_id
                 # ресурси
                 for i in range(region["resources_per_wh"]):
@@ -465,6 +500,7 @@ def seed(conn: psycopg.Connection, reset: bool) -> None:
                         category_id=cat_id,
                         unit_id=unit_ids[unit_key],
                         warehouse_id=wh_id,
+                        tenant_id=tenant_id,
                         name=name,
                         quantity=qty,
                         min_quantity=min_q,
@@ -496,34 +532,46 @@ def seed(conn: psycopg.Connection, reset: bool) -> None:
                 driver_pool = drivers_by_region.get(region["key"], [])
                 driver_id = random.choice(driver_pool) if driver_pool else None
                 vid = ensure_vehicle(
-                    cur, plate=rnd_plate(), brand=brand, model=f"{model} {random.randint(2018, 2024)}",
+                    cur, plate=rnd_plate(), tenant_id=tenant_id, brand=brand, model=f"{model} {random.randint(2018, 2024)}",
                     vtype=vtype, capacity_kg=cap, tank=tank, norm=norm, driver_id=driver_id,
                 )
                 ids.append(vid)
             vehicle_ids_by_region[region["key"]] = ids
 
-        # Записи про пальне (fuel_records) + одна аномалія
+        # Записи про пальне (fuel_records) + реалістичні аномалії
         fuel_inserted = 0
         for reg_key, veh_ids in vehicle_ids_by_region.items():
             for vid in veh_ids:
                 odometer = random.randint(30_000, 120_000)
+                # Нормальні заправки
                 for day in range(0, 30, random.choice([2, 3, 4])):
                     liters = round(random.uniform(25, 70), 2)
                     odometer += random.randint(150, 400)
                     created_at = datetime.now(timezone.utc) - timedelta(days=30 - day)
                     cur.execute(
-                        """INSERT INTO fuel_records (vehicle_id, liters, odometer_km, record_type, created_at)
-                           VALUES (%s, %s, %s, 'REFUEL', %s)""",
-                        (vid, liters, odometer, created_at),
+                        """INSERT INTO fuel_records (vehicle_id, liters, odometer_km, record_type, created_at, tenant_id)
+                           VALUES (%s, %s, %s, 'REFUEL', %s, %s)""",
+                        (vid, liters, odometer, created_at, tenant_id),
                     )
                     fuel_inserted += 1
-                # штучна аномалія
+                
+                # Аномалія 1: EXPENSE з надмірною витратою (триггер детектора)
+                # Для авто з нормою ~10 л/100км, дистанція 100км, витрата 25л = 25л/100км (250% норми)
+                odometer += 100
                 cur.execute(
                     """INSERT INTO fuel_records (vehicle_id, liters, odometer_km, record_type,
-                                                 created_at, is_anomaly, anomaly_reason)
-                       VALUES (%s, %s, %s, 'REFUEL', NOW() - INTERVAL '1 day', TRUE,
-                               'Аномальна витрата: у 2.3x перевищує норму')""",
-                    (vid, 180.5, odometer + 500),
+                                                 created_at, tenant_id)
+                       VALUES (%s, %s, %s, 'EXPENSE', NOW() - INTERVAL '2 days', %s)""",
+                    (vid, 25.0, odometer, tenant_id),
+                )
+                fuel_inserted += 1
+                
+                # Аномалія 2: EXPENSE без руху (одометр не змінився)
+                cur.execute(
+                    """INSERT INTO fuel_records (vehicle_id, liters, odometer_km, record_type,
+                                                 created_at, tenant_id)
+                       VALUES (%s, %s, %s, 'EXPENSE', NOW() - INTERVAL '1 day', %s)""",
+                    (vid, 15.0, odometer, tenant_id),  # той самий одометр = витрата без руху
                 )
                 fuel_inserted += 1
         print(f"   авто: {sum(len(v) for v in vehicle_ids_by_region.values())}, fuel_records: {fuel_inserted}")
@@ -566,13 +614,13 @@ def seed(conn: psycopg.Connection, reset: bool) -> None:
                 cur.execute(
                     """INSERT INTO supply_requests
                            (created_by, resource_id, quantity, status, approved_by, approved_at,
-                            comment, created_at)
+                            comment, created_at, tenant_id)
                        VALUES (%s, %s, %s, %s, %s, %s, %s,
-                               NOW() - INTERVAL '%s days')""",
+                               NOW() - INTERVAL '%s days', %s)""",
                     (user_ids[creator_email], res_id, random.randint(1, 20), status,
                      approved_by, approved_at,
                      random.choice(["Терміново", "Планова поставка", "Резерв", ""]),
-                     random.randint(1, 30)),
+                     random.randint(1, 30), tenant_id),
                 )
 
         print("→ Створюю волонтерські заявки (contractor_requests)…")
@@ -596,13 +644,13 @@ def seed(conn: psycopg.Connection, reset: bool) -> None:
                 cur.execute(
                     """INSERT INTO contractor_requests
                            (created_by, unit_id, title, description, status, taken_by, taken_at,
-                            completed_at, created_at)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW() - INTERVAL '%s days')""",
+                            completed_at, created_at, tenant_id)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, NOW() - INTERVAL '%s days', %s)""",
                     (user_ids[creator_email], unit_ids[reg_key],
                      random.choice(["Потрібен генератор 5 кВт", "Потрібні аптечки IFAK",
                                     "Потрібна доставка продуктів", "Ноутбуки (2 шт)"]),
                      "Тестова заявка, згенерована сідером.", status,
-                     taken_by, taken_at, completed_at, random.randint(1, 20)),
+                     taken_by, taken_at, completed_at, random.randint(1, 20), tenant_id),
                 )
 
         print("→ Додаю GPS-трекінг та геозони (PRO фіча — тільки для Заходу і Тест-ENT)…")
@@ -625,9 +673,9 @@ def seed(conn: psycopg.Connection, reset: bool) -> None:
                     ("Забороненa зона — полігон", 49.9000, 24.1000, 1000, "FORBIDDEN"),
                 ]:
                     cur.execute(
-                        """INSERT INTO geofences (unit_id, name, latitude, longitude, radius, type, active)
-                           VALUES (%s, %s, %s, %s, %s, %s, TRUE)""",
-                        (unit_ids[reg_key], name, lat, lon, radius, gtype),
+                        """INSERT INTO geofences (unit_id, name, latitude, longitude, radius, type, active, tenant_id)
+                           VALUES (%s, %s, %s, %s, %s, %s, TRUE, %s)""",
+                        (unit_ids[reg_key], name, lat, lon, radius, gtype, tenant_id),
                     )
         # gps_locations для авто Заходу — треки по 20 точок.
         # ПІСЛЯ ФІКСУ МІГРАЦІЇ: vehicle_id — UUID, тож передаємо UUID напряму.
@@ -644,11 +692,11 @@ def seed(conn: psycopg.Connection, reset: bool) -> None:
                             cur.execute(
                                 """INSERT INTO gps_locations
                                        (vehicle_id, unit_id, latitude, longitude, speed, heading,
-                                        accuracy, timestamp)
-                                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                                        accuracy, timestamp, tenant_id)
+                                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                                 (vid, unit_ids[reg_key], lat, lon,
                                  round(random.uniform(0, 90), 2), round(random.uniform(0, 360), 2),
-                                 round(random.uniform(2, 15), 2), ts),
+                                 round(random.uniform(2, 15), 2), ts, tenant_id),
                             )
                             gps_ok += 1
                         except psycopg.errors.Error:

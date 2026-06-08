@@ -5,6 +5,7 @@ import { usePermissions } from '../hooks/usePermissions'
 import toast from 'react-hot-toast'
 import Pagination from '../components/Pagination'
 import './Units.css'
+import SearchableSelect from '../components/SearchableSelect'
 
 const ROLE_UNIT_CREATION_MAP: Record<string, string[]> = {
   'SYSTEM_ADMIN': ['REGION', 'BRANCH', 'DEPARTMENT', 'TEAM'],
@@ -60,7 +61,6 @@ export default function Units() {
   const availableParents = units.filter(u => u.unit_type === expectedParentType && u.id !== editingUnit?.id)
 
   const loadData = () => {
-    setLoading(true)
     Promise.all([
       api.units.list().catch((err) => { console.error('units.list failed:', err); return [] }),
       api.users.listManagers().catch((err) => { console.error('users.listManagers failed:', err); return [] })
@@ -204,10 +204,13 @@ export default function Units() {
               </div>
               <div className="form-group">
                 <label>Батьківська ланка (Підпорядкування)</label>
-                <select value={form.parent_id} onChange={(e) => setForm({ ...form, parent_id: e.target.value })} required={!!expectedParentType} disabled={isProcessing}>
-                  <option value="">Без підпорядкування</option>
-                  {availableParents.map((u) => <option key={u.id} value={u.id}>{u.name} ({UNIT_TYPE_NAMES[u.unit_type] || u.unit_type})</option>)}
-                </select>
+                <SearchableSelect
+                  options={availableParents.map(u => ({ value: String(u.id), label: `${u.name} (${UNIT_TYPE_NAMES[u.unit_type] || u.unit_type})` }))}
+                  value={form.parent_id}
+                  onChange={(val) => setForm({ ...form, parent_id: val })}
+                  emptyLabel="Без підпорядкування"
+                  disabled={isProcessing}
+                />
               </div>
               <div className="form-group">
                 <label>Назва</label>
@@ -242,12 +245,13 @@ export default function Units() {
             <form onSubmit={handleConfirmManagerChange}>
               <div className="form-group">
                 <label>Новий керівник</label>
-                <select value={newManagerId} onChange={(e) => setNewManagerId(e.target.value)} required disabled={isProcessing}>
-                  <option value="" disabled>-- Оберіть кандидата --</option>
-                  {availableUsers.map(u => (
-                    <option key={u.id} value={u.id}>{u.full_name || u.email}</option>
-                  ))}
-                </select>
+                <SearchableSelect
+                  options={availableUsers.map(u => ({ value: u.id, label: u.full_name || u.email }))}
+                  value={newManagerId}
+                  onChange={(val) => setNewManagerId(val)}
+                  placeholder="-- Оберіть кандидата --"
+                  disabled={isProcessing}
+                />
                 {availableUsers.length === 0 && (
                   <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '8px' }}>
                     Немає вільних користувачів з відповідною роллю. Створіть нового користувача в розділі "Користувачі".

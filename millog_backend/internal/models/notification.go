@@ -10,6 +10,7 @@ const (
 	NotificationRequestRejected   NotificationType = "REQUEST_REJECTED"
 	NotificationShipmentDelivered NotificationType = "SHIPMENT_DELIVERED"
 	NotificationLowStock          NotificationType = "LOW_STOCK"
+	NotificationEquipmentReport   NotificationType = "EQUIPMENT_REPORT"
 )
 
 type Notification struct {

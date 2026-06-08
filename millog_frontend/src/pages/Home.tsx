@@ -66,21 +66,23 @@ export default function Home() {
           // ---------------------------------------------------------
           const metricsData = safeUnits.slice(0, 4).map(unit => {
             // Використовуємо (r: any) та (req: any), щоб TypeScript не сварився на відсутні поля
-            const unitResources = safeRes.filter((r: any) => r.unit_id === unit.id)
+            // Відразу виключаємо списане майно — воно не є активом підрозділу
+            const unitResources = safeRes.filter((r: any) => r.unit_id === unit.id && r.condition !== 'WRITTEN_OFF')
             const unitRequests = safeReqs.filter((req: any) => req.unit_id === unit.id && req.status === 'PENDING')
             
             const totalItems = unitResources.length
             const pendingCount = unitRequests.length
 
-            // Стан активів. Якщо status немає, вважаємо, що майно справне (ACTIVE)
-            const activeItems = unitResources.filter((r: any) => !r.status || r.status === 'ACTIVE').length
-            const healthScore = totalItems > 0 ? (activeItems / totalItems) * 100 : 100
+            // "Справність майна" = скільки ресурсів НЕ в стані нестачі (кількість >= мінімуму)
+            // Це відповідає тому, що бачить користувач у таблиці (ОК vs НЕСТАЧА)
+            const sufficientItems = unitResources.filter((r: any) => r.quantity >= r.min_quantity).length
+            const healthScore = totalItems > 0 ? Math.round((sufficientItems / totalItems) * 100) : 100
 
             // Операційне навантаження
             const opsScore = Math.max(0, 100 - (pendingCount * 5))
 
-            // Фінансова вартість (якщо поля price немає, воно просто додасть 0)
-            const totalValue = unitResources.reduce((sum: number, r: any) => sum + (Number(r.price) || 0), 0)
+            // Фінансова вартість (unit_price — правильне ім'я поля з бекенду)
+            const totalValue = unitResources.reduce((sum: number, r: any) => sum + ((Number(r.unit_price) || 0) * (Number(r.quantity) || 0)), 0)
 
             // Композитний індекс
             const overallScore = Math.round((healthScore * 0.6) + (opsScore * 0.4))
@@ -135,17 +137,23 @@ export default function Home() {
       </div>
 
       <div className="stats-grid">
-        {/* ... (код верхніх карток залишається без змін) ... */}
         {isCONTRACTOR ? (
           <>
             <Link to="/contractor-requests" className="stat-card">
+              <div className="stat-icon">📋</div>
               <span className="stat-value">{stats.openContractorRequests}</span>
               <span className="stat-label">Доступних завдань</span>
             </Link>
             <Link to="/contractor-requests" className="stat-card stat-warning">
+              <div className="stat-icon">⚡</div>
               <span className="stat-value">{stats.myActiveTasks}</span>
-              <span className="stat-label">Моїх завдань</span>
+              <span className="stat-label">Активних завдань</span>
             </Link>
+            <div className="stat-card stat-info">
+              <div className="stat-icon">🎯</div>
+              <span className="stat-value">0</span>
+              <span className="stat-label">Виконано сьогодні</span>
+            </div>
           </>
         ) : (
           <>
@@ -166,25 +174,33 @@ export default function Home() {
       </div>
 
       <div className="quick-actions-section">
-        {/* ... (код кнопок швидких дій залишається без змін) ... */}
         <h2>Швидкі дії</h2>
         <div className="actions-row">
-          {!isCONTRACTOR && (
+          {isCONTRACTOR ? (
+            <>
+              <Link to="/contractor-requests" className="action-button">
+                🤝 Доступні завдання
+              </Link>
+              <Link to="/contractor-requests" className="action-button">
+                📦 Мої активні доставки
+              </Link>
+            </>
+          ) : (
             <>
               <Link to="/inventory" className="action-button">📦 Ресурси</Link>
               <Link to="/warehouses" className="action-button">🏢 Склади</Link>
               <Link to="/requests" className="action-button">📝 Внутрішні заявки</Link>
               <Link to="/fleet" className="action-button">🚙 Автопарк</Link>
-            </>
-          )}
-          <Link to="/contractor-requests" className="action-button">
-            🤝 {isCONTRACTOR ? 'Доступні завдання' : 'Заявки підрядникам'}
-          </Link>
-          {isManager && !isCONTRACTOR && (
-            <>
-              <Link to="/analytics" className="action-button">📊 Аналітика</Link>
-              <Link to="/admin/units" className="action-button">🏢 Оргструктура</Link>
-              <Link to="/admin/users" className="action-button">👥 Користувачі</Link>
+              <Link to="/contractor-requests" className="action-button">
+                🤝 Заявки підрядникам
+              </Link>
+              {isManager && (
+                <>
+                  <Link to="/analytics" className="action-button">📊 Аналітика</Link>
+                  <Link to="/admin/units" className="action-button">🏢 Оргструктура</Link>
+                  <Link to="/admin/users" className="action-button">👥 Користувачі</Link>
+                </>
+              )}
             </>
           )}
         </div>
@@ -192,6 +208,75 @@ export default function Home() {
 
       <div className="widgets-grid">
         <div className="widgets-main-column">
+          
+          {/* Віджет для підрядника */}
+          {isCONTRACTOR && (
+            <details className="erp-widget contractor-guide-widget" open>
+              <summary className="widget-header">
+                <h3>📋 Інструкція для підрядників</h3>
+                <span className="widget-badge">Довідка</span>
+              </summary>
+              <div className="contractor-guide">
+                <div className="guide-section">
+                  <h4>🎯 Як працювати з завданнями:</h4>
+                  <ol className="guide-list">
+                    <li>
+                      <strong>Перегляньте доступні завдання</strong> — вони згруповані за організаціями на сторінці "Доступні завдання"
+                    </li>
+                    <li>
+                      <strong>Надішліть заявку на співпрацю</strong> — біля назви організації натисніть <strong>"🤝 Співпрацювати"</strong> та дочекайтесь підтвердження її адміністратора
+                    </li>
+                    <li>
+                      <strong>Візьміть завдання</strong> — після схвалення з'явиться кнопка "Взяти в роботу" для завдань цієї організації
+                    </li>
+                    <li>
+                      <strong>Закупіть/підготуйте ресурси</strong> — згідно з описом у завданні
+                    </li>
+                    <li>
+                      <strong>Доставте на склад</strong> — після закупівлі натисніть "Позначити доставленим"
+                    </li>
+                    <li>
+                      <strong>Очікуйте прийомки</strong> — комірник перевірить товар і прийме на баланс
+                    </li>
+                  </ol>
+                </div>
+                
+                <div className="guide-section">
+                  <h4>⚠️ Важливо знати:</h4>
+                  <ul className="guide-tips">
+                    <li>Завдання організації стають доступними для взяття лише після того, як її адміністратор <strong>підтвердить вашу заявку на співпрацю</strong></li>
+                    <li>Статус співпраці показано у заголовку кожної організації: <strong>Очікує</strong>, <strong>Ви співпрацюєте</strong> або <strong>Відхилено</strong></li>
+                    <li>Можна співпрацювати з <strong>кількома організаціями</strong> одночасно</li>
+                    <li>У назві завдання зазначена <strong>кількість</strong> і <strong>назва ресурсу</strong></li>
+                    <li><strong>Склад призначення</strong> вказаний у деталях завдання</li>
+                    <li>При доставці необхідно мати <strong>накладну</strong> або <strong>чек</strong></li>
+                  </ul>
+                </div>
+
+                <div className="guide-section">
+                  <h4>📊 Статуси завдань:</h4>
+                  <div className="status-legend">
+                    <div className="status-item">
+                      <span className="badge badge-neutral">ВІДКРИТА</span>
+                      <span>Завдання доступне для взяття</span>
+                    </div>
+                    <div className="status-item">
+                      <span className="badge badge-warning">В РОБОТІ</span>
+                      <span>Ви взяли завдання у роботу</span>
+                    </div>
+                    <div className="status-item">
+                      <span className="badge badge-info">ОЧІКУЄ ПРИЙОМКИ</span>
+                      <span>Ви доставили, комірник перевіряє</span>
+                    </div>
+                    <div className="status-item">
+                      <span className="badge badge-success">ПРИЙНЯТА</span>
+                      <span>Товар прийнято на баланс ✓</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </details>
+          )}
           
           {/* НОВИЙ ВІДЖЕТ: Аналітика відділів */}
           {!isCONTRACTOR && (

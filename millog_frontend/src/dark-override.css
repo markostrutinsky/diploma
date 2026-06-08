@@ -239,6 +239,16 @@ textarea,
   border-color: var(--border) !important;
 }
 
+/* Фікс для нативних select — UA-стилі можуть зміщувати текст вниз */
+select {
+  height: 40px !important;
+  padding-top: 9px !important;
+  padding-bottom: 9px !important;
+  line-height: 1.4 !important;
+  vertical-align: middle !important;
+  box-sizing: border-box !important;
+}
+
 input:focus,
 select:focus,
 textarea:focus,
@@ -365,9 +375,11 @@ div[class*="item"]:not(.notif-item):not([class*="notif-"]) {
    СПЕЦІАЛЬНІ ВИПАДКИ - WARNING/ERROR BOXES
    ============================================ */
 .warning-box {
-  background: rgba(239, 68, 68, 0.1) !important;
-  color: var(--error) !important;
-  border-color: rgba(239, 68, 68, 0.3) !important;
+  background: rgba(245, 158, 11, 0.1) !important;
+  color: #f59e0b !important;
+  border-color: rgba(245, 158, 11, 0.35) !important;
+  border-radius: 8px;
+  padding: 10px 14px;
 }
 
 .btn-report {
@@ -506,9 +518,16 @@ h1, h2, h3, h4, h5, h6 {
 /* Requests */
 .requests-page,
 .contractor-requests-page,
-.request-card,
-.request-list {
+.request-card {
   background: var(--bg-body) !important;
+  color: var(--text) !important;
+}
+
+/* .request-list НЕ фарбуємо у --bg-body: інакше проміжки між картками-заявками
+   (li мають свій --bg-card-hover) показують чорний фон сторінки. Лишаємо список
+   прозорим, щоб у проміжках просвічувала поверхня батьківської картки (--bg-card). */
+.request-list {
+  background: transparent !important;
   color: var(--text) !important;
 }
 

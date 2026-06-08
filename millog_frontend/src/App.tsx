@@ -10,6 +10,7 @@ import PlatformAdmin from './pages/PlatformAdmin'
 import Bootstrap from './pages/Bootstrap'
 import SetupPassword from './pages/SetupPassword'
 import AdminUsers from './pages/AdminUsers'
+import AdminContractors from './pages/AdminContractors'
 import Inventory from './pages/Inventory'
 import Requests from './pages/Requests'
 import VolunteerRequests from './pages/VolunteerRequests'
@@ -100,6 +101,10 @@ function App() {
           <Route 
             path="/admin/users" 
             element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.users]}><AdminUsers /></ProtectedRoute>} 
+          />
+          <Route 
+            path="/admin/contractors" 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.contracts]}><AdminContractors /></ProtectedRoute>} 
           />
           <Route 
             path="/vehicles" 

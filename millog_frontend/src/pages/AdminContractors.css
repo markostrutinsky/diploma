@@ -1,0 +1,76 @@
+.admin-contractors .page-header {
+  margin-bottom: 1.5rem;
+}
+
+.contractors-info {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 0.875rem 1.125rem;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  margin-bottom: 1.5rem;
+}
+
+.contractors-info strong {
+  color: var(--text-bright);
+}
+
+.contractors-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.contractors-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.contractors-filter-btn:hover {
+  border-color: var(--border-light);
+  color: var(--text);
+}
+
+.contractors-filter-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.contractors-filter-btn .filter-count {
+  min-width: 1.25rem;
+  text-align: center;
+  padding: 0.05rem 0.4rem;
+  border-radius: 10px;
+  font-size: 0.75rem;
+  background: var(--bg-input);
+  color: var(--text-muted);
+}
+
+.contractors-filter-btn.active .filter-count {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.contractors-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}

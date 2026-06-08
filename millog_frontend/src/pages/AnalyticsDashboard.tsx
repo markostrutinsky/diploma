@@ -428,7 +428,7 @@ const AnalyticsDashboard: React.FC = () => {
                         <div className="risk-badge bg-red-500">Залишок: {res.current}</div>
                       </div>
                       <div style={{fontSize: '0.85rem', color: '#64748b', marginTop: '4px'}}>
-                        Мінімум: {res.min} | Треба дозамовити: <strong style={{color: '#0f172a'}}>+{res.needed}</strong>
+                        Мінімум: {res.min} | Треба дозамовити: <strong style={{color: '#ef4444'}}>+{res.needed}</strong>
                       </div>
                     </div>
                   ))
@@ -591,7 +591,7 @@ const AnalyticsDashboard: React.FC = () => {
                 {(!data?.predictive_burn_rate || data.predictive_burn_rate.length === 0) ? <p className="empty">Немає витрат для прогнозу.</p> : (
                   data.predictive_burn_rate.map((item: any, idx: number) => (
                     <div key={idx} className="predict-item">
-                      <div className="predict-info"><strong>{item.resource_name}</strong><span>Залишок: {item.current_stock} шт (Сер. витрата: {item.daily_burn_rate.toFixed(1)}/день)</span></div>
+                      <div className="predict-info"><strong>{item.resource_name}</strong><span>Залишок: {item.current_stock} шт (Сер. витрата: {(item.daily_burn_rate ?? 0).toFixed(1)}/день)</span></div>
                       <div className="predict-status">
                         {item.days_left <= 7 ? <div className="alert-box alert-red">Вистачить на {item.days_left} дн.</div> : 
                          item.days_left <= 20 ? <div className="alert-box alert-yellow">Вистачить на {item.days_left} дн.</div> : 
@@ -857,8 +857,8 @@ const AnalyticsDashboard: React.FC = () => {
                 <tr key={idx}>
                   <td style={{ border: '1px solid #ccc', padding: '8px' }}>{item.resource_name}</td>
                   <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center', fontWeight: 'bold' }}>{item.current_stock}</td>
-                  <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center' }}>{item.min_quantity || '---'}</td>
-                  <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center' }}>{item.daily_burn_rate.toFixed(1)}</td>
+                  <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center' }}>{item.min_quantity ?? '---'}</td>
+                  <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center' }}>{(item.daily_burn_rate ?? 0).toFixed(1)}</td>
                   <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center', color: item.days_left <= 7 ? 'red' : 'black' }}>{item.days_left} дн.</td>
                 </tr>
               ))

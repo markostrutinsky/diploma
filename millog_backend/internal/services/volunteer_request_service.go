@@ -11,13 +11,25 @@ import (
 )
 
 type ContractorRequestService struct {
-	repo   *repositories.ContractorRequestRepository
-	dbPool *pgxpool.Pool
+	repo       *repositories.ContractorRequestRepository
+	memberRepo *repositories.ContractorMembershipRepository
+	dbPool     *pgxpool.Pool
 }
 
-func NewContractorRequestService(repo *repositories.ContractorRequestRepository, db *pgxpool.Pool) *ContractorRequestService {
-	return &ContractorRequestService{repo: repo, dbPool: db}
+func NewContractorRequestService(repo *repositories.ContractorRequestRepository, memberRepo *repositories.ContractorMembershipRepository, db *pgxpool.Pool) *ContractorRequestService {
+	return &ContractorRequestService{repo: repo, memberRepo: memberRepo, dbPool: db}
 }
+
+// MembershipRequiredError повідомляє, що підрядник не має схвалення від організації,
+// якій належить завдання. Handler перетворює це на 403 із машинно-зчитуваним кодом,
+// щоб фронтенд показав коректний стан («заявку надіслано» / «очікує» / «відхилено»).
+type MembershipRequiredError struct {
+	TenantID string
+	Status   models.ContractorMembershipStatus
+	Message  string
+}
+
+func (e *MembershipRequiredError) Error() string { return e.Message }
 
 func (s *ContractorRequestService) Create(ctx context.Context, userID string, unitID int64, req *models.CreateContractorRequest) (*models.ContractorRequest, error) {
 	var finalUnitID *int64
@@ -27,11 +39,12 @@ func (s *ContractorRequestService) Create(ctx context.Context, userID string, un
 	}
 
 	vr := &models.ContractorRequest{
-		CreatedBy:   userID,
-		UnitID:      finalUnitID,
-		Title:       req.Title,
-		Description: req.Description,
-		Status:      models.ContractorOpen,
+		CreatedBy:         userID,
+		UnitID:            finalUnitID,
+		TargetWarehouseID: req.TargetWarehouseID,
+		Title:             req.Title,
+		Description:       req.Description,
+		Status:            models.ContractorOpen,
 	}
 
 	if err := s.repo.Create(ctx, s.dbPool, vr); err != nil {
@@ -40,14 +53,52 @@ func (s *ContractorRequestService) Create(ctx context.Context, userID string, un
 	return vr, nil
 }
 
-// Отримання списку заявок (з фільтром по статусу)
-func (s *ContractorRequestService) List(ctx context.Context, status models.ContractorRequestStatus) ([]models.ContractorRequest, error) {
-	return s.repo.List(ctx, s.dbPool, status)
+// Отримання списку заявок (з фільтром по статусу).
+// isContractor=true → крос-tenant marketplace для підрядника; інакше — tenant-scoped.
+func (s *ContractorRequestService) List(ctx context.Context, status models.ContractorRequestStatus, isContractor bool, contractorID string) ([]models.ContractorRequest, error) {
+	return s.repo.List(ctx, s.dbPool, status, isContractor, contractorID)
 }
 
 // Універсальний метод для оновлення статусів (Взяти в роботу, Доставити, Скасувати, Відхилити)
 func (s *ContractorRequestService) UpdateStatus(ctx context.Context, requestID string, userID string, newStatus models.ContractorRequestStatus) error {
 	return s.repo.UpdateStatus(ctx, s.dbPool, requestID, userID, newStatus)
+}
+
+// Take — підрядник бере завдання в роботу, але лише якщо організація-замовник його схвалила.
+// Якщо схвалення немає — автоматично подаємо заявку на співпрацю (PENDING) і повертаємо
+// MembershipRequiredError, щоб користувач побачив зрозуміле пояснення.
+func (s *ContractorRequestService) Take(ctx context.Context, requestID string, contractorID string) error {
+	tenantID, err := s.repo.GetTenantID(ctx, s.dbPool, requestID)
+	if err != nil {
+		return fmt.Errorf("не вдалося знайти завдання: %w", err)
+	}
+	if tenantID == "" {
+		return fmt.Errorf("не вдалося визначити організацію цього завдання")
+	}
+
+	approved, err := s.memberRepo.IsApproved(ctx, s.dbPool, contractorID, tenantID)
+	if err != nil {
+		return fmt.Errorf("не вдалося перевірити доступ до організації: %w", err)
+	}
+
+	if !approved {
+		// Перша спроба = автоматична заявка на співпрацю.
+		status, applyErr := s.memberRepo.Apply(ctx, s.dbPool, contractorID, tenantID)
+		if applyErr != nil {
+			return fmt.Errorf("не вдалося надіслати заявку на співпрацю: %w", applyErr)
+		}
+
+		msg := "Щоб брати завдання цієї організації, потрібне підтвердження. Заявку на співпрацю надіслано — очікуйте рішення адміністратора організації."
+		if status == models.MembershipPending {
+			msg = "Вашу заявку на співпрацю з організацією ще розглядають. Очікуйте підтвердження адміністратора."
+		} else if status == models.MembershipRejected {
+			msg = "Організація відхилила вашу заявку на співпрацю, тож ви не можете брати її завдання."
+		}
+
+		return &MembershipRequiredError{TenantID: tenantID, Status: status, Message: msg}
+	}
+
+	return s.repo.UpdateStatus(ctx, s.dbPool, requestID, contractorID, models.ContractorTaken)
 }
 
 func (s *ContractorRequestService) AcceptAndStore(ctx context.Context, requestID string, commanderID string, unitID int64, payload models.AcceptContractorPayload) error {

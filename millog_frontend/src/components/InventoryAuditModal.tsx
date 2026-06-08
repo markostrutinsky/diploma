@@ -7,6 +7,7 @@ import './InventoryAuditModal.css';
 interface AuditItem extends Resource {
   actual_qty: number;
   is_verified: boolean;
+  _ids?: string[]; // всі resource_ids для агрегованих рядків
 }
 
 interface InventoryAuditModalProps {
@@ -24,12 +25,22 @@ export default function InventoryAuditModal({ warehouseId, warehouseName, onClos
   useEffect(() => {
     api.inventory.getByWarehouse(warehouseId)
       .then(res => {
-        const auditData = res.map((item: any) => ({ 
-          ...item, 
-          actual_qty: item.quantity, 
-          is_verified: false 
-        }));
-        setItems(auditData);
+        // Агрегуємо дублікати (однакова назва) на рівні фронту:
+        // складаємо кількість, зберігаємо перший id для QR-матчингу
+        const aggregated = new Map<string, any>();
+        for (const item of res as any[]) {
+          const key = item.name;
+          const qty = Number(item.quantity) || 0;
+          if (aggregated.has(key)) {
+            const existing = aggregated.get(key)!;
+            existing.quantity += qty;
+            existing.actual_qty += qty;
+            existing._ids = [...(existing._ids || [existing.id]), item.id];
+          } else {
+            aggregated.set(key, { ...item, quantity: qty, actual_qty: qty, is_verified: false, _ids: [item.id] });
+          }
+        }
+        setItems(Array.from(aggregated.values()));
         setLoading(false);
       })
       .catch(() => {
@@ -66,13 +77,16 @@ export default function InventoryAuditModal({ warehouseId, warehouseName, onClos
   // 3. Обробка успішного сканування (з камери або з файлу)
   const handleMatch = (resourceId: string) => {
     setItems(prev => {
-      const found = prev.find(i => i.id === resourceId);
+      // Перевіряємо i.id або i._ids (для агрегованих рядків)
+      const found = prev.find(i => i.id === resourceId || (i._ids && i._ids.includes(resourceId)));
       
       if (found) {
-        if (!found.is_verified) {
-          toast.success(`Знайдено: ${found.name}`, { icon: '🎯', id: `toast-${resourceId}` });
-        }
-        return prev.map(item => item.id === resourceId ? { ...item, is_verified: true } : item);
+        toast.success(`Знайдено: ${found.name}`, { icon: '🎯', id: `toast-${resourceId}-${Date.now()}` });
+        return prev.map(item =>
+          (item.id === resourceId || (item._ids && item._ids.includes(resourceId)))
+            ? { ...item, is_verified: true, actual_qty: item.actual_qty + 1 }
+            : item
+        );
       }
       
       toast.error("Це майно не належить даному складу!", { id: 'wrong-item' });

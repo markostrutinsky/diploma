@@ -7,6 +7,7 @@ type RequestStatus string
 const (
 	RequestPending    RequestStatus = "PENDING"
 	RequestApproved   RequestStatus = "APPROVED"
+	RequestLoading    RequestStatus = "LOADING" // Рейс сформовано, очікує завантаження в авто
 	RequestDispatched RequestStatus = "DISPATCHED"
 	RequestRejected   RequestStatus = "REJECTED"
 	RequestCompleted  RequestStatus = "COMPLETED"
@@ -45,21 +46,26 @@ type ApproveRequest struct {
 }
 
 type SmartDispatchReq struct {
-	RequestIDs []string `json:"request_ids" binding:"required,min=1"`
+	RequestIDs      []string `json:"request_ids" binding:"required,min=1"`
+	FromWarehouseID string   `json:"from_warehouse_id"`
 }
 
 type RequestItem struct {
-	ID       string  `json:"id"`
-	Name     string  `json:"name"`
-	WeightKg float64 `json:"weight_kg"`
+	ID                string  `json:"id"`
+	Name              string  `json:"name"`
+	WeightKg          float64 `json:"weight_kg"`
+	TargetWarehouseID string  `json:"target_warehouse_id,omitempty"`
 }
 
 type VehicleBin struct {
-	ID         string        `json:"id"`
-	Name       string        `json:"name"`
-	MaxWeight  float64       `json:"max_weight"`
-	UsedWeight float64       `json:"used_weight"`
-	Items      []RequestItem `json:"items"`
+	ID           string        `json:"id"`
+	Name         string        `json:"name"`
+	MaxWeight    float64       `json:"max_weight"`
+	UsedWeight   float64       `json:"used_weight"`
+	Items        []RequestItem `json:"items"`
+	FuelLiters   float64       `json:"fuel_liters"`
+	FuelNorm     float64       `json:"fuel_norm"`
+	TankCapacity float64       `json:"tank_capacity"`
 }
 
 type SmartDispatchResult struct {
@@ -80,5 +86,6 @@ type SmartDispatchRoute struct {
 type SmartDispatchConfirmReq struct {
 	FromWarehouseID string               `json:"from_warehouse_id" binding:"required,uuid"`
 	Priority        string               `json:"priority"`
+	DistanceKm      float64              `json:"distance_km"` // необов'язкове — якщо 0, розраховується на бекенді
 	Routes          []SmartDispatchRoute `json:"routes" binding:"required,min=1"`
 }

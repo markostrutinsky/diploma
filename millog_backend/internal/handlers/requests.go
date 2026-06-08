@@ -163,7 +163,7 @@ func (h *RequestHandler) SmartDispatchPreview(c *gin.Context) {
 	}
 
 	// Виклик сервісу
-	result, err := h.reqService.GetSmartDispatchPreview(c.Request.Context(), req.RequestIDs)
+	result, err := h.reqService.GetSmartDispatchPreview(c.Request.Context(), req.RequestIDs, req.FromWarehouseID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

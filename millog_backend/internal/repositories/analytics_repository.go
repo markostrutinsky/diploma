@@ -69,7 +69,7 @@ func (r *AnalyticsRepository) GetDashboardStats(ctx context.Context, db DBExecut
 	queryMetrics := fmt.Sprintf(`
 		SELECT 
 			(SELECT COUNT(*) FROM vehicles WHERE status = 'ACTIVE'%s),
-			(SELECT COUNT(*) FROM resources WHERE quantity <= min_quantity AND quantity > 0 AND condition != 'WRITTEN_OFF' %s%s),
+			(SELECT COUNT(*) FROM resources WHERE quantity < min_quantity AND condition != 'WRITTEN_OFF' %s%s),
 			(SELECT COUNT(*) FROM fuel_records WHERE is_anomaly = true AND created_at BETWEEN $1 AND $2%s)
 	`, tcond(""), resFilter, tcond(""), tcond(""))
 	db.QueryRow(ctx, queryMetrics, startDate, endDate).Scan(&stats.ActiveVehicles, &stats.CriticalResources, &stats.FuelAnomalies)
@@ -97,7 +97,7 @@ func (r *AnalyticsRepository) GetDashboardStats(ctx context.Context, db DBExecut
 			SELECT resource_id, SUM(quantity) as consumed FROM supply_requests
 			WHERE created_at BETWEEN $1 AND $2 AND status = 'APPROVED'%s GROUP BY resource_id
 		)
-		SELECT r.name, r.quantity, c.consumed / NULLIF(EXTRACT(EPOCH FROM ($2 - $1))/86400, 0) as daily_burn,
+		SELECT r.name, r.quantity, r.min_quantity, c.consumed / NULLIF(EXTRACT(EPOCH FROM ($2 - $1))/86400, 0) as daily_burn,
 			(r.quantity / NULLIF(c.consumed / NULLIF(EXTRACT(EPOCH FROM ($2 - $1))/86400, 0), 0))::int as days_left
 		FROM resources r JOIN consumption c ON r.id = c.resource_id
 		WHERE r.condition != 'WRITTEN_OFF' AND c.consumed > 0 %s%s 
@@ -107,7 +107,7 @@ func (r *AnalyticsRepository) GetDashboardStats(ctx context.Context, db DBExecut
 	defer pRows.Close()
 	for pRows.Next() {
 		var p models.PredictStat
-		pRows.Scan(&p.ResourceName, &p.CurrentStock, &p.DailyBurnRate, &p.DaysLeft)
+		pRows.Scan(&p.ResourceName, &p.CurrentStock, &p.MinQuantity, &p.DailyBurnRate, &p.DaysLeft)
 		stats.PredictiveBurnRate = append(stats.PredictiveBurnRate, p)
 	}
 
@@ -136,12 +136,12 @@ func (r *AnalyticsRepository) GetDashboardStats(ctx context.Context, db DBExecut
 		uWhere += tcond("u")
 	}
 	queryReadiness := fmt.Sprintf(`
-		SELECT u.name, COUNT(r.id), COUNT(r.id) FILTER (WHERE r.quantity >= r.min_quantity AND r.quantity > 0),
-			CASE WHEN COUNT(r.id) > 0 THEN (COUNT(r.id) FILTER (WHERE r.quantity >= r.min_quantity AND r.quantity > 0) * 100 / COUNT(r.id)) ELSE 0 END as score
-		FROM units u LEFT JOIN resources r ON u.id = r.unit_id AND r.condition != 'WRITTEN_OFF'
+		SELECT u.name, COUNT(r.id), COUNT(r.id) FILTER (WHERE r.quantity >= r.min_quantity),
+			CASE WHEN COUNT(r.id) > 0 THEN (COUNT(r.id) FILTER (WHERE r.quantity >= r.min_quantity) * 100 / COUNT(r.id)) ELSE 0 END as score
+		FROM units u LEFT JOIN resources r ON u.id = r.unit_id AND r.condition != 'WRITTEN_OFF'%s
 		%s
 		GROUP BY u.id, u.name HAVING COUNT(r.id) > 0 ORDER BY score ASC
-	`, uWhere)
+	`, tcond("r"), uWhere)
 	uRows, _ := db.Query(ctx, queryReadiness)
 	defer uRows.Close()
 	for uRows.Next() {

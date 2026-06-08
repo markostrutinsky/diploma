@@ -86,6 +86,14 @@ func AuthMiddleware(jwtSecret string, db *pgxpool.Pool) gin.HandlerFunc {
 			claims.TenantID = *tenantID
 		}
 
+		// Підрядник (CONTRACTOR) — глобальний учасник marketplace і не належить жодній
+		// організації. Примусово тримаємо порожній tenant-контекст, щоб RLS давала крос-tenant
+		// доступ до дошки відкритих завдань (і щоб застарілі токени з раніше призначеним
+		// tenant не обмежували видимість заявок однією організацією).
+		if claims.Role == models.RoleContractor {
+			claims.TenantID = ""
+		}
+
 		// Якщо все добре і статус ACTIVE — пускаємо далі
 		c.Set("user_id", claims.UserID)
 		c.Set("user_email", claims.Email)

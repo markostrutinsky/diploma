@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/xuri/excelize/v2"
@@ -167,6 +168,25 @@ func (s *AnalyticsService) GetAdvancedKPIs(ctx context.Context, startDate, endDa
 		args = append(args, unitID)
 	}
 
+	// tenant isolation
+	tenantID := repositories.TenantFromCtx(ctx)
+	tenantSRFilter := ""
+	if tenantID != "" {
+		tenantSRFilter = " AND sr.tenant_id = '" + tenantID + "'"
+	}
+	tenantFRFilter := ""
+	if tenantID != "" {
+		tenantFRFilter = " AND fr.tenant_id = '" + tenantID + "'"
+	}
+	tenantShipFilter := ""
+	if tenantID != "" {
+		tenantShipFilter = " AND s.tenant_id = '" + tenantID + "'"
+	}
+	tenantResFilter := ""
+	if tenantID != "" {
+		tenantResFilter = " AND tenant_id = '" + tenantID + "'"
+	}
+
 	// ---------- SLA ----------
 	// Заявка "вчасна", якщо її апрувнули за ≤ 24 години.
 	slaQuery := fmt.Sprintf(`
@@ -175,7 +195,7 @@ func (s *AnalyticsService) GetAdvancedKPIs(ctx context.Context, startDate, endDa
 			FROM supply_requests sr
 			LEFT JOIN warehouses w ON w.id = sr.target_warehouse_id
 			WHERE sr.created_at::date >= $1::date
-			  AND sr.created_at::date <= $2::date%s
+			  AND sr.created_at::date <= $2::date%s%s
 		)
 		SELECT
 			COUNT(*) AS total,
@@ -189,7 +209,7 @@ func (s *AnalyticsService) GetAdvancedKPIs(ctx context.Context, startDate, endDa
 				END
 			), 0) AS avg_hours
 		FROM req
-	`, unitFilter)
+	`, unitFilter, tenantSRFilter)
 
 	var totalReq, onTime int64
 	var avgHours float64
@@ -204,26 +224,53 @@ func (s *AnalyticsService) GetAdvancedKPIs(ctx context.Context, startDate, endDa
 	// ---------- TCO ----------
 	// cost per liter (UAH) — константа, бо в схемі немає колонки з ціною пального.
 	const fuelUAHPerLiter = 55.0
-	fuelArgs := []interface{}{startDate, endDate}
-	vehicleUnitFilter := ""
-	if unitID > 0 {
-		vehicleUnitFilter = `
+
+	// Парсимо дати для підрахунку попереднього періоду (для trend)
+	parsedStart, errPS := time.Parse("2006-01-02", startDate)
+	parsedEnd, errPE := time.Parse("2006-01-02", endDate)
+	periodDays := 30
+	if errPS == nil && errPE == nil {
+		d := int(parsedEnd.Sub(parsedStart).Hours()/24) + 1
+		if d > 0 {
+			periodDays = d
+		}
+	}
+	prevEnd := parsedStart.AddDate(0, 0, -1).Format("2006-01-02")
+	prevStart := parsedStart.AddDate(0, 0, -periodDays).Format("2006-01-02")
+	_ = errPS
+	_ = errPE
+
+	buildFuelArgs := func(sd, ed string) ([]interface{}, string) {
+		a := []interface{}{sd, ed}
+		f := tenantFRFilter
+		if unitID > 0 {
+			f += `
 			AND fr.vehicle_id IN (
 				SELECT DISTINCT s.vehicle_id FROM shipments s
 				JOIN warehouses w ON w.id = s.from_warehouse_id OR w.id = s.to_warehouse_id
 				WHERE w.unit_id = $3
 			)`
-		fuelArgs = append(fuelArgs, unitID)
+			a = append(a, unitID)
+		}
+		return a, f
 	}
-	fuelQuery := fmt.Sprintf(`
-		SELECT COALESCE(SUM(liters), 0)
-		FROM fuel_records fr
-		WHERE fr.record_type = 'CONSUMPTION'
-		  AND fr.created_at::date >= $1::date
-		  AND fr.created_at::date <= $2::date%s
-	`, vehicleUnitFilter)
-	var totalLiters float64
-	_ = s.db.QueryRow(ctx, fuelQuery, fuelArgs...).Scan(&totalLiters)
+
+	queryLiters := func(sd, ed string) float64 {
+		a, vuf := buildFuelArgs(sd, ed)
+		q := fmt.Sprintf(`
+			SELECT COALESCE(SUM(liters), 0)
+			FROM fuel_records fr
+			WHERE fr.record_type IN ('CONSUMPTION', 'EXPENSE')
+			  AND fr.created_at::date >= $1::date
+			  AND fr.created_at::date <= $2::date%s
+		`, vuf)
+		var l float64
+		_ = s.db.QueryRow(ctx, q, a...).Scan(&l)
+		return l
+	}
+
+	totalLiters := queryLiters(startDate, endDate)
+	prevLiters := queryLiters(prevStart, prevEnd)
 
 	// Кількість відвантажених одиниць
 	shipArgs := []interface{}{startDate, endDate}
@@ -239,15 +286,29 @@ func (s *AnalyticsService) GetAdvancedKPIs(ctx context.Context, startDate, endDa
 		LEFT JOIN warehouses wf ON wf.id = s.from_warehouse_id
 		LEFT JOIN warehouses wt ON wt.id = s.to_warehouse_id
 		WHERE s.created_at::date >= $1::date
-		  AND s.created_at::date <= $2::date%s
-	`, shipUnitFilter)
+		  AND s.created_at::date <= $2::date%s%s
+	`, shipUnitFilter, tenantShipFilter)
 	var unitsShipped int64
 	_ = s.db.QueryRow(ctx, shipQuery, shipArgs...).Scan(&unitsShipped)
 
 	totalFuelCost := totalLiters * fuelUAHPerLiter
+	prevFuelCost := prevLiters * fuelUAHPerLiter
 	costPerUnit := 0.0
 	if unitsShipped > 0 {
 		costPerUnit = totalFuelCost / float64(unitsShipped)
+	}
+
+	// Trend: порівнюємо поточний і попередній період (>5% різниця = up/down)
+	tcoTrend := "stable"
+	if prevFuelCost > 0 {
+		changePct := (totalFuelCost - prevFuelCost) / prevFuelCost * 100
+		if changePct > 5 {
+			tcoTrend = "up"
+		} else if changePct < -5 {
+			tcoTrend = "down"
+		}
+	} else if totalFuelCost > 0 {
+		tcoTrend = "up" // попередніх даних не було — зростання від нуля
 	}
 
 	// ---------- RISK ----------
@@ -257,11 +318,15 @@ func (s *AnalyticsService) GetAdvancedKPIs(ctx context.Context, startDate, endDa
 		resourceUnitFilter = ` AND (r.unit_id = $1 OR r.warehouse_id IN (SELECT id FROM warehouses WHERE unit_id = $1))`
 		riskArgs = append(riskArgs, unitID)
 	}
+	riskTenantFilter := ""
+	if tenantID != "" {
+		riskTenantFilter = " AND r.tenant_id = '" + tenantID + "'"
+	}
 	riskQuery := fmt.Sprintf(`
 		SELECT r.id, r.name, r.quantity, r.min_quantity
 		FROM resources r
-		WHERE r.min_quantity > 0%s
-	`, resourceUnitFilter)
+		WHERE r.min_quantity > 0%s%s
+	`, resourceUnitFilter, riskTenantFilter)
 
 	rows, err := s.db.Query(ctx, riskQuery, riskArgs...)
 	if err != nil {
@@ -317,8 +382,8 @@ func (s *AnalyticsService) GetAdvancedKPIs(ctx context.Context, startDate, endDa
 	invQuery := fmt.Sprintf(`
 		SELECT COALESCE(SUM(quantity * unit_price), 0)
 		FROM resources
-		WHERE condition != 'WRITTEN_OFF'%s
-	`, invUnitFilter)
+		WHERE condition != 'WRITTEN_OFF'%s%s
+	`, invUnitFilter, tenantResFilter)
 	var inventoryTotalValue float64
 	_ = s.db.QueryRow(ctx, invQuery, invArgs...).Scan(&inventoryTotalValue)
 
@@ -335,7 +400,7 @@ func (s *AnalyticsService) GetAdvancedKPIs(ctx context.Context, startDate, endDa
 			"total_fuel_cost":     totalFuelCost,
 			"total_units_shipped": unitsShipped,
 			"cost_per_unit":       costPerUnit,
-			"trend":               "stable",
+			"trend":               tcoTrend,
 		},
 		"risk": map[string]interface{}{
 			"critical_resources_percent": criticalPercent,
@@ -536,7 +601,11 @@ func (s *AnalyticsService) GetPredictiveMaintenanceSchedule(ctx context.Context,
 func (s *AnalyticsService) GetFuelAnomalyDetection(ctx context.Context, unitID int64) (map[string]interface{}, error) {
 	_ = unitID // немає vehicles.unit_id у схемі
 
+	// Отримуємо tenant_id із контексту для RLS
+	tenantID := repositories.TenantFromCtx(ctx)
+
 	// Базова статистика по машинах за 90 днів
+	// RLS автоматично фільтрує через POLICY, але додаємо явну перевірку для надійності
 	statsQuery := `
 		SELECT
 			v.id,
@@ -544,15 +613,18 @@ func (s *AnalyticsService) GetFuelAnomalyDetection(ctx context.Context, unitID i
 			COUNT(fr.id) FILTER (WHERE fr.created_at >= NOW() - INTERVAL '90 days') AS records_90d,
 			COUNT(fr.id) FILTER (WHERE fr.is_anomaly AND fr.created_at >= NOW() - INTERVAL '90 days') AS anomaly_count,
 			COALESCE(AVG(fr.liters) FILTER (WHERE fr.is_anomaly AND fr.created_at >= NOW() - INTERVAL '90 days'), 0) AS avg_anomaly_liters,
+			COALESCE(SUM(fr.anomaly_excess_liters) FILTER (WHERE fr.is_anomaly AND fr.created_at >= NOW() - INTERVAL '90 days'), 0) AS total_excess_liters,
 			MAX(fr.created_at) FILTER (WHERE fr.is_anomaly) AS last_anomaly_at,
 			STRING_AGG(DISTINCT fr.anomaly_reason, '; ') FILTER (WHERE fr.is_anomaly AND fr.anomaly_reason IS NOT NULL AND fr.created_at >= NOW() - INTERVAL '90 days') AS reasons
 		FROM vehicles v
 		LEFT JOIN fuel_records fr ON fr.vehicle_id = v.id
+		WHERE ($1::text = '' OR v.tenant_id::text = $1::text)
 		GROUP BY v.id, v.plate_number
+		HAVING COUNT(fr.id) > 0
 		ORDER BY anomaly_count DESC, v.plate_number
 	`
 
-	rows, err := s.db.Query(ctx, statsQuery)
+	rows, err := s.db.Query(ctx, statsQuery, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("fuel anomalies query: %w", err)
 	}
@@ -568,14 +640,15 @@ func (s *AnalyticsService) GetFuelAnomalyDetection(ctx context.Context, unitID i
 
 	for rows.Next() {
 		var (
-			vehicleID, plate string
-			records90d       int64
-			anomalyCount     int64
-			avgAnomalyLiters float64
-			lastAt           *time.Time
-			reasons          *string
+			vehicleID, plate  string
+			records90d        int64
+			anomalyCount      int64
+			avgAnomalyLiters  float64
+			totalExcessLiters float64
+			lastAt            *time.Time
+			reasons           *string
 		)
-		if err := rows.Scan(&vehicleID, &plate, &records90d, &anomalyCount, &avgAnomalyLiters, &lastAt, &reasons); err != nil {
+		if err := rows.Scan(&vehicleID, &plate, &records90d, &anomalyCount, &avgAnomalyLiters, &totalExcessLiters, &lastAt, &reasons); err != nil {
 			continue
 		}
 		totalMonitored++
@@ -589,10 +662,7 @@ func (s *AnalyticsService) GetFuelAnomalyDetection(ctx context.Context, unitID i
 		if records90d > 0 {
 			ratio = float64(anomalyCount) / float64(records90d)
 		}
-		riskScore := ratio * 100.0
-		if riskScore > 100 {
-			riskScore = 100
-		}
+		riskScore := minFloat(ratio*100.0, 100.0)
 
 		level := "LOW"
 		switch {
@@ -608,24 +678,39 @@ func (s *AnalyticsService) GetFuelAnomalyDetection(ctx context.Context, unitID i
 		details := "Виявлено аномалії у заправках та списаннях"
 		if reasons != nil && *reasons != "" {
 			details = *reasons
-			lower := *reasons
+			lower := strings.ToLower(*reasons)
 			switch {
-			case contains(lower, "крадіж"), contains(lower, "злив"):
+			case strings.Contains(lower, "крадіж"), strings.Contains(lower, "злив"):
 				anomalyType = "FREQUENT_SMALL_REFILLS"
-			case contains(lower, "ціна"), contains(lower, "вартість"):
+			case strings.Contains(lower, "ціна"), strings.Contains(lower, "вартість"):
 				anomalyType = "PRICE_ANOMALY"
-			case contains(lower, "екстрем"), contains(lower, "переповн"):
+			case strings.Contains(lower, "екстрем"), strings.Contains(lower, "переповн"):
 				anomalyType = "EXTREME_REFILL"
+			case strings.Contains(lower, "перевитрата"), strings.Contains(lower, "витрата"):
+				anomalyType = "ABNORMAL_CONSUMPTION"
 			}
 		}
 
-		potentialLoss := avgAnomalyLiters * float64(anomalyCount) * fuelUAHPerLiter
-		totalLoss += potentialLoss
+		// Потенційні втрати на місяць (екстраполюємо з 90 днів).
+		// Рахуємо лише ЗАЙВЕ пальне (перевитрата понад норму + витрата без руху),
+		// а не весь обсяг аномальних записів. total_excess_liters — сума за 90 днів,
+		// тож ділимо на 3, щоб отримати оцінку на місяць.
+		potentialLossPerMonth := (totalExcessLiters * fuelUAHPerLiter) / 3.0
+		// Підстраховка для історичних записів без excess (стара схема): якщо аномалії є,
+		// а зайвих літрів не зафіксовано — беремо консервативну оцінку від середнього обсягу.
+		if potentialLossPerMonth == 0 && anomalyCount > 0 {
+			potentialLossPerMonth = (avgAnomalyLiters * float64(anomalyCount) * fuelUAHPerLiter) / 3.0
+		}
+		totalLoss += potentialLossPerMonth
 
 		lastDetected := time.Now().Format(time.RFC3339)
 		if lastAt != nil {
 			lastDetected = lastAt.Format(time.RFC3339)
 		}
+
+		// Впевненість: базова 50% + додатково залежно від кількості даних
+		// Чим більше записів, тим вища впевненість (макс 95%)
+		confidence := minFloat(50.0+float64(records90d)/2.0, 95.0)
 
 		id++
 		anomalies = append(anomalies, map[string]interface{}{
@@ -637,8 +722,8 @@ func (s *AnalyticsService) GetFuelAnomalyDetection(ctx context.Context, unitID i
 			"investigation_level": level,
 			"last_detected":       lastDetected,
 			"details":             details,
-			"confidence":          minFloat(50+ratio*100, 99),
-			"potential_loss":      potentialLoss,
+			"confidence":          confidence,
+			"potential_loss":      potentialLossPerMonth,
 		})
 	}
 
@@ -649,37 +734,6 @@ func (s *AnalyticsService) GetFuelAnomalyDetection(ctx context.Context, unitID i
 		"total_potential_loss":     totalLoss,
 		"high_risk_count":          highRisk,
 	}, nil
-}
-
-func contains(s, sub string) bool {
-	return len(sub) > 0 && len(s) >= len(sub) && (indexFold(s, sub) >= 0)
-}
-
-// indexFold — просте регістронезалежне підрядок-пошук (без зовнішніх залежностей).
-func indexFold(s, sub string) int {
-	ls := []rune(s)
-	lsub := []rune(sub)
-	for i := 0; i+len(lsub) <= len(ls); i++ {
-		match := true
-		for j := 0; j < len(lsub); j++ {
-			a := ls[i+j]
-			b := lsub[j]
-			if a >= 'A' && a <= 'Z' {
-				a += 'a' - 'A'
-			}
-			if b >= 'A' && b <= 'Z' {
-				b += 'a' - 'A'
-			}
-			if a != b {
-				match = false
-				break
-			}
-		}
-		if match {
-			return i
-		}
-	}
-	return -1
 }
 
 func minFloat(a, b float64) float64 {

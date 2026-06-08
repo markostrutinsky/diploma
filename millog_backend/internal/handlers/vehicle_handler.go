@@ -33,15 +33,16 @@ func (h *VehicleHandler) Create(c *gin.Context) {
 	}
 
 	vehicle := &models.Vehicle{
-		Brand:        req.Brand,
-		Model:        req.Model,
-		PlateNumber:  req.PlateNumber,
-		Type:         req.Type,
-		CapacityKg:   req.CapacityKg,
-		TankCapacity: req.TankCapacity,
-		FuelNorm:     req.FuelNorm,
-		DriverID:     req.DriverID,
-		Status:       "ACTIVE", // За замовчуванням вільна
+		Brand:           req.Brand,
+		Model:           req.Model,
+		PlateNumber:     req.PlateNumber,
+		Type:            req.Type,
+		CapacityKg:      req.CapacityKg,
+		TankCapacity:    req.TankCapacity,
+		FuelNorm:        req.FuelNorm,
+		DriverID:        req.DriverID,
+		HomeWarehouseID: req.HomeWarehouseID,
+		Status:          "ACTIVE",
 	}
 
 	err := h.service.CreateVehicle(c.Request.Context(), vehicle)
@@ -310,20 +311,15 @@ func (h *VehicleHandler) Delete(c *gin.Context) {
 }
 
 func (h *VehicleHandler) GetAvailableForShipment(c *gin.Context) {
-	// 1. Отримуємо готові ID підрозділів (unit_id) з параметрів
-	senderStr := c.Query("sender_unit_id")
-	receiverStr := c.Query("receiver_unit_id")
+	fromWarehouseID := c.Query("from_warehouse_id")
+	toWarehouseID := c.Query("to_warehouse_id")
 
-	senderUnitID, err1 := strconv.ParseInt(senderStr, 10, 64)
-	receiverUnitID, err2 := strconv.ParseInt(receiverStr, 10, 64)
-
-	if err1 != nil || err2 != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Вкажіть коректні ID підрозділів"})
+	if fromWarehouseID == "" || toWarehouseID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Вкажіть from_warehouse_id та to_warehouse_id"})
 		return
 	}
 
-	// 2. Викликаємо наш сервіс (який ми зробили раніше)
-	vehicles, err := h.service.GetAvailableForRoute(c.Request.Context(), senderUnitID, receiverUnitID)
+	vehicles, err := h.service.GetAvailableForRoute(c.Request.Context(), fromWarehouseID, toWarehouseID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Помилка завантаження автомобілів"})
 		return

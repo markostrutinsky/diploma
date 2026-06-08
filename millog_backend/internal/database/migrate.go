@@ -146,6 +146,8 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		`ALTER TABLE users ALTER COLUMN role TYPE VARCHAR(30)`,
 
 		`ALTER TABLE CONTRACTOR_requests ADD COLUMN IF NOT EXISTS unit_id BIGINT REFERENCES units(id) ON DELETE SET NULL`,
+		`ALTER TABLE contractor_requests ADD COLUMN IF NOT EXISTS deadline TIMESTAMP WITH TIME ZONE;`,
+		`ALTER TABLE contractor_requests ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;`,
 		`ALTER TABLE resources ADD COLUMN IF NOT EXISTS unit_type VARCHAR(50) DEFAULT 'PCS';`,
 
 		// 12. Оновлення таблиці vehicles для існуючих БД
@@ -155,6 +157,9 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		// 13. Детектор аномалій пального
 		`ALTER TABLE fuel_records ADD COLUMN IF NOT EXISTS is_anomaly BOOLEAN NOT NULL DEFAULT FALSE;`,
 		`ALTER TABLE fuel_records ADD COLUMN IF NOT EXISTS anomaly_reason TEXT;`,
+		// 13a. Обсяг «зайвого» пального запису (перевитрата понад норму / витрата без руху).
+		//      Потрібно антифрод-системі для точного розрахунку грошових втрат.
+		`ALTER TABLE fuel_records ADD COLUMN IF NOT EXISTS anomaly_excess_liters DECIMAL(10,2) NOT NULL DEFAULT 0;`,
 
 		// 14. Поля для ТО та ремонту
 		`ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS maintenance_interval_km INT NOT NULL DEFAULT 10000;`,
@@ -249,6 +254,12 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		// 25a. Поточна локація машини (на якому складі зараз знаходиться)
 		`ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS current_warehouse_id UUID REFERENCES warehouses(id) ON DELETE SET NULL;`,
 		`CREATE INDEX IF NOT EXISTS idx_vehicles_warehouse ON vehicles(current_warehouse_id);`,
+
+		// 25b. Базовий (домашній) склад машини — постійна приписка, не змінюється після рейсів
+		`ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS home_warehouse_id UUID REFERENCES warehouses(id) ON DELETE SET NULL;`,
+		`CREATE INDEX IF NOT EXISTS idx_vehicles_home_warehouse ON vehicles(home_warehouse_id);`,
+		// Заповнюємо home_warehouse_id з current_warehouse_id для існуючих записів
+		`UPDATE vehicles SET home_warehouse_id = current_warehouse_id WHERE home_warehouse_id IS NULL AND current_warehouse_id IS NOT NULL;`,
 
 		// 26. Вага ресурсу/товару (САМЕ ЦЬОГО НЕ ВИСТАЧАЛО!)
 		`ALTER TABLE resources ADD COLUMN IF NOT EXISTS weight_kg DECIMAL(10,2) NOT NULL DEFAULT 1.00;`,
@@ -500,7 +511,10 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 
 		// T3. Додати tenant_id до users
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;`,
-		`UPDATE users SET tenant_id = (SELECT id FROM tenants WHERE slug = 'default') WHERE tenant_id IS NULL;`,
+		// Підрядники (CONTRACTOR) — глобальні учасники marketplace і НЕ належать жодній організації,
+		// тому НЕ призначаємо їм дефолтний tenant (інакше RLS обмежить їх однією організацією
+		// і вони перестануть бачити крос-tenant дошку відкритих завдань).
+		`UPDATE users SET tenant_id = (SELECT id FROM tenants WHERE slug = 'default') WHERE tenant_id IS NULL AND role <> 'CONTRACTOR';`,
 		`CREATE INDEX IF NOT EXISTS idx_users_tenant ON users(tenant_id);`,
 
 		// T4. Перебудувати UNIQUE на users: глобальні → per-tenant
@@ -572,6 +586,34 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		`UPDATE contractor_requests SET tenant_id = (SELECT id FROM tenants WHERE slug = 'default') WHERE tenant_id IS NULL;`,
 		`CREATE INDEX IF NOT EXISTS idx_contractor_requests_tenant ON contractor_requests(tenant_id);`,
 
+		// T11b. Додати target_warehouse_id до contractor_requests (склад призначення для підрядника)
+		`ALTER TABLE contractor_requests ADD COLUMN IF NOT EXISTS target_warehouse_id UUID REFERENCES warehouses(id) ON DELETE SET NULL;`,
+		`CREATE INDEX IF NOT EXISTS idx_contractor_requests_warehouse ON contractor_requests(target_warehouse_id);`,
+
+		// T11c. Підрядницькі членства (marketplace + per-tenant вето).
+		// Підрядник реєструється глобально (tenant_id IS NULL) і бачить крос-tenant дошку
+		// відкритих завдань. Але щоб ВЗЯТИ завдання конкретної організації, він має бути
+		// схвалений цією організацією. Один підрядник може співпрацювати з кількома tenant-ами.
+		`CREATE TABLE IF NOT EXISTS contractor_memberships (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            contractor_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+            status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+            note TEXT,
+            requested_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+            decided_at TIMESTAMP WITH TIME ZONE,
+            decided_by UUID REFERENCES users(id) ON DELETE SET NULL,
+            UNIQUE (contractor_id, tenant_id)
+        )`,
+		`CREATE INDEX IF NOT EXISTS idx_contractor_memberships_tenant ON contractor_memberships(tenant_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_contractor_memberships_contractor ON contractor_memberships(contractor_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_contractor_memberships_status ON contractor_memberships(status)`,
+
+		// T11d. Виправлення: попередні версії бекфілу могли призначити підрядникам дефолтний
+		// tenant. Повертаємо їх до глобального стану (tenant_id IS NULL), щоб RLS-контекст був
+		// порожнім і підрядник знову бачив крос-tenant дошку відкритих завдань.
+		`UPDATE users SET tenant_id = NULL WHERE role = 'CONTRACTOR' AND tenant_id IS NOT NULL;`,
+
 		// T12. Додати tenant_id до warehouses
 		`ALTER TABLE warehouses ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;`,
 		`UPDATE warehouses SET tenant_id = (SELECT id FROM tenants WHERE slug = 'default') WHERE tenant_id IS NULL;`,
@@ -621,6 +663,10 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		`ALTER TABLE geofences ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;`,
 		`UPDATE geofences g SET tenant_id = u.tenant_id FROM units u WHERE g.unit_id = u.id AND g.tenant_id IS NULL;`,
 		`CREATE INDEX IF NOT EXISTS idx_geofences_tenant ON geofences(tenant_id);`,
+
+		// T16b. Зберігати відстань рейсу (планова) та фактичний пробіг після завершення
+		`ALTER TABLE shipments ADD COLUMN IF NOT EXISTS distance_km FLOAT DEFAULT 0;`,
+		`ALTER TABLE shipments ADD COLUMN IF NOT EXISTS actual_km FLOAT DEFAULT 0;`,
 
 		// T16a. Додати tenant_id до notifications
 		`CREATE TABLE IF NOT EXISTS notifications (
@@ -677,6 +723,37 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 				END IF;
 			END LOOP;
 		END $$;`,
+
+		// ============================================================
+		// T18. Журнал дозаправок під час рейсу.
+		// Кожен запис = одна заправка водія в дорозі.
+		// Одночасно пишеться в fuel_records як REFUEL (через сервіс).
+		// ============================================================
+		`CREATE TABLE IF NOT EXISTS shipment_refuels (
+			id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+			shipment_id UUID NOT NULL REFERENCES shipments(id) ON DELETE CASCADE,
+			vehicle_id  UUID NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
+			liters      NUMERIC(10,2) NOT NULL CHECK (liters > 0),
+			odometer_km INT,
+			station_name VARCHAR(200),
+			cost_uah    NUMERIC(10,2),
+			created_by  UUID REFERENCES users(id) ON DELETE SET NULL,
+			tenant_id   UUID REFERENCES tenants(id) ON DELETE CASCADE,
+			created_at  TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_shipment_refuels_shipment ON shipment_refuels(shipment_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_shipment_refuels_vehicle  ON shipment_refuels(vehicle_id)`,
+		// RLS для shipment_refuels
+		`DO $$ BEGIN
+			IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name='shipment_refuels') THEN
+				ALTER TABLE shipment_refuels ENABLE ROW LEVEL SECURITY;
+				ALTER TABLE shipment_refuels FORCE ROW LEVEL SECURITY;
+				DROP POLICY IF EXISTS tenant_isolation ON shipment_refuels;
+				CREATE POLICY tenant_isolation ON shipment_refuels
+					USING (current_setting('app.tenant_id',true) IS NULL OR current_setting('app.tenant_id',true)='' OR tenant_id::text=current_setting('app.tenant_id',true))
+					WITH CHECK (current_setting('app.tenant_id',true) IS NULL OR current_setting('app.tenant_id',true)='' OR tenant_id::text=current_setting('app.tenant_id',true));
+			END IF;
+		END $$`,
 
 		// ============================================================
 		// T18. Створення SYSTEM_ADMIN (platform owner).
