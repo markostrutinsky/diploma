@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"Omnilog_backend/internal/models"
 	"Omnilog_backend/internal/repositories"
@@ -36,6 +37,10 @@ func (s *ContractorRequestService) Create(ctx context.Context, userID string, un
 	if unitID != 0 {
 		id := unitID
 		finalUnitID = &id
+	}
+
+	if err := s.repo.ValidateCreateScope(ctx, s.dbPool, finalUnitID, req.TargetWarehouseID); err != nil {
+		return nil, err
 	}
 
 	vr := &models.ContractorRequest{
@@ -102,6 +107,12 @@ func (s *ContractorRequestService) Take(ctx context.Context, requestID string, c
 }
 
 func (s *ContractorRequestService) AcceptAndStore(ctx context.Context, requestID string, commanderID string, unitID int64, payload models.AcceptContractorPayload) error {
+	if payload.Quantity <= 0 {
+		return fmt.Errorf("кількість має бути більшою за нуль")
+	}
+	if payload.UnitPrice < 0 {
+		return fmt.Errorf("ціна за одиницю не може бути від'ємною")
+	}
 
 	// 1. Починаємо транзакцію
 	tx, err := s.dbPool.Begin(ctx)
@@ -115,32 +126,64 @@ func (s *ContractorRequestService) AcceptAndStore(ctx context.Context, requestID
 		return fmt.Errorf("не вдалося оновити статус заявки: %w", err)
 	}
 
+	tid := repositories.TenantFromCtx(ctx)
+	if tid == "" {
+		return fmt.Errorf("tenant_id is required for accepting contractor resources")
+	}
+
 	if payload.ResourceID != nil && *payload.ResourceID != "" {
 		updateQuery := `
             UPDATE resources 
-            SET quantity = quantity + $1, updated_at = CURRENT_TIMESTAMP 
-            WHERE id = $2 AND unit_id = $3
+            SET quantity = quantity + $1,
+                unit_price = CASE WHEN $3 > 0 THEN $3 ELSE unit_price END,
+                updated_at = CURRENT_TIMESTAMP 
+            WHERE id = $2 AND tenant_id = $4::uuid
         `
-		res, err := tx.Exec(ctx, updateQuery, payload.Quantity, *payload.ResourceID, unitID)
+		res, err := tx.Exec(ctx, updateQuery, payload.Quantity, *payload.ResourceID, payload.UnitPrice, tid)
 		if err != nil {
 			return fmt.Errorf("помилка оновлення кількості майна: %w", err)
 		}
 
 		if res.RowsAffected() == 0 {
-			return fmt.Errorf("ресурс не знайдено на балансі вашого підрозділу")
+			return fmt.Errorf("ресурс не знайдено у вашій організації")
 		}
 
 	} else {
-		tid := repositories.TenantFromCtx(ctx)
-		if tid == "" {
-			return fmt.Errorf("tenant_id is required for creating resources")
+		name := strings.TrimSpace(payload.Name)
+		if name == "" {
+			return fmt.Errorf("вкажіть номенклатурну назву майна")
+		}
+
+		categoryID, err := s.repo.ResolveCategoryID(ctx, tx, payload.CategoryID, payload.CategoryName)
+		if err != nil {
+			return err
+		}
+
+		target, err := s.repo.GetAcceptanceTarget(ctx, tx, requestID)
+		if err != nil {
+			return fmt.Errorf("не вдалося визначити склад призначення заявки: %w", err)
+		}
+
+		resourceUnitID := unitID
+		if target.TargetWarehouseUnitID != nil && *target.TargetWarehouseUnitID > 0 {
+			resourceUnitID = *target.TargetWarehouseUnitID
+		} else if target.RequestUnitID != nil && *target.RequestUnitID > 0 {
+			resourceUnitID = *target.RequestUnitID
+		}
+		if resourceUnitID == 0 {
+			return fmt.Errorf("не вдалося визначити підрозділ для нового майна: вкажіть склад призначення у заявці")
+		}
+
+		var targetWarehouseID any
+		if target.TargetWarehouseID != nil && *target.TargetWarehouseID != "" {
+			targetWarehouseID = *target.TargetWarehouseID
 		}
 
 		insertQuery := `
-            INSERT INTO resources (unit_id, category_id, name, quantity, unit_type, tenant_id, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            INSERT INTO resources (unit_id, category_id, warehouse_id, name, quantity, unit_type, unit_price, condition, tenant_id, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, 'NEW', $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         `
-		_, err = tx.Exec(ctx, insertQuery, unitID, payload.CategoryID, payload.Name, payload.Quantity, payload.UnitType, tid)
+		_, err = tx.Exec(ctx, insertQuery, resourceUnitID, categoryID, targetWarehouseID, name, payload.Quantity, payload.UnitType, payload.UnitPrice, tid)
 		if err != nil {
 			return fmt.Errorf("помилка додавання нового майна на склад: %w", err)
 		}

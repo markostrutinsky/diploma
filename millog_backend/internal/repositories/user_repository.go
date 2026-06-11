@@ -47,6 +47,30 @@ func (r *UserRepository) CreateUser(ctx context.Context, db DBExecutor, user *mo
 	return nil
 }
 
+func (r *UserRepository) HasAssignedRoleInUnit(ctx context.Context, db DBExecutor, role models.UserRole, unitID int64, excludeUserID *string) (bool, error) {
+	args := []any{role, unitID}
+	exclude := ""
+	if excludeUserID != nil && *excludeUserID != "" {
+		args = append(args, *excludeUserID)
+		exclude = fmt.Sprintf(" AND id <> $%d", len(args))
+	}
+	tFilter := tenantFilter(ctx, "", "AND", &args)
+	query := `
+		SELECT EXISTS(
+			SELECT 1
+			FROM users
+			WHERE role = $1
+			  AND unit_id = $2
+			  AND status IN ('ACTIVE', 'PENDING')` + exclude + tFilter + `
+		)`
+
+	var exists bool
+	if err := db.QueryRow(ctx, query, args...).Scan(&exists); err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
 // GetVisibleUsers повертає список користувачів з урахуванням ієрархії підрозділів
 func (r *UserRepository) GetVisibleUsers(ctx context.Context, db DBExecutor, requesterRole string, requesterUnitID *int64) ([]*models.User, error) {
 	var query string

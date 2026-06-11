@@ -8,16 +8,18 @@ import './MaintenanceSchedule.css';
 
 interface MaintenanceItem {
   id: number;
-  vehicle_id: number;
+  vehicle_id: string;
   vehicle_plate: string;
+  scheduled_record_id?: string;
   service_type: string; // OIL_CHANGE, TIRE_ROTATION, FILTER_REPLACEMENT, INSPECTION
   last_service_date: string;
   next_service_date: string;
   days_remaining: number;
   mileage_since_service: number;
   recommended_mileage: number;
+  current_odometer: number;
   priority: 'LOW' | 'MEDIUM' | 'HIGH';
-  status: 'COMPLETED' | 'SCHEDULED' | 'OVERDUE';
+  status: 'COMPLETED' | 'DUE' | 'SCHEDULED' | 'OVERDUE';
 }
 
 interface MaintenanceScheduleData {
@@ -36,6 +38,7 @@ export function MaintenanceSchedule() {
   const [filterPriority, setFilterPriority] = useState<'ALL' | 'LOW' | 'MEDIUM' | 'HIGH'>('ALL');
   const [detailItem, setDetailItem] = useState<MaintenanceItem | null>(null);
   const [schedulePage, setSchedulePage] = useState(0);
+  const [schedulingId, setSchedulingId] = useState<number | null>(null);
   const SCHEDULE_PAGE_SIZE = 12;
 
   useEffect(() => { setSchedulePage(0); }, [filterPriority]);
@@ -69,6 +72,11 @@ export function MaintenanceSchedule() {
 
   const getStatusColor = (status: string, priority: string): string => {
     if (status === 'OVERDUE') return 'danger';
+    if (status === 'DUE') {
+      if (priority === 'HIGH') return 'warning';
+      if (priority === 'MEDIUM') return 'info';
+      return 'secondary';
+    }
     if (status === 'SCHEDULED') {
       if (priority === 'HIGH') return 'warning';
       if (priority === 'MEDIUM') return 'info';
@@ -80,6 +88,7 @@ export function MaintenanceSchedule() {
   const getStatusLabel = (status: string): string => {
     const labels: { [key: string]: string } = {
       COMPLETED: '✅ Завершено',
+      DUE: '📝 Потребує планування',
       SCHEDULED: '📅 Заплановано',
       OVERDUE: '⚠️ ПРОСТРОЧЕНО',
     };
@@ -100,9 +109,27 @@ export function MaintenanceSchedule() {
       OIL_CHANGE: '🛢️ Заміна масла',
       TIRE_ROTATION: '🛞 Ротація шин',
       FILTER_REPLACEMENT: '🔧 Заміна фільтрів',
-      INSPECTION: '🔍 Технічний огляд',
+      INSPECTION: '🔍 Планове ТО',
     };
     return labels[type] || type;
+  };
+
+  const handleScheduleMaintenance = async (item: MaintenanceItem) => {
+    setSchedulingId(item.id);
+    try {
+      await api.vehicles.scheduleMaintenance(item.vehicle_id, {
+        odometer_km: Math.max(0, Math.round(item.current_odometer ?? item.mileage_since_service)),
+        service_type: item.service_type,
+        scheduled_for: item.next_service_date,
+        description: `${getServiceLabel(item.service_type)}: заплановано з графіка предиктивного обслуговування`,
+      });
+      toast.success(`📅 ТО для ${item.vehicle_plate} збережено в історії обслуговування`);
+      await fetchMaintenanceSchedule();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Помилка планування ТО');
+    } finally {
+      setSchedulingId(null);
+    }
   };
 
   const filteredSchedules = (scheduleData?.schedules ?? []).filter(item =>
@@ -150,7 +177,7 @@ export function MaintenanceSchedule() {
           <div className="stat-value" style={{ color: '#10b981' }}>
             {Math.round(scheduleData?.average_compliance || 0)}%
           </div>
-          <div className="stat-label">✅ Середня дотримання</div>
+          <div className="stat-label">✅ Середнє дотримання</div>
         </div>
       </div>
 
@@ -231,14 +258,10 @@ export function MaintenanceSchedule() {
               <div className="card-actions">
                 <button
                   className="btn-schedule"
-                  onClick={() => {
-                    toast.success(
-                      `📅 ТО «${getServiceLabel(item.service_type)}» для ${item.vehicle_plate} заплановано на ${new Date(item.next_service_date).toLocaleDateString('uk-UA')}`,
-                      { duration: 4000 }
-                    );
-                  }}
+                  disabled={item.status === 'SCHEDULED' || schedulingId === item.id}
+                  onClick={() => handleScheduleMaintenance(item)}
                 >
-                  📅 Запланувати ТО
+                  {item.status === 'SCHEDULED' ? '📅 Вже заплановано' : schedulingId === item.id ? 'Збереження...' : '📅 Запланувати ТО'}
                 </button>
                 <button className="btn-details" onClick={() => setDetailItem(item)}>
                   📋 Деталі

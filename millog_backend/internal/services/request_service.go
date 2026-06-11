@@ -55,7 +55,7 @@ func calcOSRMDistance(ctx context.Context, db *pgxpool.Pool, fromWarehouseID, to
 }
 
 func CanApproveRequest(creatorRole models.UserRole, approverRole models.UserRole) bool {
-	if approverRole == models.RoleAdmin {
+	if approverRole == models.RoleTenantAdmin || approverRole == models.RoleAdmin {
 		return true
 	}
 	allowedApprovers, exists := models.ApprovalMatrix[creatorRole]

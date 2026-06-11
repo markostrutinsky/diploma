@@ -1,7 +1,10 @@
 const API_BASE = '/api'
+export const AUTH_SESSION_MARKER = 'omnilog_has_session'
+export const SUPPORT_TENANT_KEY = 'omnilog_support_tenant'
 
 // In-memory token store — не зберігається в localStorage, недоступний для XSS
 let _inMemoryToken: string | null = null
+let _supportTenantId: string | null = localStorage.getItem(SUPPORT_TENANT_KEY)
 
 export function setInMemoryToken(token: string | null) {
   _inMemoryToken = token
@@ -9,6 +12,31 @@ export function setInMemoryToken(token: string | null) {
 
 export function getInMemoryToken(): string | null {
   return _inMemoryToken
+}
+
+export function setSupportTenantId(tenantId: string | null) {
+  _supportTenantId = tenantId
+  if (tenantId) {
+    localStorage.setItem(SUPPORT_TENANT_KEY, tenantId)
+  } else {
+    localStorage.removeItem(SUPPORT_TENANT_KEY)
+  }
+}
+
+export function getSupportTenantId(): string | null {
+  return _supportTenantId
+}
+
+export function hasAuthSessionMarker(): boolean {
+  return localStorage.getItem(AUTH_SESSION_MARKER) === '1'
+}
+
+export function setAuthSessionMarker(enabled: boolean) {
+  if (enabled) {
+    localStorage.setItem(AUTH_SESSION_MARKER, '1')
+  } else {
+    localStorage.removeItem(AUTH_SESSION_MARKER)
+  }
 }
 
 async function request<T>(
@@ -22,6 +50,9 @@ async function request<T>(
   }
   if (_inMemoryToken) {
     headers['Authorization'] = `Bearer ${_inMemoryToken}`
+  }
+  if (_supportTenantId && !path.startsWith('/platform') && !path.startsWith('/auth')) {
+    headers['X-Support-Tenant-ID'] = _supportTenantId
   }
 
   const res = await fetch(url, { ...options, headers, credentials: 'include' })
@@ -94,6 +125,18 @@ export const api = {
     listTenants: (search = '') =>
       request<any[]>(`/platform/tenants${search ? `?search=${encodeURIComponent(search)}` : ''}`),
     getTenant: (id: string) => request<{ tenant: any; user_count: number }>(`/platform/tenants/${id}`),
+    getAuditLogs: () => request<any[]>('/platform/audit-logs'),
+    createTenant: (body: {
+      organization_name: string
+      slug: string
+      owner_email: string
+      owner_full_name: string
+      owner_password: string
+    }) =>
+      request<{ tenant_id: string; owner_id: string; message: string }>('/platform/tenants', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      }),
     updateTier: (id: string, tier: string, expires_at?: string | null) =>
       request<{ ok: boolean }>(`/platform/tenants/${id}/tier`, {
         method: 'PATCH',
@@ -412,7 +455,7 @@ export const api = {
     list: (status?: string) =>
       request<ContractorRequest[]>(`/contractor-requests${status ? `?status=${status}` : ''}`),
 
-    create: (body: { title: string; description: string; unit_id?: number }) =>
+    create: (body: { title: string; description: string; unit_id?: number; target_warehouse_id?: string }) =>
       request<ContractorRequest>('/contractor-requests', {
         method: 'POST',
         body: JSON.stringify(body),
@@ -424,7 +467,7 @@ export const api = {
     deliver: (id: string) =>
       request<{ message: string }>(`/contractor-requests/${id}/deliver`, { method: 'POST' }),
 
-    accept: (id: string, body: { resource_id?: string; category_id: string; name: string; quantity: number; unit_type: string }) =>
+    accept: (id: string, body: AcceptContractorPayload) =>
       request<{ message: string }>(`/contractor-requests/${id}/accept`, {
         method: 'POST',
         body: JSON.stringify(body),
@@ -486,11 +529,11 @@ export const api = {
       return request(`/vehicles/${vehicleId}/fuel`);
     },
     performMaintenance: async (vehicleId: string, formData: FormData): Promise<MaintenanceRecord> => {
-      const token = localStorage.getItem('token'); 
+      const token = getInMemoryToken(); 
       const response = await fetch(`/api/vehicles/${vehicleId}/maintenance`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': token ? `Bearer ${token}` : ''
         },
         body: formData,
       });
@@ -501,6 +544,12 @@ export const api = {
       }
 
       return response.json();
+    },
+    scheduleMaintenance: async (vehicleId: string, data: { odometer_km: number; service_type: string; scheduled_for: string; description: string }): Promise<MaintenanceRecord> => {
+      return request(`/vehicles/${vehicleId}/maintenance/schedule`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
     },
     
     getMaintenanceHistory: async (vehicleId: string): Promise<MaintenanceRecord[]> => {
@@ -599,11 +648,12 @@ export const api = {
       return { blob, filename };
     },
 
-    exportFuel: async (startDate?: string, endDate?: string) => {
+    exportFuel: async (startDate?: string, endDate?: string, unitId?: number) => {
       const token = getInMemoryToken();
       const params = new URLSearchParams();
       if (startDate) params.append('start', startDate);
       if (endDate) params.append('end', endDate);
+      if (unitId) params.append('unit_id', String(unitId));
       const query = params.toString() ? `?${params.toString()}` : '';
 
       const response = await fetch(`${API_BASE}/analytics/export/fuel${query}`, {
@@ -759,10 +809,13 @@ export interface ContractorMembership {
 }
 
 export interface AcceptContractorPayload {
-  category_id: string;
-  name: string;
+  resource_id?: string;
+  category_id?: string;
+  category_name?: string;
+  name?: string;
   quantity: number;
   unit_type: string;
+  unit_price?: number;
 }
 
 export type UserStatus = 'PENDING' | 'ACTIVE' | 'BLOCKED';
@@ -951,6 +1004,9 @@ export interface MaintenanceRecord {
   cost_amount: number;
   document_url?: string;
   driver_name?: string;
+  status: 'COMPLETED' | 'SCHEDULED';
+  service_type: string;
+  scheduled_for?: string;
   created_at: string;
 }
 

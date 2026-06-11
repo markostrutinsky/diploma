@@ -2,6 +2,7 @@ package repositories
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"Omnilog_backend/internal/models"
@@ -14,6 +15,57 @@ type SupplyRequestRepository struct{}
 
 func NewSupplyRequestRepository() *SupplyRequestRepository {
 	return &SupplyRequestRepository{}
+}
+
+func (r *SupplyRequestRepository) ValidateCreateScope(ctx context.Context, db DBExecutor, req *models.SupplyRequest) error {
+	tid := TenantFromCtx(ctx)
+	if tid == "" {
+		return fmt.Errorf("tenant_id is required for supply requests")
+	}
+
+	if req.ResourceID != nil && *req.ResourceID != "" {
+		var ok bool
+		if err := db.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM resources WHERE id = $1 AND tenant_id = $2
+			)
+		`, *req.ResourceID, tid).Scan(&ok); err != nil {
+			return err
+		}
+		if !ok {
+			return fmt.Errorf("ресурс не знайдено у вашій організації")
+		}
+	}
+
+	if req.ResourceCategoryID != nil && *req.ResourceCategoryID != "" {
+		var ok bool
+		if err := db.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM resource_categories WHERE id = $1 AND tenant_id = $2
+			)
+		`, *req.ResourceCategoryID, tid).Scan(&ok); err != nil {
+			return err
+		}
+		if !ok {
+			return fmt.Errorf("категорію не знайдено у вашій організації")
+		}
+	}
+
+	if req.TargetWarehouseID != "" {
+		var ok bool
+		if err := db.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM warehouses WHERE id = $1 AND tenant_id = $2
+			)
+		`, req.TargetWarehouseID, tid).Scan(&ok); err != nil {
+			return err
+		}
+		if !ok {
+			return fmt.Errorf("склад призначення не знайдено у вашій організації")
+		}
+	}
+
+	return nil
 }
 
 func (r *SupplyRequestRepository) Create(ctx context.Context, db DBExecutor, req *models.SupplyRequest) error {
@@ -40,9 +92,10 @@ func (r *SupplyRequestRepository) Create(ctx context.Context, db DBExecutor, req
 
 	tid := TenantFromCtx(ctx)
 	if tid == "" {
-		query := `INSERT INTO supply_requests (created_by, resource_id, resource_name, resource_category_id, quantity, status, target_warehouse_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, created_at, updated_at`
-		return db.QueryRow(ctx, query, req.CreatedBy, resID, req.ResourceName, catID, req.Quantity, req.Status, targetWH).Scan(&req.ID, &req.CreatedAt, &req.UpdatedAt)
+		return fmt.Errorf("tenant_id is required for supply requests")
+	}
+	if err := r.ValidateCreateScope(ctx, db, req); err != nil {
+		return err
 	}
 	query := `INSERT INTO supply_requests (created_by, resource_id, resource_name, resource_category_id, quantity, status, target_warehouse_id, tenant_id)
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, created_at, updated_at`
@@ -160,6 +213,8 @@ func (r *SupplyRequestRepository) EscalateStatus(ctx context.Context, db DBExecu
 
 // GetRequestsForDispatch витягує вибрані заявки, їхню вагу та цільовий склад
 func (r *SupplyRequestRepository) GetRequestsForDispatch(ctx context.Context, db DBExecutor, reqIDs []string) ([]models.RequestItem, error) {
+	args := []any{reqIDs}
+	tFilter := tenantFilter(ctx, "sr", "AND", &args)
 	query := `
 		SELECT sr.id::text,
 		       COALESCE(res.name, sr.resource_name, 'Невідомий ресурс') AS name,
@@ -167,9 +222,9 @@ func (r *SupplyRequestRepository) GetRequestsForDispatch(ctx context.Context, db
 		       COALESCE(sr.target_warehouse_id::text, '') AS target_warehouse_id
 		FROM supply_requests sr
 		LEFT JOIN resources res ON sr.resource_id = res.id
-		WHERE sr.id = ANY($1) AND sr.status IN ('PENDING', 'APPROVED')
+		WHERE sr.id = ANY($1) AND sr.status IN ('PENDING', 'APPROVED')` + tFilter + `
 	`
-	rows, err := db.Query(ctx, query, reqIDs)
+	rows, err := db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

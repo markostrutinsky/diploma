@@ -13,10 +13,15 @@ import (
 type UnitRepository struct{}
 
 var SingleInstanceRoles = map[models.UserRole]bool{
-	models.RoleRegionDirector: true,
-	models.RoleBranchManager:  true,
-	models.RoleDeptManager:    true,
-	models.RoleTeamLead:       true,
+	models.RoleRegionDirector:    true,
+	models.RoleRegionLogistician: true,
+	models.RoleRegionStorekeeper: true,
+	models.RoleBranchManager:     true,
+	models.RoleBranchLogistician: true,
+	models.RoleBranchStorekeeper: true,
+	models.RoleDeptManager:       true,
+	models.RoleDeptSupervisor:    true,
+	models.RoleTeamLead:          true,
 }
 
 func NewUnitRepository() *UnitRepository {

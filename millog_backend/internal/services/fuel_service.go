@@ -21,14 +21,18 @@ func NewFuelService(fuelRepo *repositories.FuelRepository, pool *pgxpool.Pool) *
 func (s *FuelService) AddFuelRecord(ctx context.Context, record *models.FuelRecord) error {
 	if record.RecordType == models.FuelExpense {
 		var currentBalance float64
+		tid := repositories.TenantFromCtx(ctx)
+		if tid == "" {
+			return fmt.Errorf("tenant_id is required for fuel records")
+		}
 
 		query := `
 			SELECT COALESCE(
 				SUM(CASE WHEN record_type = 'REFUEL' THEN liters ELSE -liters END), 0
 			) FROM fuel_records 
-			WHERE vehicle_id = $1
+			WHERE vehicle_id = $1 AND tenant_id = $2::uuid
 		`
-		err := s.Pool.QueryRow(ctx, query, record.VehicleID).Scan(&currentBalance)
+		err := s.Pool.QueryRow(ctx, query, record.VehicleID, tid).Scan(&currentBalance)
 		if err != nil {
 			return fmt.Errorf("помилка перевірки балансу пального: %w", err)
 		}

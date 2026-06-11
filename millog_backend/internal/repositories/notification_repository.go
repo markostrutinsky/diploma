@@ -96,14 +96,14 @@ func (r *NotificationRepository) GetUnreadCount(ctx context.Context, db *pgxpool
 }
 
 // MarkAsRead позначає сповіщення як прочитане
-func (r *NotificationRepository) MarkAsRead(ctx context.Context, db *pgxpool.Pool, notificationID string) error {
-	args := []any{notificationID}
+func (r *NotificationRepository) MarkAsRead(ctx context.Context, db *pgxpool.Pool, notificationID string, userID string) error {
+	args := []any{notificationID, userID}
 	tFilter := tenantFilter(ctx, "", "AND", &args)
 
 	query := fmt.Sprintf(`
 		UPDATE notifications
 		SET is_read = TRUE, read_at = CURRENT_TIMESTAMP
-		WHERE id = $1 %s
+		WHERE id = $1 AND user_id = $2 %s
 	`, tFilter)
 
 	result, err := db.Exec(ctx, query, args...)
@@ -134,13 +134,13 @@ func (r *NotificationRepository) MarkAllAsRead(ctx context.Context, db *pgxpool.
 }
 
 // Delete видаляє сповіщення
-func (r *NotificationRepository) Delete(ctx context.Context, db *pgxpool.Pool, notificationID string) error {
-	args := []any{notificationID}
+func (r *NotificationRepository) Delete(ctx context.Context, db *pgxpool.Pool, notificationID string, userID string) error {
+	args := []any{notificationID, userID}
 	tFilter := tenantFilter(ctx, "", "AND", &args)
 
 	query := fmt.Sprintf(`
 		DELETE FROM notifications
-		WHERE id = $1 %s
+		WHERE id = $1 AND user_id = $2 %s
 	`, tFilter)
 
 	result, err := db.Exec(ctx, query, args...)

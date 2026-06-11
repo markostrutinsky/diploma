@@ -76,6 +76,10 @@ func (s *VehicleService) PerformMaintenance(ctx context.Context, record *models.
 	return s.repo.PerformMaintenance(ctx, record, s.Pool)
 }
 
+func (s *VehicleService) ScheduleMaintenance(ctx context.Context, record *models.MaintenanceRecord) error {
+	return s.repo.ScheduleMaintenance(ctx, record, s.Pool)
+}
+
 func (s *VehicleService) GetMaintenanceHistory(ctx context.Context, vehicleID string) ([]*models.MaintenanceRecord, error) {
 	return s.repo.GetMaintenanceHistory(ctx, vehicleID, s.Pool)
 }

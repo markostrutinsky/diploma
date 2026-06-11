@@ -38,6 +38,10 @@
   overflow: visible; /* Щоб меню не обрізалося */
 }
 
+.inventory-page .card-table {
+  isolation: isolate;
+}
+
 .inventory-page .card h2 { 
   margin: 0 0 16px; 
   font-size: 16px; 
@@ -178,6 +182,13 @@
   table-layout: fixed; /* Гарантує, що таблиця не розлізеться */
 }
 
+.inventory-page .table-inventory thead {
+  position: static;
+  top: auto;
+  z-index: auto;
+  background: var(--bg-input);
+}
+
 .inventory-page .table-inventory th, 
 .inventory-page .table-inventory td {
   word-wrap: break-word;
@@ -189,9 +200,13 @@
 }
 
 .inventory-page .table-inventory th { 
+  position: static;
+  top: auto;
+  z-index: auto;
   font-weight: 600; 
   color: var(--text); 
-  background-color: var(--bg-input); 
+  background-color: var(--bg-input) !important;
+  background-clip: padding-box;
 }
 
 /* Специфічні елементи таблиці */

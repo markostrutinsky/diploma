@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode'; // 🔥 Додали Html5Qrcode
-import { api, type Resource } from '../api/client';
+import { api, type InventoryItem } from '../api/client';
 import toast from 'react-hot-toast';
 import './InventoryAuditModal.css';
 
-interface AuditItem extends Resource {
+interface AuditItem extends InventoryItem {
   actual_qty: number;
   is_verified: boolean;
-  _ids?: string[]; // всі resource_ids для агрегованих рядків
 }
 
 interface InventoryAuditModalProps {
@@ -25,22 +24,11 @@ export default function InventoryAuditModal({ warehouseId, warehouseName, onClos
   useEffect(() => {
     api.inventory.getByWarehouse(warehouseId)
       .then(res => {
-        // Агрегуємо дублікати (однакова назва) на рівні фронту:
-        // складаємо кількість, зберігаємо перший id для QR-матчингу
-        const aggregated = new Map<string, any>();
-        for (const item of res as any[]) {
-          const key = item.name;
-          const qty = Number(item.quantity) || 0;
-          if (aggregated.has(key)) {
-            const existing = aggregated.get(key)!;
-            existing.quantity += qty;
-            existing.actual_qty += qty;
-            existing._ids = [...(existing._ids || [existing.id]), item.id];
-          } else {
-            aggregated.set(key, { ...item, quantity: qty, actual_qty: qty, is_verified: false, _ids: [item.id] });
-          }
-        }
-        setItems(Array.from(aggregated.values()));
+        const snapshot = (res || []).map((item) => {
+          const qty = Number(item.available) || 0;
+          return { ...item, available: qty, actual_qty: qty, is_verified: false };
+        });
+        setItems(snapshot);
         setLoading(false);
       })
       .catch(() => {
@@ -77,14 +65,13 @@ export default function InventoryAuditModal({ warehouseId, warehouseName, onClos
   // 3. Обробка успішного сканування (з камери або з файлу)
   const handleMatch = (resourceId: string) => {
     setItems(prev => {
-      // Перевіряємо i.id або i._ids (для агрегованих рядків)
-      const found = prev.find(i => i.id === resourceId || (i._ids && i._ids.includes(resourceId)));
+      const found = prev.find(i => i.id === resourceId);
       
       if (found) {
         toast.success(`Знайдено: ${found.name}`, { icon: '🎯', id: `toast-${resourceId}-${Date.now()}` });
         return prev.map(item =>
-          (item.id === resourceId || (item._ids && item._ids.includes(resourceId)))
-            ? { ...item, is_verified: true, actual_qty: item.actual_qty + 1 }
+          item.id === resourceId
+            ? { ...item, is_verified: true }
             : item
         );
       }
@@ -137,20 +124,18 @@ export default function InventoryAuditModal({ warehouseId, warehouseName, onClos
 
     try {
       const discrepancies = items
-        .filter(item => item.actual_qty !== item.quantity)
+        .filter(item => item.actual_qty !== item.available)
         .map(item => ({
           resource_id: item.id,
-          book_quantity: item.quantity,
+          book_quantity: item.available,
           actual_quantity: item.actual_qty,
-          difference: item.actual_qty - item.quantity
+          difference: item.actual_qty - item.available
         }));
 
       await api.inventory.submitAudit(warehouseId, discrepancies);
       
       toast.success("Акт переобліку успішно сформовано, залишки оновлено!", { id: loadingToast });
       onClose();
-      
-      setTimeout(() => window.location.reload(), 1500);
     } catch (err: any) {
       toast.error(err.message || "Помилка збереження результатів", { id: loadingToast });
     } finally {
@@ -211,7 +196,7 @@ export default function InventoryAuditModal({ warehouseId, warehouseName, onClos
             <div className="audit-hint-box">
               <strong>💡 Як це працює:</strong><br/>
               Скануйте QR-коди майна через камеру або завантажте фото з галереї. Якщо система знаходить збіг, рядок підсвічується зеленим.<br/><br/>
-              Якщо фактична кількість відрізняється від бази — просто впишіть правильну цифру в колонку <b>«Факт»</b>.
+              Якщо фактична кількість відрізняється від бази — впишіть правильну цифру в колонку <b>«Факт»</b>.
             </div>
           </div>
 
@@ -235,14 +220,14 @@ export default function InventoryAuditModal({ warehouseId, warehouseName, onClos
                   </tr>
                 ) : (
                   items.map(item => {
-                    const diff = item.actual_qty - item.quantity;
+                    const diff = item.actual_qty - item.available;
                     return (
                       <tr key={item.id} className={item.is_verified ? 'row-verified' : 'row-pending'}>
                         <td>
                           <span className="status-icon">{item.is_verified ? '✅' : '⏳'}</span>
                           {item.name}
                         </td>
-                        <td className="text-center text-muted">{item.quantity}</td>
+                        <td className="text-center text-muted">{item.available}</td>
                         <td className="text-center">
                           <input 
                             type="number" 

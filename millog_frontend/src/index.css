@@ -62,17 +62,27 @@
   box-sizing: border-box;
 }
 
+html {
+  min-height: 100%;
+  background: var(--bg-body);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
 body {
   margin: 0;
   font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, sans-serif;
   background: var(--bg-body);
   color: var(--text);
-  min-height: 100vh;
+  min-height: 100dvh;
   line-height: 1.5;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 #root {
-  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg-body);
 }
 
 input, select, button, textarea {
@@ -293,6 +303,7 @@ a:hover {
   justify-content: center;
   padding: 4rem;
   color: var(--text-muted);
+  min-height: 320px;
 }
 
 .page-loading .spinner {

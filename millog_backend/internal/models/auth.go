@@ -72,6 +72,17 @@ var WarehouseManagerRoles = []UserRole{
 	RoleTeamLead,
 }
 
+var WarehouseAccessRoles = InternalInventoryRoles
+
+var WarehouseAuditRoles = []UserRole{
+	RoleSystemAdmin,
+	RoleTenantAdmin,
+	RoleAdmin,
+	RoleRegionLogistician,
+	RoleRegionStorekeeper,
+	RoleBranchStorekeeper,
+}
+
 var SupplyRequestCreatorRoles = []UserRole{
 	RoleSystemAdmin, RoleTenantAdmin, RoleAdmin,
 	RoleRegionDirector, RoleBranchManager, RoleDeptManager, RoleTeamLead,
@@ -224,14 +235,6 @@ type UpdateProfileRequest struct {
 }
 
 func (r UserRole) CanCreate(targetRole UserRole) bool {
-	if r == RoleSystemAdmin || r == RoleTenantAdmin || r == RoleAdmin {
-		// SYSTEM_ADMIN не створює SYSTEM_ADMIN через звичайний потік
-		if r != RoleSystemAdmin && targetRole == RoleSystemAdmin {
-			return false
-		}
-		return true
-	}
-
 	allowedRoles, exists := RoleCreationMap[r]
 	if !exists {
 		return false
@@ -243,6 +246,23 @@ func (r UserRole) CanCreate(targetRole UserRole) bool {
 		}
 	}
 	return false
+}
+
+func (r UserRole) RequiresUniqueUnitAssignment() bool {
+	switch r {
+	case RoleRegionDirector,
+		RoleRegionLogistician,
+		RoleRegionStorekeeper,
+		RoleBranchManager,
+		RoleBranchLogistician,
+		RoleBranchStorekeeper,
+		RoleDeptManager,
+		RoleDeptSupervisor,
+		RoleTeamLead:
+		return true
+	default:
+		return false
+	}
 }
 
 func (r UserRole) GetTargetUnitType() string {

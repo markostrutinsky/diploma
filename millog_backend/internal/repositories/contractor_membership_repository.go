@@ -21,6 +21,24 @@ func NewContractorMembershipRepository() *ContractorMembershipRepository {
 // завдання не скидає вже наявне APPROVED/REJECTED у PENDING).
 // Повертає поточний статус членства після виклику.
 func (r *ContractorMembershipRepository) Apply(ctx context.Context, db DBExecutor, contractorID, tenantID string) (models.ContractorMembershipStatus, error) {
+	var ok bool
+	if err := db.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM users u
+			JOIN tenants t ON t.id = $2
+			WHERE u.id = $1
+			  AND u.role = $3
+			  AND u.status = $4
+			  AND t.is_active = TRUE
+		)
+	`, contractorID, tenantID, models.RoleContractor, models.StatusActive).Scan(&ok); err != nil {
+		return "", err
+	}
+	if !ok {
+		return "", fmt.Errorf("підрядника або активну організацію не знайдено")
+	}
+
 	_, err := db.Exec(ctx, `
 		INSERT INTO contractor_memberships (contractor_id, tenant_id, status)
 		VALUES ($1, $2, 'PENDING')
@@ -104,7 +122,7 @@ func (r *ContractorMembershipRepository) ListByContractor(ctx context.Context, d
 		       m.requested_at, m.decided_at, m.decided_by, t.name
 		FROM contractor_memberships m
 		JOIN tenants t ON t.id = m.tenant_id
-		WHERE m.contractor_id = $1
+		WHERE m.contractor_id = $1 AND t.is_active = TRUE
 		ORDER BY m.requested_at DESC
 	`, contractorID)
 	if err != nil {

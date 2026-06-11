@@ -133,7 +133,7 @@ export default function SignupTenant() {
             type="submit" 
             className="btn btn-primary" 
             disabled={loading}
-            style={{ width: '100%', margin: 0, padding: '1rem' }}
+            style={{ width: '100%', margin: 0 }}
           >
             {loading ? 'Створення…' : 'Створити організацію'}
           </button>

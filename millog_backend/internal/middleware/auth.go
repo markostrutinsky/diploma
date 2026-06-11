@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -48,6 +49,9 @@ func AuthMiddleware(jwtSecret string, db *pgxpool.Pool) gin.HandlerFunc {
 			return
 		}
 		token, err := jwt.ParseWithClaims(tokenStr, &Claims{}, func(t *jwt.Token) (interface{}, error) {
+			if t.Method != jwt.SigningMethodHS256 {
+				return nil, errors.New("unexpected signing method")
+			}
 			return []byte(jwtSecret), nil
 		})
 
@@ -65,25 +69,62 @@ func AuthMiddleware(jwtSecret string, db *pgxpool.Pool) gin.HandlerFunc {
 		}
 
 		// === НОВИЙ БЛОК: ПЕРЕВІРКА В БАЗІ ДАНИХ ===
-		var status string
+		var status models.UserStatus
 		var tenantID *string
+		var role models.UserRole
+		var unitID *int64
+		var tenantActive *bool
 		// 🛡️ Додаємо таймаут до контексту (2 сек) щоб не висіти на БД
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
 		defer cancel()
 
-		err = db.QueryRow(ctx, "SELECT status, tenant_id FROM users WHERE id = $1", claims.UserID).Scan(&status, &tenantID)
+		err = db.QueryRow(ctx, `
+			SELECT u.status, u.tenant_id, u.role, u.unit_id, t.is_active
+			FROM users u
+			LEFT JOIN tenants t ON t.id = u.tenant_id
+			WHERE u.id = $1
+		`, claims.UserID).Scan(&status, &tenantID, &role, &unitID, &tenantActive)
 
 		// Якщо користувача видалили з БД або його статус BLOCKED - відхиляємо запит
-		if err != nil || status == "BLOCKED" {
+		if err != nil || status != models.StatusActive {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Ваш профіль деактивовано. Сесію завершено."})
 			c.Abort()
 			return
 		}
 		// ==========================================
 
-		// Якщо tenant_id у БД є, а у claims пустий/інший — беремо з БД (свіжіший source of truth)
+		// Роль, підрозділ і tenant беремо з БД на кожному protected request: JWT може
+		// жити довше, ніж адмінська зміна прав користувача.
+		claims.Role = role
+		claims.UnitID = 0
+		if unitID != nil {
+			claims.UnitID = *unitID
+		}
+		claims.TenantID = ""
 		if tenantID != nil && *tenantID != "" {
+			if tenantActive == nil || !*tenantActive {
+				c.JSON(http.StatusForbidden, gin.H{"error": "Організацію деактивовано. Зверніться до підтримки платформи."})
+				c.Abort()
+				return
+			}
 			claims.TenantID = *tenantID
+		}
+
+		// Платформний адмін не повинен випадково отримати tenant scope зі старих даних.
+		if claims.Role == models.RoleSystemAdmin {
+			claims.TenantID = ""
+			supportTenantID := strings.TrimSpace(c.GetHeader("X-Support-Tenant-ID"))
+			if supportTenantID != "" {
+				var supportTenantActive bool
+				err = db.QueryRow(ctx, `SELECT is_active FROM tenants WHERE id = $1`, supportTenantID).Scan(&supportTenantActive)
+				if err != nil || !supportTenantActive {
+					c.JSON(http.StatusForbidden, gin.H{"error": "Обрану організацію для support mode не знайдено або деактивовано"})
+					c.Abort()
+					return
+				}
+				claims.TenantID = supportTenantID
+				c.Set("support_mode", true)
+			}
 		}
 
 		// Підрядник (CONTRACTOR) — глобальний учасник marketplace і не належить жодній

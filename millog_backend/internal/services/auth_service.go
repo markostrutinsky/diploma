@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
@@ -114,6 +115,10 @@ func (s *AuthService) RegisterUser(ctx context.Context, request *models.CreateUs
 	}
 	defer tx.Rollback(ctx)
 
+	if err := s.validateUniqueLeadershipAssignment(ctx, tx, role, request.UnitID, nil); err != nil {
+		return nil, err
+	}
+
 	username := s.deriveUsername(request)
 
 	var phone *string
@@ -167,17 +172,29 @@ func (s *AuthService) RegisterUser(ctx context.Context, request *models.CreateUs
 	}
 	inviteLink := fmt.Sprintf("%s/setup-password?token=%s", strings.TrimSuffix(baseURL, "/"), rawToken)
 
-	go func(email, link string) {
-		sendErr := s.emailService.SendInviteEmail(email, link)
-		if sendErr != nil {
-			fmt.Printf("ERROR: Failed to send email to %s: %v\n", email, sendErr)
-		}
-	}(user.Email, inviteLink)
+	if err := s.emailService.SendInviteEmail(user.Email, inviteLink); err != nil {
+		return nil, fmt.Errorf("failed to send invite email: %w", err)
+	}
 
 	return &models.CreateUserResponse{
 		ID:      user.ID,
 		Message: "Користувача створено. На пошту надіслано лист для встановлення паролю.",
 	}, nil
+}
+
+func (s *AuthService) validateUniqueLeadershipAssignment(ctx context.Context, db repositories.DBExecutor, role models.UserRole, unitID *int64, excludeUserID *string) error {
+	if unitID == nil || !role.RequiresUniqueUnitAssignment() {
+		return nil
+	}
+
+	occupied, err := s.userRepository.HasAssignedRoleInUnit(ctx, db, role, *unitID, excludeUserID)
+	if err != nil {
+		return fmt.Errorf("помилка перевірки призначення керівника: %w", err)
+	}
+	if occupied {
+		return fmt.Errorf("обрана орг. одиниця вже має призначеного керівника для ролі %s", role)
+	}
+	return nil
 }
 
 func (s *AuthService) RegisterCONTRACTOR(ctx context.Context, email, password, fullName string) (*models.CreateUserResponse, error) {
@@ -545,6 +562,7 @@ func (s *AuthService) GetVisibleUsers(ctx context.Context, requesterRole string,
 }
 
 func (s *AuthService) UpdateRoleAndUnit(ctx context.Context, commanderID string, targetUserID string, newRole string, newUnitID *int64) error {
+	role := s.parseRole(newRole)
 
 	commander, err := s.userRepository.GetByID(ctx, s.dbPool, commanderID)
 	if err != nil {
@@ -576,6 +594,10 @@ func (s *AuthService) UpdateRoleAndUnit(ctx context.Context, commanderID string,
 		if !hasAccess {
 			return fmt.Errorf("помилка безпеки: підрозділ не входить до вашого формування")
 		}
+	}
+
+	if err := s.validateUniqueLeadershipAssignment(ctx, s.dbPool, role, newUnitID, &targetUserID); err != nil {
+		return err
 	}
 
 	return s.userRepository.UpdateRoleAndUnit(ctx, s.dbPool, targetUserID, newRole, newUnitID)
@@ -672,9 +694,9 @@ func (s *AuthService) UpdateMyPassword(ctx context.Context, userID, oldPassword,
 		return fmt.Errorf("помилка збереження пароля: %w", err)
 	}
 
-	go func(email string) {
-		_ = s.emailService.SendPasswordChangedAlert(email)
-	}(user.Email)
+	if err := s.emailService.SendPasswordChangedAlert(user.Email); err != nil {
+		return fmt.Errorf("failed to send password changed email: %w", err)
+	}
 
 	return nil
 }
@@ -718,10 +740,10 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) er
 	}
 	resetLink := fmt.Sprintf("%s/setup-password?token=%s", strings.TrimSuffix(baseURL, "/"), rawToken)
 
-	// 4. Відправляємо лист у фоні
-	go func(userEmail, link string) {
-		_ = s.emailService.SendPasswordResetEmail(userEmail, link)
-	}(user.Email, resetLink)
+	if err := s.emailService.SendPasswordResetEmail(user.Email, resetLink); err != nil {
+		slog.Error("Failed to send password reset email", "email", user.Email, "error", err)
+		return fmt.Errorf("failed to send password reset email: %w", err)
+	}
 
 	return nil
 }

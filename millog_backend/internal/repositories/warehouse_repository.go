@@ -133,8 +133,14 @@ func (r *WarehouseRepository) Update(ctx context.Context, db DBExecutor, id stri
 	args := []any{name, capacityLevel, zoneType, id}
 	tFilter := tenantFilter(ctx, "", "AND", &args)
 	query := `UPDATE warehouses SET name = $1, capacity_level = $2, zone_type = $3 WHERE id = $4` + tFilter
-	_, err := db.Exec(ctx, query, args...)
-	return err
+	result, err := db.Exec(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return errors.New("склад не знайдено")
+	}
+	return nil
 }
 
 // Delete безповоротно видаляє склад
@@ -142,6 +148,12 @@ func (r *WarehouseRepository) Delete(ctx context.Context, db DBExecutor, id stri
 	args := []any{id}
 	tFilter := tenantFilter(ctx, "", "AND", &args)
 	query := `DELETE FROM warehouses WHERE id = $1` + tFilter
-	_, err := db.Exec(ctx, query, args...)
-	return err
+	result, err := db.Exec(ctx, query, args...)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return errors.New("склад не знайдено")
+	}
+	return nil
 }

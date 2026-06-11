@@ -18,20 +18,36 @@ func NewVehicleRepository() *VehicleRepository {
 func (r *VehicleRepository) Create(ctx context.Context, db DBExecutor, v *models.Vehicle) error {
 	tid := TenantFromCtx(ctx)
 	if tid == "" {
-		query := `
-        INSERT INTO vehicles (
-            brand, model, plate_number, type, capacity_kg, status, driver_id,
-            tank_capacity, fuel_norm, home_warehouse_id, current_warehouse_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)
-        RETURNING id, maintenance_interval_km, last_maintenance_odometer, created_at, updated_at`
-		err := db.QueryRow(ctx, query,
-			v.Brand, v.Model, v.PlateNumber, v.Type, v.CapacityKg, v.Status, v.DriverID,
-			v.TankCapacity, v.FuelNorm, v.HomeWarehouseID,
-		).Scan(&v.ID, &v.MaintenanceIntervalKm, &v.LastMaintenanceOdometer, &v.CreatedAt, &v.UpdatedAt)
-		if err != nil {
-			return fmt.Errorf("помилка створення авто: %w", err)
+		return fmt.Errorf("tenant_id is required for vehicles")
+	}
+
+	if v.HomeWarehouseID != nil && *v.HomeWarehouseID != "" {
+		var ok bool
+		if err := db.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM warehouses WHERE id = $1 AND tenant_id = $2
+			)
+		`, *v.HomeWarehouseID, tid).Scan(&ok); err != nil {
+			return fmt.Errorf("помилка перевірки складу: %w", err)
 		}
-		return nil
+		if !ok {
+			return fmt.Errorf("склад не знайдено у вашій організації")
+		}
+	}
+
+	if v.DriverID != nil && *v.DriverID != "" {
+		var ok bool
+		if err := db.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM users
+				WHERE id = $1 AND tenant_id = $2 AND status = $3
+			)
+		`, *v.DriverID, tid, models.StatusActive).Scan(&ok); err != nil {
+			return fmt.Errorf("помилка перевірки водія: %w", err)
+		}
+		if !ok {
+			return fmt.Errorf("водія не знайдено у вашій організації")
+		}
 	}
 
 	query := `
@@ -251,12 +267,18 @@ func (r *VehicleRepository) PerformMaintenance(ctx context.Context, record *mode
 	}
 	defer tx.Rollback(ctx)
 
+	tid := TenantFromCtx(ctx)
+	if tid == "" {
+		return fmt.Errorf("tenant_id is required for vehicle maintenance")
+	}
+
+	args := []any{record.OdometerKm, record.VehicleID}
+	tFilter := tenantFilter(ctx, "", "AND", &args)
 	updateQuery := `
         UPDATE vehicles 
         SET last_maintenance_odometer = $1, status = 'ACTIVE', status_reason = NULL, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2
-    `
-	cmdTag, err := tx.Exec(ctx, updateQuery, record.OdometerKm, record.VehicleID)
+        WHERE id = $2` + tFilter
+	cmdTag, err := tx.Exec(ctx, updateQuery, args...)
 	if err != nil {
 		return fmt.Errorf("помилка оновлення статусу авто: %w", err)
 	}
@@ -265,8 +287,8 @@ func (r *VehicleRepository) PerformMaintenance(ctx context.Context, record *mode
 	}
 
 	insertQuery := `
-        INSERT INTO maintenance_records (vehicle_id, odometer_km, description, performed_by, cost_amount, document_url, driver_id)
-        VALUES ($1, $2, $3, $4, $5, $6, (SELECT driver_id FROM vehicles WHERE id = $1))
+        INSERT INTO maintenance_records (vehicle_id, odometer_km, description, performed_by, cost_amount, document_url, driver_id, status, service_type)
+        VALUES ($1, $2, $3, $4, $5, $6, (SELECT driver_id FROM vehicles WHERE id = $1 AND tenant_id = $7::uuid), 'COMPLETED', 'INSPECTION')
         RETURNING id, created_at
     `
 	err = tx.QueryRow(ctx, insertQuery,
@@ -276,6 +298,7 @@ func (r *VehicleRepository) PerformMaintenance(ctx context.Context, record *mode
 		record.PerformedBy,
 		record.CostAmount,
 		record.DocumentURL,
+		tid,
 	).Scan(&record.ID, &record.CreatedAt)
 
 	if err != nil {
@@ -289,15 +312,54 @@ func (r *VehicleRepository) PerformMaintenance(ctx context.Context, record *mode
 	return nil
 }
 
-func (r *VehicleRepository) GetMaintenanceHistory(ctx context.Context, vehicleID string, db DBExecutor) ([]*models.MaintenanceRecord, error) {
+func (r *VehicleRepository) ScheduleMaintenance(ctx context.Context, record *models.MaintenanceRecord, db DBExecutor) error {
+	tid := TenantFromCtx(ctx)
+	if tid == "" {
+		return fmt.Errorf("tenant_id is required for vehicle maintenance")
+	}
+	if record.ScheduledFor == nil {
+		return fmt.Errorf("scheduled_for is required")
+	}
+
 	query := `
-        SELECT m.id, m.vehicle_id, m.odometer_km, m.description, m.performed_by, m.cost_amount, COALESCE(m.document_url, ''), m.created_at, u.full_name
+        INSERT INTO maintenance_records (vehicle_id, odometer_km, description, performed_by, cost_amount, document_url, driver_id, status, service_type, scheduled_for)
+        SELECT v.id, $2, $3, $4, 0, '', v.driver_id, 'SCHEDULED', $5, $6
+        FROM vehicles v
+        WHERE v.id = $1 AND v.tenant_id = $7::uuid
+        RETURNING id, created_at
+    `
+	err := db.QueryRow(ctx, query,
+		record.VehicleID,
+		record.OdometerKm,
+		record.Description,
+		record.PerformedBy,
+		record.ServiceType,
+		record.ScheduledFor,
+		tid,
+	).Scan(&record.ID, &record.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("помилка планування ТО: %w", err)
+	}
+
+	record.Status = "SCHEDULED"
+	record.CostAmount = 0
+	record.DocumentURL = ""
+	return nil
+}
+
+func (r *VehicleRepository) GetMaintenanceHistory(ctx context.Context, vehicleID string, db DBExecutor) ([]*models.MaintenanceRecord, error) {
+	args := []any{vehicleID}
+	tFilter := tenantFilter(ctx, "v", "AND", &args)
+	query := `
+        SELECT m.id, m.vehicle_id, m.odometer_km, m.description, m.performed_by, m.cost_amount, COALESCE(m.document_url, ''), m.created_at, u.full_name,
+               COALESCE(m.status, 'COMPLETED'), COALESCE(m.service_type, 'INSPECTION'), m.scheduled_for
         FROM maintenance_records m
-        LEFT JOIN users u ON m.driver_id = u.id
-        WHERE m.vehicle_id = $1
+        JOIN vehicles v ON v.id = m.vehicle_id
+        LEFT JOIN users u ON m.driver_id = u.id AND u.tenant_id = v.tenant_id
+        WHERE m.vehicle_id = $1` + tFilter + `
         ORDER BY m.created_at DESC
     `
-	rows, err := db.Query(ctx, query, vehicleID)
+	rows, err := db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -316,6 +378,9 @@ func (r *VehicleRepository) GetMaintenanceHistory(ctx context.Context, vehicleID
 			&rec.DocumentURL,
 			&rec.CreatedAt,
 			&rec.DriverName,
+			&rec.Status,
+			&rec.ServiceType,
+			&rec.ScheduledFor,
 		)
 		if err != nil {
 			return nil, err
@@ -327,15 +392,39 @@ func (r *VehicleRepository) GetMaintenanceHistory(ctx context.Context, vehicleID
 }
 
 func (r *VehicleRepository) AssignDriver(ctx context.Context, vehicleID string, driverID *string, db DBExecutor) error {
+	tid := TenantFromCtx(ctx)
+	if tid == "" {
+		return fmt.Errorf("tenant_id is required for vehicles")
+	}
+	if driverID != nil && *driverID != "" {
+		var ok bool
+		if err := db.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM users
+				WHERE id = $1 AND tenant_id = $2 AND status = $3
+			)
+		`, *driverID, tid, models.StatusActive).Scan(&ok); err != nil {
+			return err
+		}
+		if !ok {
+			return fmt.Errorf("водія не знайдено у вашій організації")
+		}
+	}
+
 	tx, err := db.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback(ctx)
 
-	_, err = tx.Exec(ctx, `UPDATE vehicles SET driver_id = $1 WHERE id = $2`, driverID, vehicleID)
+	args := []any{driverID, vehicleID}
+	tFilter := tenantFilter(ctx, "", "AND", &args)
+	tag, err := tx.Exec(ctx, `UPDATE vehicles SET driver_id = $1 WHERE id = $2`+tFilter, args...)
 	if err != nil {
 		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return fmt.Errorf("авто не знайдено у вашій організації")
 	}
 
 	_, err = tx.Exec(ctx, `INSERT INTO vehicle_driver_history (vehicle_id, driver_id) VALUES ($1, $2)`, vehicleID, driverID)
@@ -347,14 +436,17 @@ func (r *VehicleRepository) AssignDriver(ctx context.Context, vehicleID string, 
 }
 
 func (r *VehicleRepository) GetDriverHistory(ctx context.Context, vehicleID string, db DBExecutor) ([]models.VehicleDriverHistory, error) {
+	args := []any{vehicleID}
+	tFilter := tenantFilter(ctx, "v", "AND", &args)
 	query := `
 		SELECT h.id, h.vehicle_id, h.driver_id, COALESCE(u.full_name, 'Без закріплення (Резерв)'), h.assigned_at
 		FROM vehicle_driver_history h
+		JOIN vehicles v ON v.id = h.vehicle_id
 		LEFT JOIN users u ON h.driver_id = u.id
-		WHERE h.vehicle_id = $1
+		WHERE h.vehicle_id = $1` + tFilter + `
 		ORDER BY h.assigned_at DESC
 	`
-	rows, err := db.Query(ctx, query, vehicleID)
+	rows, err := db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

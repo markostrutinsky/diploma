@@ -62,7 +62,7 @@ function App() {
           <Route path="/bootstrap" element={<Bootstrap />} />
           <Route path="/setup-password" element={<SetupPassword />} />
 
-          <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+          <Route path="/" element={<ProtectedRoute requireTenantContext><Home /></ProtectedRoute>} />
 
           <Route
             path="/audit"
@@ -75,20 +75,20 @@ function App() {
 
           <Route 
             path="/my-equipment" 
-            element={<ProtectedRoute forbidRoles={['CONTRACTOR']}><Profile /></ProtectedRoute>} 
+            element={<ProtectedRoute forbidRoles={['CONTRACTOR']} requireTenantContext><Profile /></ProtectedRoute>} 
           />
 
           <Route 
             path="/inventory" 
-            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.inventory]}><Inventory /></ProtectedRoute>} 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.inventory]} requireTenantContext><Inventory /></ProtectedRoute>} 
           />
           <Route 
             path="/warehouses" 
-            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.inventory]}><Warehouses /></ProtectedRoute>} 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.inventory]} requireTenantContext><Warehouses /></ProtectedRoute>} 
           />
           <Route 
             path="/requests" 
-            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.requests]}><Requests /></ProtectedRoute>} 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.requests]} requireTenantContext><Requests /></ProtectedRoute>} 
           />
           <Route 
             path="/my-shipments" 
@@ -96,50 +96,50 @@ function App() {
           />
           <Route 
             path="/units" 
-            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.units]}><Units /></ProtectedRoute>} 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.units]} requireTenantContext><Units /></ProtectedRoute>} 
           />
           <Route 
             path="/admin/users" 
-            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.users]}><AdminUsers /></ProtectedRoute>} 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.users]} requireTenantContext><AdminUsers /></ProtectedRoute>} 
           />
           <Route 
             path="/admin/contractors" 
-            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.contracts]}><AdminContractors /></ProtectedRoute>} 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.contracts]} requireTenantContext><AdminContractors /></ProtectedRoute>} 
           />
           <Route 
             path="/vehicles" 
-            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.transport]}><Vehicles /></ProtectedRoute>} 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.transport]} requireTenantContext><Vehicles /></ProtectedRoute>} 
           />
           
           <Route 
             path="/analytics" 
-            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.analytics]}><AnalyticsDashboard /></ProtectedRoute>} 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.analytics]} requireTenantContext><AnalyticsDashboard /></ProtectedRoute>} 
           />
 
           <Route 
             path="/kpi" 
-            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.analytics]}><KPIDashboard /></ProtectedRoute>} 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.analytics]} requireTenantContext><KPIDashboard /></ProtectedRoute>} 
           />
 
           <Route 
             path="/gps" 
-            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.transport]}><GPSTracking /></ProtectedRoute>} 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.transport]} requireTenantContext><GPSTracking /></ProtectedRoute>} 
           />
 
           <Route 
             path="/maintenance" 
-            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.transport]}><MaintenanceSchedule /></ProtectedRoute>} 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.transport]} requireTenantContext><MaintenanceSchedule /></ProtectedRoute>} 
           />
 
           <Route 
             path="/fuel-anomalies" 
-            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.transport]}><FuelAnomalies /></ProtectedRoute>} 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.transport]} requireTenantContext><FuelAnomalies /></ProtectedRoute>} 
           />
 
           <Route 
             path="/kiosk" 
             element={
-              <ProtectedRoute allowedRoles={[...ROLE_GROUPS.kiosk]}>
+              <ProtectedRoute allowedRoles={[...ROLE_GROUPS.kiosk]} requireTenantContext>
                 <KioskTerminal />
               </ProtectedRoute>
             } 
@@ -147,12 +147,12 @@ function App() {
 
           <Route 
             path="/contractor-requests" 
-            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.contractorRequestsView]}><VolunteerRequests /></ProtectedRoute>} 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.contractorRequestsView]} requireTenantContext><VolunteerRequests /></ProtectedRoute>} 
           />
 
           <Route 
             path="/billing" 
-            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.analytics]}><Billing /></ProtectedRoute>} 
+            element={<ProtectedRoute allowedRoles={[...ROLE_GROUPS.analytics]} requireTenantContext><Billing /></ProtectedRoute>} 
           />
 
           <Route

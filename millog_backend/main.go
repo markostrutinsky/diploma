@@ -26,7 +26,13 @@ func main() {
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
-	if err := godotenv.Load(); err != nil {
+	loadedEnv := false
+	for _, envFile := range []string{"millog_backend/.env", ".env"} {
+		if err := godotenv.Load(envFile); err == nil {
+			loadedEnv = true
+		}
+	}
+	if !loadedEnv {
 		slog.Warn("No .env file found, relying on system environment variables")
 	}
 
@@ -83,6 +89,11 @@ func main() {
 		slog.Error("Failed to init email service", "error", err)
 		os.Exit(1)
 	}
+	slog.Info("SMTP email service configured",
+		"host", os.Getenv("SMTP_HOST"),
+		"port", os.Getenv("SMTP_PORT"),
+		"email", os.Getenv("SMTP_EMAIL"),
+	)
 
 	catRepo := repositories.NewCategoryRepository()
 	resRepo := repositories.NewResourceRepository()
@@ -170,12 +181,12 @@ func main() {
 		users := api.Group("/users")
 		users.Use(middleware.AuthMiddleware(jwtSecret, dbPool))
 		{
-			users.GET("/commanders", authHandler.ListCommanders)
-			users.GET("/visible", authHandler.GetVisibleUsers)
-			users.GET("/limits", authHandler.GetUserLimits)
-			users.PUT("/:id/role", authHandler.UpdateRoleAndUnit)
-			users.PUT("/:id/block", authHandler.BlockUser)
-			users.PUT("/:id/unblock", authHandler.UnblockUser)
+			users.GET("/commanders", middleware.RequireTenant(), authHandler.ListCommanders)
+			users.GET("/visible", middleware.RequireTenant(), authHandler.GetVisibleUsers)
+			users.GET("/limits", middleware.RequireTenant(), authHandler.GetUserLimits)
+			users.PUT("/:id/role", middleware.RequireTenant(), middleware.RequireAnyRole(models.UserCreatorRoles), authHandler.UpdateRoleAndUnit)
+			users.PUT("/:id/block", middleware.RequireTenant(), middleware.RequireAnyRole(models.UserCreatorRoles), authHandler.BlockUser)
+			users.PUT("/:id/unblock", middleware.RequireTenant(), middleware.RequireAnyRole(models.UserCreatorRoles), authHandler.UnblockUser)
 			users.PATCH("/profile", authHandler.UpdateMyProfile)
 			users.PATCH("/password", authHandler.UpdateMyPassword)
 		}
@@ -183,7 +194,7 @@ func main() {
 		api.POST("/bootstrap", authHandler.BootstrapAdmin)
 
 		admin := api.Group("/admin")
-		admin.Use(middleware.AuthMiddleware(jwtSecret, dbPool), middleware.RequireAnyRole(models.UserCreatorRoles))
+		admin.Use(middleware.AuthMiddleware(jwtSecret, dbPool), middleware.RequireTenant(), middleware.RequireAnyRole(models.UserCreatorRoles))
 		{
 			admin.POST("/users", authHandler.RegisterUser)
 			admin.GET("/audit-logs", auditHandler.GetLogs)
@@ -191,12 +202,14 @@ func main() {
 		}
 
 		// === PLATFORM ADMIN API (SYSTEM_ADMIN only, cross-tenant) ===
-		platformHandler := handlers.NewPlatformHandler(tenantRepo, userRepo, dbPool)
+		platformHandler := handlers.NewPlatformHandler(tenantRepo, userRepo, auditRepo, authService, dbPool)
 		platform := api.Group("/platform")
 		platform.Use(middleware.AuthMiddleware(jwtSecret, dbPool), middleware.RequireSystemAdmin())
 		{
 			platform.GET("/stats", platformHandler.Stats)
+			platform.GET("/audit-logs", platformHandler.AuditLogs)
 			platform.GET("/tenants", platformHandler.ListTenants)
+			platform.POST("/tenants", platformHandler.CreateTenant)
 			platform.GET("/tenants/:id", platformHandler.GetTenant)
 			platform.PATCH("/tenants/:id/tier", platformHandler.UpdateTier)
 			platform.PATCH("/tenants/:id/active", platformHandler.SetActive)
@@ -205,7 +218,7 @@ func main() {
 
 		// Units: Admin + commanders + logists + storekeepers
 		units := api.Group("/units")
-		units.Use(middleware.AuthMiddleware(jwtSecret, dbPool))
+		units.Use(middleware.AuthMiddleware(jwtSecret, dbPool), middleware.RequireTenant())
 		{
 			units.GET("", unitHandler.List)
 			units.GET("/available", unitHandler.GetAvailableForRole)
@@ -219,7 +232,7 @@ func main() {
 
 		// Inventory: storekeepers + company sergeant
 		inv := api.Group("/inventory")
-		inv.Use(middleware.AuthMiddleware(jwtSecret, dbPool))
+		inv.Use(middleware.AuthMiddleware(jwtSecret, dbPool), middleware.RequireTenant())
 		{
 			inv.GET("/categories", invHandler.ListCategories)
 			inv.GET("/resources", invHandler.ListResources)
@@ -247,7 +260,7 @@ func main() {
 			inv.GET("/resources/:id/qr", invHandler.DownloadResourceQR)
 			inv.PATCH("/categories/:id", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.UpdateCategory)
 			inv.DELETE("/categories/:id", middleware.RequireAnyRole(models.InventoryManagerRoles), invHandler.DeleteCategory)
-			inv.POST("/audit", invHandler.SubmitAudit)
+			inv.POST("/audit", middleware.RequireAnyRole(models.WarehouseAuditRoles), invHandler.SubmitAudit)
 			inv.GET("/resources/import/template", invHandler.DownloadImportTemplate) // Завантаження шаблону
 			// 🚀 PRO FEATURE: Excel import з захистом
 			inv.POST("/resources/import", middleware.RequireAnyRole(models.InventoryManagerRoles), middleware.RequireSubscriptionTier("PRO", dbPool), invHandler.ImportExcel) // Завантаження заповненого Excel
@@ -255,7 +268,7 @@ func main() {
 
 		// Supply requests: commanders + logists + sergeant create; commanders + logists approve
 		requests := api.Group("/requests")
-		requests.Use(middleware.AuthMiddleware(jwtSecret, dbPool))
+		requests.Use(middleware.AuthMiddleware(jwtSecret, dbPool), middleware.RequireTenant())
 		{
 			requests.POST("", middleware.RequireAnyRole(models.SupplyRequestCreatorRoles), reqHandler.Create)
 			requests.GET("", reqHandler.List)
@@ -277,16 +290,16 @@ func main() {
 			contractorReqs.GET("", volReqHandler.List)
 
 			// Створення заявки (тільки для військових)
-			contractorReqs.POST("", middleware.RequireAnyRole(models.ContractorRequestCreatorRoles), volReqHandler.Create)
+			contractorReqs.POST("", middleware.RequireTenant(), middleware.RequireAnyRole(models.ContractorRequestCreatorRoles), volReqHandler.Create)
 
 			// Дії ВОЛОНТЕРА (Взяти в роботу, Доставити)
 			contractorReqs.POST("/:id/take", middleware.RequireAnyRole([]models.UserRole{models.RoleContractor}), volReqHandler.Take)
 			contractorReqs.POST("/:id/deliver", middleware.RequireAnyRole([]models.UserRole{models.RoleContractor}), volReqHandler.Deliver)
 
 			// Дії ВІЙСЬКОВИХ (Прийняти на баланс, Відхилити, Скасувати)
-			contractorReqs.POST("/:id/accept", middleware.RequireAnyRole(models.ContractorRequestCreatorRoles), volReqHandler.Accept)
-			contractorReqs.POST("/:id/reject", middleware.RequireAnyRole(models.ContractorRequestCreatorRoles), volReqHandler.Reject)
-			contractorReqs.POST("/:id/cancel", middleware.RequireAnyRole(models.ContractorRequestCreatorRoles), volReqHandler.Cancel)
+			contractorReqs.POST("/:id/accept", middleware.RequireTenant(), middleware.RequireAnyRole(models.ContractorRequestCreatorRoles), volReqHandler.Accept)
+			contractorReqs.POST("/:id/reject", middleware.RequireTenant(), middleware.RequireAnyRole(models.ContractorRequestCreatorRoles), volReqHandler.Reject)
+			contractorReqs.POST("/:id/cancel", middleware.RequireTenant(), middleware.RequireAnyRole(models.ContractorRequestCreatorRoles), volReqHandler.Cancel)
 		}
 
 		// CONTRACTOR memberships: підрядник співпрацює з організаціями за їх схваленням.
@@ -302,14 +315,15 @@ func main() {
 			contractorMemberships.POST("/apply", middleware.RequireAnyRole([]models.UserRole{models.RoleContractor}), membershipHandler.Apply)
 
 			// Адмін організації: перегляд та рішення щодо підрядників
-			contractorMemberships.GET("", middleware.RequireAnyRole(models.ContractorRequestCreatorRoles), membershipHandler.ListForTenant)
-			contractorMemberships.POST("/:id/approve", middleware.RequireAnyRole(models.ContractorRequestCreatorRoles), membershipHandler.Approve)
-			contractorMemberships.POST("/:id/reject", middleware.RequireAnyRole(models.ContractorRequestCreatorRoles), membershipHandler.Reject)
+			contractorMemberships.GET("", middleware.RequireTenant(), middleware.RequireAnyRole(models.ContractorRequestCreatorRoles), membershipHandler.ListForTenant)
+			contractorMemberships.POST("/:id/approve", middleware.RequireTenant(), middleware.RequireAnyRole(models.ContractorRequestCreatorRoles), membershipHandler.Approve)
+			contractorMemberships.POST("/:id/reject", middleware.RequireTenant(), middleware.RequireAnyRole(models.ContractorRequestCreatorRoles), membershipHandler.Reject)
 		}
 
 		// Fuel records: logists + commanders create; logists + commanders view
 		vehicleGroup := api.Group("/vehicles")
 		vehicleGroup.Use(middleware.AuthMiddleware(jwtSecret, dbPool))
+		vehicleGroup.Use(middleware.RequireTenant())
 		vehicleGroup.Use(middleware.RequireAnyRole(models.FuelRecordCreatorRoles))
 		{
 			vehicleGroup.POST("", vehicleHandler.Create)
@@ -320,6 +334,7 @@ func main() {
 			vehicleGroup.POST("/:id/fuel", fuelHandler.CreateRecord)
 			vehicleGroup.GET("/:id/fuel", fuelHandler.GetHistory)
 			vehicleGroup.POST("/:id/maintenance", vehicleHandler.PerformMaintenance)
+			vehicleGroup.POST("/:id/maintenance/schedule", vehicleHandler.ScheduleMaintenance)
 			vehicleGroup.GET("/:id/maintenance", vehicleHandler.GetMaintenanceHistory)
 			vehicleGroup.PATCH("/:id/driver", vehicleHandler.AssignDriver)
 			vehicleGroup.GET("/:id/drivers", vehicleHandler.GetDriverHistory)
@@ -336,28 +351,54 @@ func main() {
 			func(c *gin.Context) {
 				filename := c.Param("filename")
 				// Захист від path traversal — лише ім'я файлу без слешів
+				if filename == "" {
+					c.AbortWithStatus(http.StatusBadRequest)
+					return
+				}
 				for _, ch := range filename {
 					if ch == '/' || ch == '\\' || ch == '.' && filename[0] == '.' {
 						c.AbortWithStatus(http.StatusBadRequest)
 						return
 					}
 				}
+				tenantID := middleware.TenantIDFromContext(c)
+				if tenantID == "" {
+					c.AbortWithStatus(http.StatusForbidden)
+					return
+				}
+				documentURL := "/api/uploads/maintenance/" + filename
+				var allowed bool
+				if err := dbPool.QueryRow(c.Request.Context(), `
+					SELECT EXISTS (
+						SELECT 1
+						FROM maintenance_records mr
+						JOIN vehicles v ON v.id = mr.vehicle_id
+						WHERE mr.document_url = $1 AND v.tenant_id = $2
+					)
+				`, documentURL, tenantID).Scan(&allowed); err != nil {
+					c.AbortWithStatus(http.StatusInternalServerError)
+					return
+				}
+				if !allowed {
+					c.AbortWithStatus(http.StatusNotFound)
+					return
+				}
 				c.File("./uploads/maintenance/" + filename)
 			},
 		)
 
 		warehouseGroup := api.Group("/warehouses")
-		warehouseGroup.Use(middleware.AuthMiddleware(jwtSecret, dbPool), middleware.RequireAnyRole(models.WarehouseManagerRoles))
+		warehouseGroup.Use(middleware.AuthMiddleware(jwtSecret, dbPool), middleware.RequireTenant())
 		{
-			warehouseGroup.GET("", warehouseHandler.List)
-			warehouseGroup.POST("", warehouseHandler.Create)
-			warehouseGroup.PATCH("/:id/location", warehouseHandler.UpdateLocation)
-			warehouseGroup.PATCH("/:id", warehouseHandler.UpdateWarehouse)
-			warehouseGroup.DELETE("/:id", warehouseHandler.Delete)
+			warehouseGroup.GET("", middleware.RequireAnyRole(models.WarehouseAccessRoles), warehouseHandler.List)
+			warehouseGroup.POST("", middleware.RequireAnyRole(models.WarehouseManagerRoles), warehouseHandler.Create)
+			warehouseGroup.PATCH("/:id/location", middleware.RequireAnyRole(models.WarehouseManagerRoles), warehouseHandler.UpdateLocation)
+			warehouseGroup.PATCH("/:id", middleware.RequireAnyRole(models.WarehouseManagerRoles), warehouseHandler.UpdateWarehouse)
+			warehouseGroup.DELETE("/:id", middleware.RequireAnyRole(models.WarehouseManagerRoles), warehouseHandler.Delete)
 		}
 
 		analyticsGroup := api.Group("/analytics")
-		analyticsGroup.Use(middleware.AuthMiddleware(jwtSecret, dbPool))
+		analyticsGroup.Use(middleware.AuthMiddleware(jwtSecret, dbPool), middleware.RequireTenant())
 		{
 			// Базовий дашборд (SLA/TCO/ризики) доступний на всіх тарифах —
 			// це перегляд власних даних, а не платна аналітика.
@@ -391,7 +432,7 @@ func main() {
 
 		{
 			gpsGroup := r.Group("/api/gps")
-			gpsGroup.Use(middleware.AuthMiddleware(jwtSecret, dbPool))
+			gpsGroup.Use(middleware.AuthMiddleware(jwtSecret, dbPool), middleware.RequireTenant())
 
 			// PRO endpoints
 			gpsGroup.POST("/locations", middleware.RequireSubscriptionTier("PRO", dbPool), gpsHandler.RecordVehicleLocation)

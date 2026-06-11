@@ -1,6 +1,7 @@
 .layout {
-  height: 100vh; /* Фіксуємо висоту на розмір екрану */
-  overflow: hidden; /* Забороняємо браузеру скролити весь сайт цілком */
+  --public-top-bar-height: 73px;
+  min-height: 100dvh;
+  background: var(--bg-body);
 }
 
 .layout.with-sidebar {
@@ -8,7 +9,7 @@
 }
 
 .layout-loading {
-  height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -33,13 +34,19 @@
 
 .sidebar {
   width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+  max-width: var(--sidebar-width);
   background: var(--bg-sidebar);
   color: var(--text);
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
   height: 100vh;
-  overflow: hidden;
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  overflow-x: hidden;
+  overflow-y: hidden;
   border-right: 1px solid var(--border-dark);
   box-shadow: 2px 0 8px rgba(0, 0, 0, 0.3);
 }
@@ -66,28 +73,68 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  min-width: 0;
+  overflow: hidden;
   background: rgba(0, 0, 0, 0.2);
 }
 
 .sidebar-logo {
   display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 1.25rem;
   font-weight: 700;
   letter-spacing: 0.02em;
   color: var(--text-bright);
   text-decoration: none;
-  transition: all 0.2s ease;
+  transition: color 0.2s ease;
 }
 
 .sidebar-logo:hover {
   color: var(--accent-light);
-  transform: translateX(2px);
+}
+
+.support-mode-banner {
+  margin: 0.75rem 1rem 0;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border-dark);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.support-mode-banner.active {
+  border-color: var(--accent);
+  color: var(--text-bright);
+}
+
+.support-mode-banner button {
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border-dark);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.support-mode-banner button:hover {
+  border-color: var(--accent);
+  color: var(--text-bright);
 }
 
 .sidebar-nav {
   flex: 1;
   padding: 1rem 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  min-width: 0;
+  scrollbar-gutter: stable;
 }
 
 /* Тонкий скролбар тільки для nav */
@@ -106,17 +153,18 @@
 }
 
 .sidebar-nav a {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  display: block;
+  width: 100%;
+  max-width: 100%;
   padding: 0.6rem 1.25rem;
   color: rgba(255,255,255,0.7);
   text-decoration: none;
-  transition: all 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease;
   position: relative;
   font-weight: 500;
-  white-space: normal;
-  word-break: break-word;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 0.8rem;
   line-height: 1.35;
 }
@@ -136,17 +184,42 @@
 .sidebar-nav a:hover {
   background: rgba(255,255,255,0.05);
   color: var(--text-bright);
-  padding-left: 1.75rem;
 }
 
 .sidebar-nav a.active {
   background: rgba(59, 130, 246, 0.15);
   color: var(--accent-light);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .sidebar-nav a.active::before {
   transform: scaleY(1);
+}
+
+.sidebar-nav-link-with-badge {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.sidebar-link-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-link-badge {
+  flex: 0 0 auto;
+  background-color: #ef4444;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
 }
 
 .sidebar-footer {
@@ -157,6 +230,8 @@
   flex-direction: column;
   align-items: stretch;
   gap: 0.75rem;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .user-badge {
@@ -167,6 +242,8 @@
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .user-name {
@@ -175,6 +252,9 @@
   font-size: 0.875rem;
   color: var(--text-bright);
   line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .user-role {
@@ -182,6 +262,9 @@
   font-size: 0.75rem;
   color: rgba(255,255,255,0.5);
   line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .btn-block {
@@ -194,11 +277,14 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
-  min-height: 0;
-  height: 100vh;
-  overflow-y: auto;
+  min-height: 100dvh;
   overflow-x: hidden;
   background: var(--bg-body);
+}
+
+.main-content--public {
+  min-height: 0;
+  overflow-y: visible;
 }
 
 /* Кастомний скролбар для main-content */
@@ -220,6 +306,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  min-height: var(--public-top-bar-height);
   padding: 1rem 2rem;
   background: var(--bg-card);
   border-bottom: 1px solid var(--border);
@@ -240,12 +327,90 @@
 
 .page-content {
   flex: 1;
-  min-height: 0;
-  padding: 2rem;
   max-width: 1400px;
   width: 100%;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
+  padding: 2rem;
+}
+
+.page-content--public {
+  max-width: none;
+  padding: 0;
+  min-height: calc(100dvh - var(--public-top-bar-height));
+}
+
+.route-transition {
+  flex: 1;
+  width: 100%;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  animation: route-enter 0.22s ease;
+  will-change: opacity, transform;
+}
+
+.route-transition--app {
+  padding-bottom: 2rem;
+}
+
+.route-transition--public {
+  min-height: 100%;
+  animation: route-enter-public 0.22s ease;
+}
+
+.route-transition--public > * {
+  flex: 1;
+}
+
+.route-transition > * {
+  width: 100%;
+}
+
+.route-transition > .page-loading,
+.route-transition > .loading-state,
+.route-transition > .loading-full,
+.route-transition > .loading,
+.route-transition > .empty-state,
+.route-transition > .error-state {
+  flex: 1;
+  min-height: clamp(420px, 68vh, 760px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01)),
+    var(--bg-card);
+  box-shadow: var(--shadow-sm);
+  text-align: center;
+}
+
+.route-transition > .loading {
+  color: var(--text-muted);
+}
+
+@keyframes route-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes route-enter-public {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }

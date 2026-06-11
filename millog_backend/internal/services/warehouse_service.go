@@ -50,7 +50,15 @@ func (s *WarehouseService) UpdateWarehouse(ctx context.Context, id, name, capaci
 
 func (s *WarehouseService) DeleteWarehouse(ctx context.Context, id string) error {
 	var resourceCount int
-	err := s.dbPool.QueryRow(ctx, `SELECT count(*) FROM resources WHERE warehouse_id = $1`, id).Scan(&resourceCount)
+	tid := repositories.TenantFromCtx(ctx)
+	if tid == "" {
+		return errors.New("tenant_id is required for warehouses")
+	}
+	err := s.dbPool.QueryRow(ctx, `
+		SELECT count(*)
+		FROM resources r
+		WHERE r.warehouse_id = $1 AND r.tenant_id = $2::uuid
+	`, id, tid).Scan(&resourceCount)
 	if err != nil {
 		return err
 	}

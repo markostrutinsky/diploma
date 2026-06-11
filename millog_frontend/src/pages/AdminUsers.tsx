@@ -42,8 +42,20 @@ const ROLE_UNIT_TYPE_MAP: Record<string, string[]> = {
   'SYSTEM_ADMIN': [],
 }
 
+const UNIQUE_UNIT_ROLES: readonly string[] = [
+  'REGION_DIRECTOR',
+  'REGION_LOGISTICIAN',
+  'REGION_STOREKEEPER',
+  'BRANCH_MANAGER',
+  'BRANCH_LOGISTICIAN',
+  'BRANCH_STOREKEEPER',
+  'DEPT_MANAGER',
+  'DEPT_SUPERVISOR',
+  'TEAM_LEAD',
+]
+
 const OWNER_CREATABLE_ROLES = [
-  'TENANT_ADMIN', 'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'TEAM_LEAD',
+  'REGION_DIRECTOR', 'BRANCH_MANAGER', 'DEPT_MANAGER', 'TEAM_LEAD',
   'REGION_LOGISTICIAN', 'REGION_STOREKEEPER', 'BRANCH_LOGISTICIAN', 'BRANCH_STOREKEEPER', 'DEPT_SUPERVISOR', 'EMPLOYEE'
 ]
 
@@ -115,6 +127,17 @@ export default function AdminUsers() {
       .catch(console.error)
   }
 
+  const isUnitOccupiedForRole = (unitId: number, role: UserRole) => {
+    if (!UNIQUE_UNIT_ROLES.includes(role)) return false
+
+    return usersList.some(user =>
+      user.id !== editingUser?.id &&
+      user.unit_id === unitId &&
+      user.role === role &&
+      (user.status === 'ACTIVE' || user.status === 'PENDING')
+    )
+  }
+
   useEffect(() => {
     loadUsersAndUnits()
     api.auth.me()
@@ -140,6 +163,14 @@ export default function AdminUsers() {
   useEffect(() => {
     if (!form.role || !currentUserRole) return
 
+    const applyLeadershipFilter = (units: Unit[]) => {
+      const availableUnits = units.filter(unit => !isUnitOccupiedForRole(unit.id, form.role))
+      if (form.unit_id && !availableUnits.some(unit => unit.id === form.unit_id)) {
+        setForm(prev => ({ ...prev, unit_id: undefined }))
+      }
+      return availableUnits
+    }
+
     if (isOwnerRole(currentUserRole)) {
       const allowedTypes = ROLE_UNIT_TYPE_MAP[form.role] || [];
       
@@ -147,17 +178,17 @@ export default function AdminUsers() {
       if (allowedTypes.length > 0) {
         // Примітка: переконайтеся, що ваш інтерфейс Unit має поле type (або unit_type)
         const filteredUnits = allUnits.filter(unit => allowedTypes.includes(unit.unit_type));
-        setFormUnits(filteredUnits);
+        setFormUnits(applyLeadershipFilter(filteredUnits));
       } else {
         // Для ролей без конкретних обмежень (наприклад, ADMIN) або очищаємо, або віддаємо все
-        setFormUnits(isOwnerRole(form.role) ? [] : allUnits);
+        setFormUnits(isOwnerRole(form.role) ? [] : applyLeadershipFilter(allUnits));
       }
     } else {
       api.units.getMyHierarchyForRole(form.role)
-        .then((data) => setFormUnits(Array.isArray(data) ? data : []))
+        .then((data) => setFormUnits(Array.isArray(data) ? applyLeadershipFilter(data) : []))
         .catch(() => setFormUnits([]))
     }
-  }, [form.role, currentUserRole, allUnits])
+  }, [form.role, form.unit_id, currentUserRole, allUnits, usersList, editingUser])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

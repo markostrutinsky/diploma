@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { type ChangeEvent, type FormEvent, useEffect, useState } from 'react'
 import toast from 'react-hot-toast'
 import { api } from '../api/client'
 import { useAuth } from '../contexts/AuthContext'
@@ -20,11 +20,20 @@ type Tenant = {
 const TIERS = ['BASIC', 'PRO', 'ENTERPRISE'] as const
 
 export default function PlatformAdmin() {
-  const { refreshUser } = useAuth()
+  const { refreshUser, supportTenant, enterSupportTenant, exitSupportTenant } = useAuth()
   const [stats, setStats] = useState<any>(null)
   const [tenants, setTenants] = useState<Tenant[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null)
+  const [createForm, setCreateForm] = useState({
+    organization_name: '',
+    slug: '',
+    owner_full_name: '',
+    owner_email: '',
+    owner_password: '',
+  })
 
   const load = async () => {
     try {
@@ -43,6 +52,14 @@ export default function PlatformAdmin() {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    if (!activeMenuId) return
+
+    const closeMenu = () => setActiveMenuId(null)
+    window.addEventListener('click', closeMenu)
+    return () => window.removeEventListener('click', closeMenu)
+  }, [activeMenuId])
 
   const changeTier = async (t: Tenant, tier: string) => {
     try {
@@ -81,11 +98,53 @@ export default function PlatformAdmin() {
     }
   }
 
+  const enterSupportMode = (t: Tenant) => {
+    enterSupportTenant({ id: t.id, name: t.name, slug: t.slug })
+    toast.success(`Support mode: ${t.name}`)
+  }
+
+  const updateCreateForm = (key: keyof typeof createForm) => (e: ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value
+    if (key === 'slug') value = value.toLowerCase().replace(/[^a-z0-9-]/g, '-').slice(0, 60)
+    setCreateForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  const createTenant = async (e: FormEvent) => {
+    e.preventDefault()
+    try {
+      await api.platform.createTenant({
+        organization_name: createForm.organization_name.trim(),
+        slug: createForm.slug.trim(),
+        owner_email: createForm.owner_email.trim(),
+        owner_full_name: createForm.owner_full_name.trim(),
+        owner_password: createForm.owner_password,
+      })
+      toast.success('Організацію створено')
+      setCreateForm({ organization_name: '', slug: '', owner_full_name: '', owner_email: '', owner_password: '' })
+      setCreateOpen(false)
+      load()
+    } catch (err: any) {
+      toast.error(err?.message || 'Не вдалось створити організацію')
+    }
+  }
+
   return (
     <div className="platform-admin">
       <div className="pa-header">
-        <h1>Платформний адмін</h1>
-        <p>Керування організаціями, тарифами та підписками.</p>
+        <div className="pa-header-main">
+          <div className="pa-title-row">
+            <h1>Платформний адмін</h1>
+            <span className={`pa-mode-badge ${supportTenant ? 'support' : ''}`}>
+              {supportTenant ? `Support mode: ${supportTenant.name}` : 'Platform mode'}
+            </span>
+          </div>
+          <p>Керування організаціями, тарифами та підписками.</p>
+          {supportTenant && (
+            <button type="button" className="pa-mode-exit" onClick={exitSupportTenant}>
+              Вийти з організації
+            </button>
+          )}
+        </div>
       </div>
 
       {stats && (
@@ -116,15 +175,32 @@ export default function PlatformAdmin() {
       )}
 
       <div className="pa-toolbar">
-        <input
-          type="text"
-          placeholder="Пошук за назвою/slug…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && load()}
-        />
-        <button onClick={load}>Пошук</button>
+        <div className="pa-toolbar-search">
+          <input
+            type="text"
+            placeholder="Пошук за назвою/slug…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && load()}
+          />
+        </div>
+        <div className="pa-toolbar-actions">
+          <button onClick={() => setCreateOpen((value) => !value)}>
+            {createOpen ? 'Закрити' : 'Створити організацію'}
+          </button>
+        </div>
       </div>
+
+      {createOpen && (
+        <form className="pa-create-form" onSubmit={createTenant}>
+          <input required value={createForm.organization_name} onChange={updateCreateForm('organization_name')} placeholder="Назва організації" minLength={2} />
+          <input required value={createForm.slug} onChange={updateCreateForm('slug')} placeholder="slug" minLength={2} pattern="[a-z0-9-]+" />
+          <input required value={createForm.owner_full_name} onChange={updateCreateForm('owner_full_name')} placeholder="ПІБ власника" />
+          <input required type="email" value={createForm.owner_email} onChange={updateCreateForm('owner_email')} placeholder="Email власника" />
+          <input required type="password" value={createForm.owner_password} onChange={updateCreateForm('owner_password')} placeholder="Тимчасовий пароль" minLength={8} />
+          <button type="submit">Створити</button>
+        </form>
+      )}
 
       <div className="pa-table-wrap">
         {loading ? (
@@ -140,7 +216,7 @@ export default function PlatformAdmin() {
                 <th>Власник</th>
                 <th>Створено</th>
                 <th>Статус</th>
-                <th></th>
+                <th>Дії</th>
               </tr>
             </thead>
             <tbody>
@@ -169,13 +245,50 @@ export default function PlatformAdmin() {
                       {t.is_active ? 'АКТИВНА' : 'ПРИЗУПИНЕНА'}
                     </span>
                   </td>
-                  <td className="pa-actions">
-                    <button onClick={() => toggleActive(t)}>
-                      {t.is_active ? 'Призупинити' : 'Активувати'}
-                    </button>
-                    <button className="danger" onClick={() => removeTenant(t)}>
-                      Видалити
-                    </button>
+                  <td className="pa-actions-cell">
+                    <div className="pa-actions">
+                      <button className="primary" onClick={() => enterSupportMode(t)} disabled={!t.is_active}>
+                        Support
+                      </button>
+                      <div className="pa-dropdown" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          className={`pa-kebab ${activeMenuId === t.id ? 'active' : ''}`}
+                          aria-label={`Додаткові дії для ${t.name}`}
+                          aria-expanded={activeMenuId === t.id}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setActiveMenuId(activeMenuId === t.id ? null : t.id)
+                          }}
+                        >
+                          ⋮
+                        </button>
+                        {activeMenuId === t.id && (
+                          <div className="pa-dropdown-menu">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                toggleActive(t)
+                                setActiveMenuId(null)
+                              }}
+                            >
+                              {t.is_active ? 'Pause' : 'Resume'}
+                            </button>
+                            <div className="pa-dropdown-divider" />
+                            <button
+                              type="button"
+                              className="danger"
+                              onClick={() => {
+                                removeTenant(t)
+                                setActiveMenuId(null)
+                              }}
+                            >
+                              Видалити
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </td>
                 </tr>
               ))}

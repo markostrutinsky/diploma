@@ -197,6 +197,9 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 		`CREATE INDEX IF NOT EXISTS idx_vehicle_driver_history_assigned_at ON vehicle_driver_history(assigned_at);`,
 
 		`ALTER TABLE maintenance_records ADD COLUMN IF NOT EXISTS driver_id UUID REFERENCES users(id) ON DELETE SET NULL;`,
+		`ALTER TABLE maintenance_records ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'COMPLETED';`,
+		`ALTER TABLE maintenance_records ADD COLUMN IF NOT EXISTS service_type VARCHAR(50) NOT NULL DEFAULT 'INSPECTION';`,
+		`ALTER TABLE maintenance_records ADD COLUMN IF NOT EXISTS scheduled_for TIMESTAMP WITH TIME ZONE;`,
 
 		// ==========================================
 		// НОВИЙ ФУНДАМЕНТ ДЛЯ ЛОГІСТИКИ (СКЛАДИ)

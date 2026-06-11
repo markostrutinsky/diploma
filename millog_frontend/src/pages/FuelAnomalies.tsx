@@ -8,7 +8,7 @@ import './FuelAnomalies.css';
 
 interface FuelAnomaly {
   id: number;
-  vehicle_id: number;
+  vehicle_id: string;
   vehicle_plate: string;
   anomaly_type: string; // EXTREME_REFILL, FREQUENT_SMALL_REFILLS, PRICE_ANOMALY, ABNORMAL_CONSUMPTION
   risk_score: number; // 0-100
@@ -61,7 +61,7 @@ export function FuelAnomalies() {
         // Тариф не дозволяє — рендеримо paywall замість червоної плашки
         setError(null);
       } else {
-        setError('Помилка при завантаженні анализу аномалій');
+        setError('Помилка при завантаженні аналізу аномалій');
       }
     } finally {
       setLoading(false);
@@ -110,13 +110,13 @@ export function FuelAnomalies() {
     return (
       <PaywallScreen
         feature="fuel_antifraud"
-        description="AI-детекція підозрілих заправок, цінових аномалій та ненормального споживання. Типова організація економить 5–12% бюджету пального вже в перший місяць."
+        description="Детекція підозрілих заправок, витрат без руху та перевитрати відносно норми. Типова організація економить 5–12% бюджету пального вже в перший місяць."
       />
     );
   }
 
   if (loading) {
-    return <div className="anomalies-container"><div className="loading">Завантаження анализу аномалій...</div></div>;
+    return <div className="anomalies-container"><div className="loading">Завантаження аналізу аномалій...</div></div>;
   }
 
   const anomaliesTotalPages = Math.max(1, Math.ceil(filteredAnomalies.length / ANOMALIES_PAGE_SIZE));
@@ -127,7 +127,7 @@ export function FuelAnomalies() {
     <div className="anomalies-container">
       <div className="anomalies-header">
         <h1>🛡️ Антифрод-система контролю пального</h1>
-        <p>AI-детекція підозрілих заправок, цінових аномалій та ненормального споживання</p>
+        <p>Детекція підозрілих заправок, витрат без руху та ненормального споживання</p>
       </div>
 
       <div className="anomalies-stats">
@@ -218,7 +218,7 @@ export function FuelAnomalies() {
                 </div>
 
                 <div className="ai-badge">
-                  🤖 AI-детекція на основі історичних даних і паттернів
+                  🧭 Детекція за нормою, одометром та історією записів
                 </div>
               </div>
 
@@ -284,7 +284,7 @@ export function FuelAnomalies() {
                 </span>
               </div>
               <div className="fuel-modal-row">
-                <span className="label">Впевненість AI:</span>
+                <span className="label">Впевненість детекції:</span>
                 <span className="value">{investigating.confidence}%</span>
               </div>
               <div className="fuel-modal-row">

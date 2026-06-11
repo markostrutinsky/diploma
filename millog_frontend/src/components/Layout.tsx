@@ -14,7 +14,7 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
-  const { user, token, loading, logout } = useAuth()
+  const { user, token, loading, logout, supportTenant, exitSupportTenant } = useAuth()
 
   // --- Логіка сповіщень ---
   const [pendingCount, setPendingCount] = useState(0)
@@ -22,9 +22,12 @@ export default function Layout({ children }: LayoutProps) {
 
   const userRole = user?.role || ''
   const isCONTRACTOR = userRole === ROLES.CONTRACTOR
+  const isAdmin = userRole === ROLES.ADMIN
+  const isSystemAdmin = userRole === ROLES.SYSTEM_ADMIN
+  const hasTenantContext = !isSystemAdmin || !!supportTenant
   
   // Перевіряємо, чи має поточний користувач права погоджувати заявки
-  const canApproveRequests = hasRole(userRole, ROLE_GROUPS.approvers)
+  const canApproveRequests = hasTenantContext && hasRole(userRole, ROLE_GROUPS.approvers)
 
   useEffect(() => {
     if (!token || !canApproveRequests) return
@@ -71,19 +74,16 @@ export default function Layout({ children }: LayoutProps) {
   const showSidebar = !!token && !PUBLIC_ROUTES.includes(location.pathname)
 
   // --- ГРУПИ ДОСТУПУ (синхронізовано з маршрутами у App.tsx) ---
-  const canSeeAnalytics = hasRole(userRole, ROLE_GROUPS.analytics)
-  const canSeeInventory = hasRole(userRole, ROLE_GROUPS.inventory)
-  const canSeeTransport = hasRole(userRole, ROLE_GROUPS.transport)
-  const canSeeRequests = hasRole(userRole, ROLE_GROUPS.requests)
+  const canSeeAnalytics = hasTenantContext && hasRole(userRole, ROLE_GROUPS.analytics)
+  const canSeeInventory = hasTenantContext && hasRole(userRole, ROLE_GROUPS.inventory)
+  const canSeeTransport = hasTenantContext && hasRole(userRole, ROLE_GROUPS.transport)
+  const canSeeRequests = hasTenantContext && hasRole(userRole, ROLE_GROUPS.requests)
 
-  const canManageUnits = hasRole(userRole, ROLE_GROUPS.units)
-  const canManageUsers = hasRole(userRole, ROLE_GROUPS.users)
+  const canManageUnits = hasTenantContext && hasRole(userRole, ROLE_GROUPS.units)
+  const canManageUsers = hasTenantContext && hasRole(userRole, ROLE_GROUPS.users)
 
-  const canSeeKiosk = hasRole(userRole, ROLE_GROUPS.kiosk)
-  const canManageContracts = hasRole(userRole, ROLE_GROUPS.contracts)
-
-  const isAdmin = userRole === ROLES.ADMIN
-  const isSystemAdmin = userRole === ROLES.SYSTEM_ADMIN
+  const canSeeKiosk = hasTenantContext && hasRole(userRole, ROLE_GROUPS.kiosk)
+  const canManageContracts = hasTenantContext && hasRole(userRole, ROLE_GROUPS.contracts)
 
   return (
     <div className={`layout ${showSidebar ? 'with-sidebar' : ''}`}>
@@ -95,14 +95,26 @@ export default function Layout({ children }: LayoutProps) {
             </Link>
             <NotificationCenter />
           </div>
+          {isSystemAdmin && (
+            <div className={`support-mode-banner ${supportTenant ? 'active' : ''}`}>
+              <span>{supportTenant ? `Support mode: ${supportTenant.name}` : 'Platform mode'}</span>
+              {supportTenant && (
+                <button type="button" onClick={exitSupportTenant}>
+                  Вийти
+                </button>
+              )}
+            </div>
+          )}
           <nav className="sidebar-nav">
             
             {/* 1. Спільні розділи */}
-            <Link to="/" className={location.pathname === '/' ? 'active' : ''}>
-              Головна
-            </Link>
+            {hasTenantContext && (
+              <Link to="/" className={location.pathname === '/' ? 'active' : ''}>
+                Головна
+              </Link>
+            )}
 
-            {!isCONTRACTOR && (
+            {!isCONTRACTOR && hasTenantContext && (
               <Link to="/my-equipment" className={location.pathname === '/my-equipment' ? 'active' : ''}>
                 Профіль
               </Link>
@@ -155,15 +167,11 @@ export default function Layout({ children }: LayoutProps) {
             {canSeeRequests && (
               <Link 
                 to="/requests" 
-                className={location.pathname === '/requests' ? 'active' : ''}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                className={`sidebar-nav-link-with-badge ${location.pathname === '/requests' ? 'active' : ''}`}
               >
-                <span>Заявки</span>
+                <span className="sidebar-link-label">Заявки</span>
                 {pendingCount > 0 && (
-                  <span style={{
-                    backgroundColor: '#ef4444', color: 'white', fontSize: '11px', fontWeight: 'bold',
-                    padding: '2px 8px', borderRadius: '12px', boxShadow: '0 0 8px rgba(239, 68, 68, 0.4)'
-                  }}>
+                  <span className="sidebar-link-badge">
                     {pendingCount}
                   </span>
                 )}
@@ -251,16 +259,21 @@ export default function Layout({ children }: LayoutProps) {
         </aside>
       )}
 
-      <div className="main-content">
+      <div className={`main-content ${showSidebar ? 'main-content--app' : 'main-content--public'}`}>
         {!showSidebar && (
           <header className="top-bar">
             <Link to="/" className="logo-text">Omnilog</Link>
             <Link to="/login" className="btn btn-primary">Увійти</Link>
           </header>
         )}
-        <main className="page-content">
+        <main className={`page-content ${showSidebar ? 'page-content--app' : 'page-content--public'}`}>
           <SubscriptionExpiryBanner />
-          {children}
+          <div
+            key={location.pathname}
+            className={`route-transition ${showSidebar ? 'route-transition--app' : 'route-transition--public'}`}
+          >
+            {children}
+          </div>
         </main>
       </div>
     </div>

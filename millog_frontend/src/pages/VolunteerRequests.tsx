@@ -32,12 +32,15 @@ export default function ContractorRequests() {
 
   const [acceptModalId, setAcceptModalId] = useState<string | null>(null)
   const [acceptMode, setAcceptMode] = useState<'NEW' | 'EXISTING'>('NEW')
+  const [acceptCategoryMode, setAcceptCategoryMode] = useState<'EXISTING' | 'NEW'>('EXISTING')
   const [acceptForm, setAcceptForm] = useState({
     resource_id: '', 
     category_id: '', 
+    category_name: '',
     name: '',
     quantity: 1,
     unit_type: 'PCS', 
+    unit_price: '',
   })
   
   const [nameMismatchWarning, setNameMismatchWarning] = useState(false)
@@ -252,8 +255,13 @@ export default function ContractorRequests() {
 
     try {
       const payload = {
-        ...acceptForm,
+        quantity: acceptForm.quantity,
+        unit_type: acceptForm.unit_type,
+        unit_price: Number(acceptForm.unit_price) || 0,
+        name: acceptForm.name.trim(),
         resource_id: acceptMode === 'EXISTING' && acceptForm.resource_id ? String(acceptForm.resource_id) : undefined,
+        category_id: acceptMode === 'NEW' && acceptCategoryMode === 'EXISTING' ? acceptForm.category_id : undefined,
+        category_name: acceptMode === 'NEW' && acceptCategoryMode === 'NEW' ? acceptForm.category_name.trim() : undefined,
       }
 
       await api.contractorRequests.accept(acceptModalId, payload)
@@ -462,7 +470,11 @@ export default function ContractorRequests() {
                 <input 
                   type="radio" 
                   checked={acceptMode === 'NEW'} 
-                  onChange={() => { setAcceptMode('NEW'); setNameMismatchWarning(false); }} 
+                  onChange={() => {
+                    setAcceptMode('NEW');
+                    setNameMismatchWarning(false);
+                    setAcceptCategoryMode(categories.length > 0 ? 'EXISTING' : 'NEW');
+                  }} 
                 />
                 Створити нову картку товару
               </label>
@@ -490,7 +502,9 @@ export default function ContractorRequests() {
                         resource_id: e.target.value,
                         name: res?.name || '',
                         category_id: res?.category_id || '',
-                        unit_type: res?.unit_type || 'PCS'
+                        category_name: '',
+                        unit_type: res?.unit_type || 'PCS',
+                        unit_price: res?.unit_price ? String(res.unit_price) : acceptForm.unit_price
                       });
                     }}
                     required
@@ -510,16 +524,50 @@ export default function ContractorRequests() {
                 <>
                   <div className="form-group">
                     <label>Категорія майна</label>
-                    <select 
-                      value={acceptForm.category_id} 
-                      onChange={(e) => setAcceptForm({...acceptForm, category_id: e.target.value})} 
-                      required
-                    >
-                      <option value="" disabled>Оберіть категорію</option>
-                      {categories.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}</option>
-                      ))}
-                    </select>
+                    <div style={{ display: 'flex', gap: '10px', marginBottom: '10px', padding: '8px', background: 'var(--bg-input)', borderRadius: '6px' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0, fontSize: '13px' }}>
+                        <input
+                          type="radio"
+                          checked={acceptCategoryMode === 'EXISTING'}
+                          disabled={categories.length === 0}
+                          onChange={() => setAcceptCategoryMode('EXISTING')}
+                        />
+                        Обрати існуючу
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0, fontSize: '13px' }}>
+                        <input
+                          type="radio"
+                          checked={acceptCategoryMode === 'NEW'}
+                          onChange={() => setAcceptCategoryMode('NEW')}
+                        />
+                        Створити нову
+                      </label>
+                    </div>
+                    {acceptCategoryMode === 'EXISTING' ? (
+                      <select
+                        value={acceptForm.category_id}
+                        onChange={(e) => setAcceptForm({...acceptForm, category_id: e.target.value, category_name: ''})}
+                        required
+                        disabled={categories.length === 0}
+                      >
+                        <option value="" disabled>Оберіть категорію</option>
+                        {categories.map(c => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        value={acceptForm.category_name}
+                        onChange={(e) => setAcceptForm({ ...acceptForm, category_name: e.target.value, category_id: '' })}
+                        placeholder="Наприклад: Засоби зв'язку"
+                        required
+                      />
+                    )}
+                    {categories.length === 0 && acceptCategoryMode === 'EXISTING' && (
+                      <small style={{ color: '#f59e0b', fontSize: '12px', display: 'block', marginTop: '6px' }}>
+                        У вашій організації ще немає категорій. Створіть нову прямо тут.
+                      </small>
+                    )}
                   </div>
                   <div className="form-group">
                     <label>Точна номенклатурна назва</label>
@@ -567,6 +615,21 @@ export default function ContractorRequests() {
                 )}
               </div>
 
+              <div className="form-group">
+                <label>Ціна за одиницю, грн</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={acceptForm.unit_price}
+                  onChange={(e) => setAcceptForm({ ...acceptForm, unit_price: e.target.value })}
+                  placeholder="0.00"
+                />
+                <small style={{ color: '#6c757d', fontSize: '12px', display: 'block', marginTop: '4px' }}>
+                  Використовується для балансової вартості складів і KPI. Для існуючого майна заповнюйте лише якщо треба оновити ціну.
+                </small>
+              </div>
+
               {nameMismatchWarning && (
                 <div style={{ backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#856404', padding: '12px', borderRadius: '6px', border: '1px solid rgba(245, 158, 11, 0.3)', marginBottom: '15px', fontSize: '14px' }}>
                   ⚠️ <strong>Увага, можлива помилка!</strong><br/>
@@ -589,7 +652,11 @@ export default function ContractorRequests() {
                   className="btn btn-primary" 
                   disabled={
                     (acceptMode === 'EXISTING' && !acceptForm.resource_id) ||
-                    (acceptMode === 'NEW' && (!acceptForm.category_id || !acceptForm.name?.trim()))
+                    (acceptMode === 'NEW' && (
+                      !acceptForm.name?.trim() ||
+                      (acceptCategoryMode === 'EXISTING' && !acceptForm.category_id) ||
+                      (acceptCategoryMode === 'NEW' && !acceptForm.category_name?.trim())
+                    ))
                   }
                 >
                   {nameMismatchWarning ? 'Підтвердити і прийняти' : 'Прийняти на баланс'}
@@ -748,22 +815,29 @@ export default function ContractorRequests() {
 
                           if (matchedResource) {
                             setAcceptMode('EXISTING')
+                            setAcceptCategoryMode('EXISTING')
                             setAcceptForm(prev => ({ 
                               ...prev, 
                               resource_id: String(matchedResource.id),
                               name: matchedResource.name,
                               quantity: getPlannedQuantity(r.title) || 1,
                               category_id: matchedResource.category_id || '',
-                              unit_type: matchedResource.unit_type || 'PCS'
+                              category_name: '',
+                              unit_type: matchedResource.unit_type || 'PCS',
+                              unit_price: matchedResource.unit_price ? String(matchedResource.unit_price) : ''
                             }))
                           } else {
                             setAcceptMode('NEW')
+                            setAcceptCategoryMode(categories.length > 0 ? 'EXISTING' : 'NEW')
                             setAcceptForm(prev => ({ 
                               ...prev, 
                               resource_id: '',
                               name: cleanTitle, 
                               quantity: getPlannedQuantity(r.title) || 1,
-                              category_id: categories.length > 0 ? categories[0].id : ''
+                              category_id: categories.length > 0 ? categories[0].id : '',
+                              category_name: '',
+                              unit_type: 'PCS',
+                              unit_price: ''
                             }))
                           }
 

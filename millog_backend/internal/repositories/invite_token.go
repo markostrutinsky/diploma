@@ -14,7 +14,13 @@ func NewInviteTokenRepository() *InviteTokenRepository {
 
 func (r *InviteTokenRepository) CreateInviteToken(ctx context.Context, db DBExecutor, token *models.InviteToken) error {
 	query := `INSERT INTO invite_tokens (user_id, token_hash, expires_at, used_at, created_at)
-	VALUES ($1, $2, $3, $4, $5) RETURNING id`
+	VALUES ($1, $2, $3, $4, $5)
+	ON CONFLICT (user_id) DO UPDATE SET
+		token_hash = EXCLUDED.token_hash,
+		expires_at = EXCLUDED.expires_at,
+		used_at = EXCLUDED.used_at,
+		created_at = EXCLUDED.created_at
+	RETURNING id`
 
 	err := db.QueryRow(ctx, query,
 		token.UserID,

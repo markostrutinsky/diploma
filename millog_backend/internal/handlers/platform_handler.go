@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 
 	"Omnilog_backend/internal/models"
 	"Omnilog_backend/internal/repositories"
+	"Omnilog_backend/internal/services"
 )
 
 // PlatformHandler обробляє ендпойнти платформного адміна (SYSTEM_ADMIN).
@@ -16,11 +18,13 @@ import (
 type PlatformHandler struct {
 	tenantRepo *repositories.TenantRepository
 	userRepo   *repositories.UserRepository
+	auditRepo  *repositories.AuditLogRepository
+	authSvc    *services.AuthService
 	db         *pgxpool.Pool
 }
 
-func NewPlatformHandler(tr *repositories.TenantRepository, ur *repositories.UserRepository, db *pgxpool.Pool) *PlatformHandler {
-	return &PlatformHandler{tenantRepo: tr, userRepo: ur, db: db}
+func NewPlatformHandler(tr *repositories.TenantRepository, ur *repositories.UserRepository, ar *repositories.AuditLogRepository, authSvc *services.AuthService, db *pgxpool.Pool) *PlatformHandler {
+	return &PlatformHandler{tenantRepo: tr, userRepo: ur, auditRepo: ar, authSvc: authSvc, db: db}
 }
 
 // GET /api/platform/tenants?search=...
@@ -57,6 +61,22 @@ func (h *PlatformHandler) GetTenant(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"tenant": t, "user_count": n})
 }
 
+// POST /api/platform/tenants
+func (h *PlatformHandler) CreateTenant(c *gin.Context) {
+	var req models.CreateTenantRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	tenantID, ownerID, err := h.authSvc.CreateTenant(c.Request.Context(), &req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	_ = h.auditRepo.LogAction(c.Request.Context(), h.db, c.GetString("user_id"), "CREATE", "TENANT", tenantID, fmt.Sprintf("Платформний адмін створив організацію %s з власником %s", req.OrganizationName, req.OwnerEmail))
+	c.JSON(http.StatusCreated, gin.H{"tenant_id": tenantID, "owner_id": ownerID, "message": "organization created"})
+}
+
 type updateTierRequest struct {
 	Tier      string  `json:"tier" binding:"required,oneof=FREE BASIC PRO ENTERPRISE"`
 	ExpiresAt *string `json:"expires_at,omitempty"` // ISO-8601 або null
@@ -84,6 +104,7 @@ func (h *PlatformHandler) UpdateTier(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	_ = h.auditRepo.LogAction(c.Request.Context(), h.db, c.GetString("user_id"), "UPDATE", "TENANT", id, fmt.Sprintf("Платформний адмін змінив тариф організації на %s", req.Tier))
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -103,6 +124,11 @@ func (h *PlatformHandler) SetActive(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	action := "Призупинено організацію"
+	if req.Active {
+		action = "Активовано організацію"
+	}
+	_ = h.auditRepo.LogAction(c.Request.Context(), h.db, c.GetString("user_id"), "UPDATE", "TENANT", id, action)
 	c.JSON(http.StatusOK, gin.H{"ok": true})
 }
 
@@ -113,7 +139,18 @@ func (h *PlatformHandler) DeleteTenant(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	_ = h.auditRepo.LogAction(c.Request.Context(), h.db, c.GetString("user_id"), "DELETE", "TENANT", id, "Платформний адмін видалив організацію")
 	c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+// GET /api/platform/audit-logs — global audit log for SYSTEM_ADMIN.
+func (h *PlatformHandler) AuditLogs(c *gin.Context) {
+	logs, err := h.auditRepo.GetLogs(c.Request.Context(), h.db, 500)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, logs)
 }
 
 // GET /api/platform/stats — overview для платформного дашборду.

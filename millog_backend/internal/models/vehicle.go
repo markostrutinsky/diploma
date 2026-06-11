@@ -82,15 +82,18 @@ type FuelRecord struct {
 }
 
 type MaintenanceRecord struct {
-	ID          string    `json:"id"`
-	VehicleID   string    `json:"vehicle_id"`
-	OdometerKm  int       `json:"odometer_km"`
-	Description string    `json:"description"`
-	PerformedBy string    `json:"performed_by,omitempty"`
-	CostAmount  float64   `json:"cost_amount"`
-	DocumentURL string    `json:"document_url,omitempty"`
-	DriverName  *string   `json:"driver_name"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID           string     `json:"id"`
+	VehicleID    string     `json:"vehicle_id"`
+	OdometerKm   int        `json:"odometer_km"`
+	Description  string     `json:"description"`
+	PerformedBy  string     `json:"performed_by,omitempty"`
+	CostAmount   float64    `json:"cost_amount"`
+	DocumentURL  string     `json:"document_url,omitempty"`
+	DriverName   *string    `json:"driver_name"`
+	Status       string     `json:"status"`
+	ServiceType  string     `json:"service_type"`
+	ScheduledFor *time.Time `json:"scheduled_for,omitempty"`
+	CreatedAt    time.Time  `json:"created_at"`
 }
 
 type VehicleStatusUpdate struct {

@@ -61,13 +61,19 @@ func (h *NotificationHandler) GetUnreadCount(c *gin.Context) {
 
 // MarkAsRead позначає сповіщення як прочитане
 func (h *NotificationHandler) MarkAsRead(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		return
+	}
+
 	notificationID := c.Param("id")
 	if notificationID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "notification ID is required"})
 		return
 	}
 
-	err := h.notificationService.MarkAsRead(c.Request.Context(), notificationID)
+	err := h.notificationService.MarkAsRead(c.Request.Context(), notificationID, userID.(string))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -95,13 +101,19 @@ func (h *NotificationHandler) MarkAllAsRead(c *gin.Context) {
 
 // DeleteNotification видаляє сповіщення
 func (h *NotificationHandler) DeleteNotification(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		return
+	}
+
 	notificationID := c.Param("id")
 	if notificationID == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "notification ID is required"})
 		return
 	}
 
-	err := h.notificationService.DeleteNotification(c.Request.Context(), notificationID)
+	err := h.notificationService.DeleteNotification(c.Request.Context(), notificationID, userID.(string))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

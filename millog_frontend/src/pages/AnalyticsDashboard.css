@@ -4,8 +4,9 @@
   font-family: 'Inter', system-ui, sans-serif;
   color: var(--text-bright);
   padding-bottom: 40px;
-  background: var(--bg-body); /* Темний фон для видимості gap між віджетами */
-  min-height: 100vh;
+  background: transparent;
+  min-height: 100%;
+  width: 100%;
 }
 
 .erp-header {

@@ -22,6 +22,7 @@ services:
       dockerfile: Dockerfile
     env_file:
       - .env
+      - ./millog_backend/.env
     environment:
       PORT: 8080
       DATABASE_URL: postgres://omnilog_app:omnilog_app@postgres:5432/omnilog?sslmode=disable

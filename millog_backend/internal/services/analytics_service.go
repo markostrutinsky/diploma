@@ -3,6 +3,7 @@ package services
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 	"time"
@@ -106,8 +107,8 @@ func (s *AnalyticsService) GenerateInventoryExcel(ctx context.Context, unitID *i
 }
 
 // GenerateFuelExcel формує XLSX зі звітом по пальному
-func (s *AnalyticsService) GenerateFuelExcel(ctx context.Context, startDate, endDate time.Time) ([]byte, error) {
-	data, err := s.repo.GetFuelForExport(ctx, s.db, startDate, endDate)
+func (s *AnalyticsService) GenerateFuelExcel(ctx context.Context, startDate, endDate time.Time, unitID *int) ([]byte, error) {
+	data, err := s.repo.GetFuelForExport(ctx, s.db, startDate, endDate, unitID)
 	if err != nil {
 		return nil, fmt.Errorf("помилка отримання даних: %w", err)
 	}
@@ -160,42 +161,36 @@ func (s *AnalyticsService) GenerateFuelExcel(ctx context.Context, startDate, end
 // 🚀 PRO FEATURE #1: GetAdvancedKPIs повертає розширену аналітику з KPI
 // Формат відповіді синхронізовано з компонентом KPIDashboard на фронтенді.
 func (s *AnalyticsService) GetAdvancedKPIs(ctx context.Context, startDate, endDate string, unitID int64) (map[string]interface{}, error) {
-	// unit-фільтр опціональний: 0 означає "всі підрозділи"
-	unitFilter := ""
-	args := []interface{}{startDate, endDate}
-	if unitID > 0 {
-		unitFilter = " AND w.unit_id = $3"
-		args = append(args, unitID)
-	}
-
-	// tenant isolation
 	tenantID := repositories.TenantFromCtx(ctx)
-	tenantSRFilter := ""
-	if tenantID != "" {
-		tenantSRFilter = " AND sr.tenant_id = '" + tenantID + "'"
-	}
-	tenantFRFilter := ""
-	if tenantID != "" {
-		tenantFRFilter = " AND fr.tenant_id = '" + tenantID + "'"
-	}
-	tenantShipFilter := ""
-	if tenantID != "" {
-		tenantShipFilter = " AND s.tenant_id = '" + tenantID + "'"
-	}
-	tenantResFilter := ""
-	if tenantID != "" {
-		tenantResFilter = " AND tenant_id = '" + tenantID + "'"
+	addTenantFilter := func(args *[]interface{}, alias string) string {
+		if tenantID == "" {
+			return ""
+		}
+		*args = append(*args, tenantID)
+		column := "tenant_id"
+		if alias != "" {
+			column = alias + ".tenant_id"
+		}
+		return fmt.Sprintf(" AND %s = $%d::uuid", column, len(*args))
 	}
 
 	// ---------- SLA ----------
 	// Заявка "вчасна", якщо її апрувнули за ≤ 24 години.
+	slaArgs := []interface{}{startDate, endDate}
+	slaFilter := ""
+	if unitID > 0 {
+		slaArgs = append(slaArgs, unitID)
+		slaFilter += fmt.Sprintf(" AND w.unit_id = $%d", len(slaArgs))
+	}
+	slaFilter += addTenantFilter(&slaArgs, "sr")
+
 	slaQuery := fmt.Sprintf(`
 		WITH req AS (
 			SELECT sr.id, sr.status, sr.created_at, sr.approved_at
 			FROM supply_requests sr
-			LEFT JOIN warehouses w ON w.id = sr.target_warehouse_id
+			LEFT JOIN warehouses w ON w.id = sr.target_warehouse_id AND w.tenant_id = sr.tenant_id
 			WHERE sr.created_at::date >= $1::date
-			  AND sr.created_at::date <= $2::date%s%s
+			  AND sr.created_at::date <= $2::date%s
 		)
 		SELECT
 			COUNT(*) AS total,
@@ -209,11 +204,11 @@ func (s *AnalyticsService) GetAdvancedKPIs(ctx context.Context, startDate, endDa
 				END
 			), 0) AS avg_hours
 		FROM req
-	`, unitFilter, tenantSRFilter)
+	`, slaFilter)
 
 	var totalReq, onTime int64
 	var avgHours float64
-	if err := s.db.QueryRow(ctx, slaQuery, args...).Scan(&totalReq, &onTime, &avgHours); err != nil {
+	if err := s.db.QueryRow(ctx, slaQuery, slaArgs...).Scan(&totalReq, &onTime, &avgHours); err != nil {
 		totalReq, onTime, avgHours = 0, 0, 0
 	}
 	onTimePercent := 100.0
@@ -222,9 +217,6 @@ func (s *AnalyticsService) GetAdvancedKPIs(ctx context.Context, startDate, endDa
 	}
 
 	// ---------- TCO ----------
-	// cost per liter (UAH) — константа, бо в схемі немає колонки з ціною пального.
-	const fuelUAHPerLiter = 55.0
-
 	// Парсимо дати для підрахунку попереднього періоду (для trend)
 	parsedStart, errPS := time.Parse("2006-01-02", startDate)
 	parsedEnd, errPE := time.Parse("2006-01-02", endDate)
@@ -240,59 +232,63 @@ func (s *AnalyticsService) GetAdvancedKPIs(ctx context.Context, startDate, endDa
 	_ = errPS
 	_ = errPE
 
-	buildFuelArgs := func(sd, ed string) ([]interface{}, string) {
+	buildFuelCostArgs := func(sd, ed string) ([]interface{}, string) {
 		a := []interface{}{sd, ed}
-		f := tenantFRFilter
+		f := addTenantFilter(&a, "sr")
 		if unitID > 0 {
-			f += `
-			AND fr.vehicle_id IN (
-				SELECT DISTINCT s.vehicle_id FROM shipments s
-				JOIN warehouses w ON w.id = s.from_warehouse_id OR w.id = s.to_warehouse_id
-				WHERE w.unit_id = $3
-			)`
 			a = append(a, unitID)
+			f += `
+			AND EXISTS (
+				SELECT 1
+				FROM vehicles v
+				JOIN warehouses w
+				  ON (w.id = v.current_warehouse_id OR w.id = v.home_warehouse_id)
+				 AND w.tenant_id = v.tenant_id
+				WHERE v.id = sr.vehicle_id
+				  AND v.tenant_id = sr.tenant_id
+				  AND w.unit_id = $` + fmt.Sprintf("%d", len(a)) + `
+			)`
 		}
 		return a, f
 	}
 
-	queryLiters := func(sd, ed string) float64 {
-		a, vuf := buildFuelArgs(sd, ed)
+	queryFuelCost := func(sd, ed string) float64 {
+		a, vuf := buildFuelCostArgs(sd, ed)
 		q := fmt.Sprintf(`
-			SELECT COALESCE(SUM(liters), 0)
-			FROM fuel_records fr
-			WHERE fr.record_type IN ('CONSUMPTION', 'EXPENSE')
-			  AND fr.created_at::date >= $1::date
-			  AND fr.created_at::date <= $2::date%s
+			SELECT COALESCE(SUM(sr.cost_uah), 0)
+			FROM shipment_refuels sr
+			WHERE sr.created_at::date >= $1::date
+			  AND sr.created_at::date <= $2::date
+			  AND sr.cost_uah IS NOT NULL%s
 		`, vuf)
-		var l float64
-		_ = s.db.QueryRow(ctx, q, a...).Scan(&l)
-		return l
+		var cost float64
+		_ = s.db.QueryRow(ctx, q, a...).Scan(&cost)
+		return cost
 	}
 
-	totalLiters := queryLiters(startDate, endDate)
-	prevLiters := queryLiters(prevStart, prevEnd)
+	totalFuelCost := queryFuelCost(startDate, endDate)
+	prevFuelCost := queryFuelCost(prevStart, prevEnd)
 
 	// Кількість відвантажених одиниць
 	shipArgs := []interface{}{startDate, endDate}
 	shipUnitFilter := ""
 	if unitID > 0 {
-		shipUnitFilter = " AND (wf.unit_id = $3 OR wt.unit_id = $3)"
 		shipArgs = append(shipArgs, unitID)
+		shipUnitFilter = fmt.Sprintf(" AND (wf.unit_id = $%d OR wt.unit_id = $%d)", len(shipArgs), len(shipArgs))
 	}
+	shipTenantFilter := addTenantFilter(&shipArgs, "s")
 	shipQuery := fmt.Sprintf(`
 		SELECT COALESCE(SUM(si.quantity), 0)
 		FROM shipments s
 		JOIN shipment_items si ON si.shipment_id = s.id
-		LEFT JOIN warehouses wf ON wf.id = s.from_warehouse_id
-		LEFT JOIN warehouses wt ON wt.id = s.to_warehouse_id
+		LEFT JOIN warehouses wf ON wf.id = s.from_warehouse_id AND wf.tenant_id = s.tenant_id
+		LEFT JOIN warehouses wt ON wt.id = s.to_warehouse_id AND wt.tenant_id = s.tenant_id
 		WHERE s.created_at::date >= $1::date
 		  AND s.created_at::date <= $2::date%s%s
-	`, shipUnitFilter, tenantShipFilter)
+	`, shipUnitFilter, shipTenantFilter)
 	var unitsShipped int64
 	_ = s.db.QueryRow(ctx, shipQuery, shipArgs...).Scan(&unitsShipped)
 
-	totalFuelCost := totalLiters * fuelUAHPerLiter
-	prevFuelCost := prevLiters * fuelUAHPerLiter
 	costPerUnit := 0.0
 	if unitsShipped > 0 {
 		costPerUnit = totalFuelCost / float64(unitsShipped)
@@ -313,20 +309,21 @@ func (s *AnalyticsService) GetAdvancedKPIs(ctx context.Context, startDate, endDa
 
 	// ---------- RISK ----------
 	riskArgs := []interface{}{}
-	resourceUnitFilter := ""
+	riskFilter := ""
 	if unitID > 0 {
-		resourceUnitFilter = ` AND (r.unit_id = $1 OR r.warehouse_id IN (SELECT id FROM warehouses WHERE unit_id = $1))`
 		riskArgs = append(riskArgs, unitID)
+		riskFilter += fmt.Sprintf(
+			` AND (r.unit_id = $%d OR r.warehouse_id IN (SELECT id FROM warehouses WHERE unit_id = $%d AND tenant_id = r.tenant_id))`,
+			len(riskArgs),
+			len(riskArgs),
+		)
 	}
-	riskTenantFilter := ""
-	if tenantID != "" {
-		riskTenantFilter = " AND r.tenant_id = '" + tenantID + "'"
-	}
+	riskFilter += addTenantFilter(&riskArgs, "r")
 	riskQuery := fmt.Sprintf(`
 		SELECT r.id, r.name, r.quantity, r.min_quantity
 		FROM resources r
-		WHERE r.min_quantity > 0%s%s
-	`, resourceUnitFilter, riskTenantFilter)
+		WHERE r.min_quantity > 0%s
+	`, riskFilter)
 
 	rows, err := s.db.Query(ctx, riskQuery, riskArgs...)
 	if err != nil {
@@ -374,16 +371,21 @@ func (s *AnalyticsService) GetAdvancedKPIs(ctx context.Context, startDate, endDa
 
 	// ---------- INVENTORY VALUE ----------
 	invArgs := []interface{}{}
-	invUnitFilter := ""
+	invFilter := ""
 	if unitID > 0 {
-		invUnitFilter = " AND unit_id = $1"
 		invArgs = append(invArgs, unitID)
+		invFilter += fmt.Sprintf(
+			` AND (r.unit_id = $%d OR r.warehouse_id IN (SELECT id FROM warehouses WHERE unit_id = $%d AND tenant_id = r.tenant_id))`,
+			len(invArgs),
+			len(invArgs),
+		)
 	}
+	invFilter += addTenantFilter(&invArgs, "r")
 	invQuery := fmt.Sprintf(`
-		SELECT COALESCE(SUM(quantity * unit_price), 0)
-		FROM resources
-		WHERE condition != 'WRITTEN_OFF'%s%s
-	`, invUnitFilter, tenantResFilter)
+		SELECT COALESCE(SUM(r.quantity * COALESCE(r.unit_price, 0)), 0)
+		FROM resources r
+		WHERE r.condition != 'WRITTEN_OFF'%s
+	`, invFilter)
 	var inventoryTotalValue float64
 	_ = s.db.QueryRow(ctx, invQuery, invArgs...).Scan(&inventoryTotalValue)
 
@@ -420,41 +422,70 @@ func (s *AnalyticsService) GetAdvancedKPIs(ctx context.Context, startDate, endDa
 
 // 🚀 PRO FEATURE #2: GetDemandForecast прогнозує попит на наступні 3 місяці
 func (s *AnalyticsService) GetDemandForecast(ctx context.Context, unitID int64) (map[string]interface{}, error) {
-	// Простий алгоритм: беремо середню 90 днів попиту та проектуємо вперед
+	args := []interface{}{}
+	filter := "WHERE sr.created_at >= NOW() - INTERVAL '90 days' AND sr.status NOT IN ('REJECTED', 'CANCELED', 'CANCELLED')"
+	if tenantID := repositories.TenantFromCtx(ctx); tenantID != "" {
+		args = append(args, tenantID)
+		filter += fmt.Sprintf(" AND sr.tenant_id = $%d::uuid", len(args))
+	}
+	if unitID > 0 {
+		args = append(args, unitID)
+		filter += fmt.Sprintf(`
+			AND (
+				EXISTS (
+					SELECT 1
+					FROM warehouses w
+					WHERE w.id = sr.target_warehouse_id
+					  AND w.unit_id = $%d
+					  AND w.tenant_id = sr.tenant_id
+				)
+				OR EXISTS (
+					SELECT 1
+					FROM resources res
+					LEFT JOIN warehouses rw
+					  ON rw.id = res.warehouse_id
+					 AND rw.tenant_id = res.tenant_id
+					WHERE res.id = sr.resource_id
+					  AND res.tenant_id = sr.tenant_id
+					  AND (res.unit_id = $%d OR rw.unit_id = $%d)
+				)
+			)`, len(args), len(args), len(args))
+	}
+
 	query := `
 		WITH monthly_usage AS (
 			SELECT 
 				DATE_TRUNC('month', sr.created_at)::date as month,
-				sr.resource_id,
-				COUNT(*) as request_count,
-				AVG(r.quantity) as avg_quantity
+				COALESCE(sr.resource_id::text, NULLIF(sr.resource_name, ''), sr.id::text) as resource_key,
+				SUM(sr.quantity) as requested_quantity
 			FROM supply_requests sr
-			JOIN resources r ON sr.resource_id = r.id
-			WHERE sr.unit_id = $1
-			AND sr.created_at >= NOW() - INTERVAL '90 days'
-			GROUP BY DATE_TRUNC('month', sr.created_at), sr.resource_id
+			` + filter + `
+			GROUP BY DATE_TRUNC('month', sr.created_at), COALESCE(sr.resource_id::text, NULLIF(sr.resource_name, ''), sr.id::text)
 		),
 		resource_trends AS (
 			SELECT 
-				resource_id,
-				ROUND(AVG(request_count), 2) as avg_monthly_demand,
-				MAX(request_count) as peak_demand
+				resource_key,
+				AVG(requested_quantity) as avg_monthly_demand,
+				MAX(requested_quantity) as peak_demand
 			FROM monthly_usage
-			GROUP BY resource_id
+			GROUP BY resource_key
 		)
 		SELECT 
 			COUNT(*) as resources_analyzed,
-			ROUND(AVG(avg_monthly_demand), 2) as avg_demand,
-			MAX(peak_demand) as peak_demand_observed
+			ROUND(COALESCE(AVG(avg_monthly_demand), 0)::numeric, 2) as avg_demand,
+			COALESCE(MAX(peak_demand), 0) as peak_demand_observed
 		FROM resource_trends
 	`
 
-	var resourcesAnalyzed, avgDemand, peakDemand interface{}
-	_ = s.db.QueryRow(ctx, query, unitID).Scan(&resourcesAnalyzed, &avgDemand, &peakDemand)
+	var resourcesAnalyzed int64
+	var avgDemand, peakDemand sql.NullFloat64
+	_ = s.db.QueryRow(ctx, query, args...).Scan(&resourcesAnalyzed, &avgDemand, &peakDemand)
 
-	if resourcesAnalyzed == nil {
+	if resourcesAnalyzed == 0 {
 		return map[string]interface{}{
 			"resources_analyzed": 0,
+			"avg_monthly_demand": 0,
+			"peak_demand":        0,
 			"forecast_3_months": map[string]interface{}{
 				"month_1": 0,
 				"month_2": 0,
@@ -463,14 +494,23 @@ func (s *AnalyticsService) GetDemandForecast(ctx context.Context, unitID int64) 
 		}, nil
 	}
 
+	avgValue := 0.0
+	if avgDemand.Valid {
+		avgValue = avgDemand.Float64
+	}
+	peakValue := 0.0
+	if peakDemand.Valid {
+		peakValue = peakDemand.Float64
+	}
+
 	return map[string]interface{}{
 		"resources_analyzed": resourcesAnalyzed,
-		"avg_monthly_demand": avgDemand,
-		"peak_demand":        peakDemand,
+		"avg_monthly_demand": avgValue,
+		"peak_demand":        peakValue,
 		"forecast_3_months": map[string]interface{}{
-			"month_1": avgDemand,
-			"month_2": avgDemand,
-			"month_3": avgDemand,
+			"month_1": avgValue,
+			"month_2": avgValue,
+			"month_3": avgValue,
 		},
 	}, nil
 }
@@ -478,8 +518,25 @@ func (s *AnalyticsService) GetDemandForecast(ctx context.Context, unitID int64) 
 // GetPredictiveMaintenanceSchedule returns predicted maintenance schedule for vehicles
 // Реалізація використовує реальну схему: vehicles + maintenance_records + fuel_records (для пробігу).
 func (s *AnalyticsService) GetPredictiveMaintenanceSchedule(ctx context.Context, unitID int64) (map[string]interface{}, error) {
-	// У схемі немає vehicles.unit_id, тому фільтр по підрозділу наразі ігнорується.
-	_ = unitID
+	tenantID := repositories.TenantFromCtx(ctx)
+	if tenantID == "" {
+		return nil, fmt.Errorf("tenant_id is required for predictive maintenance")
+	}
+
+	args := []interface{}{tenantID}
+	where := "WHERE v.status != 'INACTIVE' AND v.tenant_id = $1::uuid"
+
+	if unitID > 0 {
+		args = append(args, unitID)
+		where += fmt.Sprintf(`
+			AND EXISTS (
+				SELECT 1
+				FROM warehouses w
+				WHERE (w.id = v.current_warehouse_id OR w.id = v.home_warehouse_id)
+				  AND w.unit_id = $%d
+				  AND w.tenant_id = v.tenant_id
+			)`, len(args))
+	}
 
 	query := `
 		SELECT
@@ -487,48 +544,59 @@ func (s *AnalyticsService) GetPredictiveMaintenanceSchedule(ctx context.Context,
 			v.plate_number,
 			COALESCE(NULLIF(v.maintenance_interval_km, 0), 10000) AS interval_km,
 			COALESCE(v.last_maintenance_odometer, 0) AS last_odo,
-			COALESCE((SELECT MAX(fr.odometer_km) FROM fuel_records fr WHERE fr.vehicle_id = v.id), 0) AS current_odo,
-			(SELECT MAX(mr.created_at) FROM maintenance_records mr WHERE mr.vehicle_id = v.id) AS last_service_at
+			GREATEST(COALESCE(v.last_maintenance_odometer, 0), COALESCE((
+				SELECT MAX(fr.odometer_km)
+				FROM fuel_records fr
+				WHERE fr.vehicle_id = v.id
+				  AND fr.tenant_id = v.tenant_id
+			), 0)) AS current_odo,
+			COALESCE((
+				SELECT MAX(mr.created_at)
+				FROM maintenance_records mr
+				WHERE mr.vehicle_id = v.id
+				  AND COALESCE(mr.status, 'COMPLETED') = 'COMPLETED'
+			), v.created_at) AS last_service_at,
+			sr.id::text AS scheduled_record_id,
+			sr.service_type AS scheduled_service_type,
+			sr.scheduled_for
 		FROM vehicles v
-		WHERE v.status <> 'WRITTEN_OFF'
+		LEFT JOIN LATERAL (
+			SELECT mr.id, mr.service_type, mr.scheduled_for
+			FROM maintenance_records mr
+			WHERE mr.vehicle_id = v.id
+			  AND COALESCE(mr.status, 'COMPLETED') = 'SCHEDULED'
+			ORDER BY COALESCE(mr.scheduled_for, mr.created_at) DESC
+			LIMIT 1
+		) sr ON TRUE
+		` + where + `
 		ORDER BY v.plate_number
 	`
 
-	rows, err := s.db.Query(ctx, query)
+	rows, err := s.db.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("maintenance query: %w", err)
 	}
 	defer rows.Close()
-
-	serviceTypes := []struct {
-		code     string
-		kmFactor float64 // частка інтервалу ТО
-		monthly  int     // періодичність у місяцях
-		priority string
-	}{
-		{"OIL_CHANGE", 0.5, 6, "HIGH"},
-		{"TIRE_ROTATION", 1.0, 9, "MEDIUM"},
-		{"FILTER_REPLACEMENT", 1.0, 12, "MEDIUM"},
-		{"INSPECTION", 2.0, 12, "LOW"},
-	}
 
 	schedules := make([]map[string]interface{}, 0)
 	overdue := 0
 	dueSoon := 0
 	compliantVehicles := 0
 	totalVehicles := 0
-	now := time.Now()
 	idCounter := 0
 
 	for rows.Next() {
 		var (
-			vehicleID, plate string
-			intervalKM       int
-			lastOdo          int
-			currentOdo       int
-			lastServiceAt    *time.Time
+			vehicleID, plate     string
+			intervalKM           int
+			lastOdo              int
+			currentOdo           int
+			lastServiceAt        time.Time
+			scheduledRecordID    sql.NullString
+			scheduledServiceType sql.NullString
+			scheduledFor         sql.NullTime
 		)
-		if err := rows.Scan(&vehicleID, &plate, &intervalKM, &lastOdo, &currentOdo, &lastServiceAt); err != nil {
+		if err := rows.Scan(&vehicleID, &plate, &intervalKM, &lastOdo, &currentOdo, &lastServiceAt, &scheduledRecordID, &scheduledServiceType, &scheduledFor); err != nil {
 			continue
 		}
 		totalVehicles++
@@ -538,49 +606,61 @@ func (s *AnalyticsService) GetPredictiveMaintenanceSchedule(ctx context.Context,
 			mileageSince = 0
 		}
 
-		lastServiceDate := now.AddDate(0, -6, 0)
-		if lastServiceAt != nil {
-			lastServiceDate = *lastServiceAt
+		nextDate := lastServiceAt.AddDate(0, 12, 0)
+		if scheduledFor.Valid {
+			nextDate = scheduledFor.Time
+		}
+		daysRemaining := int(time.Until(nextDate).Hours() / 24)
+		recommendedKM := intervalKM
+		if recommendedKM < 1000 {
+			recommendedKM = 10000
+		}
+		mileageRatio := float64(mileageSince) / float64(recommendedKM)
+		status := "DUE"
+		if scheduledRecordID.Valid {
+			status = "SCHEDULED"
+		} else if daysRemaining < 0 || mileageSince >= recommendedKM {
+			status = "OVERDUE"
+		}
+		priority := "LOW"
+		if status == "OVERDUE" || mileageRatio >= 1 || daysRemaining <= 7 {
+			priority = "HIGH"
+		} else if mileageRatio >= 0.8 || daysRemaining <= 30 {
+			priority = "MEDIUM"
+		}
+		serviceType := "INSPECTION"
+		if scheduledServiceType.Valid && scheduledServiceType.String != "" {
+			serviceType = scheduledServiceType.String
 		}
 
-		vehicleCompliant := true
-
-		for _, st := range serviceTypes {
-			idCounter++
-			recommendedKM := int(float64(intervalKM) * st.kmFactor)
-			if recommendedKM < 1000 {
-				recommendedKM = 1000
-			}
-			nextDate := lastServiceDate.AddDate(0, st.monthly, 0)
-			daysRemaining := int(time.Until(nextDate).Hours() / 24)
-
-			status := "SCHEDULED"
-			if daysRemaining < 0 || mileageSince > recommendedKM {
-				status = "OVERDUE"
-				overdue++
-				vehicleCompliant = false
-			} else if daysRemaining <= 30 {
-				dueSoon++
-			}
-
-			schedules = append(schedules, map[string]interface{}{
-				"id":                    idCounter,
-				"vehicle_id":            vehicleID,
-				"vehicle_plate":         plate,
-				"service_type":          st.code,
-				"last_service_date":     lastServiceDate.Format(time.RFC3339),
-				"next_service_date":     nextDate.Format(time.RFC3339),
-				"days_remaining":        daysRemaining,
-				"mileage_since_service": mileageSince,
-				"recommended_mileage":   recommendedKM,
-				"priority":              st.priority,
-				"status":                status,
-			})
-		}
-
-		if vehicleCompliant {
+		idCounter++
+		if status == "OVERDUE" {
+			overdue++
+		} else if daysRemaining <= 30 {
+			dueSoon++
+			compliantVehicles++
+		} else {
 			compliantVehicles++
 		}
+
+		schedules = append(schedules, map[string]interface{}{
+			"id":                    idCounter,
+			"vehicle_id":            vehicleID,
+			"vehicle_plate":         plate,
+			"scheduled_record_id":   scheduledRecordID.String,
+			"service_type":          serviceType,
+			"last_service_date":     lastServiceAt.Format(time.RFC3339),
+			"next_service_date":     nextDate.Format(time.RFC3339),
+			"days_remaining":        daysRemaining,
+			"mileage_since_service": mileageSince,
+			"recommended_mileage":   recommendedKM,
+			"priority":              priority,
+			"status":                status,
+			"current_odometer":      currentOdo,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("maintenance rows: %w", err)
 	}
 
 	avgCompliance := 100.0
@@ -599,13 +679,27 @@ func (s *AnalyticsService) GetPredictiveMaintenanceSchedule(ctx context.Context,
 // GetFuelAnomalyDetection detects fuel consumption anomalies and potential fraud
 // Використовує fuel_records.is_anomaly + статистику по записах.
 func (s *AnalyticsService) GetFuelAnomalyDetection(ctx context.Context, unitID int64) (map[string]interface{}, error) {
-	_ = unitID // немає vehicles.unit_id у схемі
+	args := []interface{}{}
+	where := "WHERE 1=1"
 
-	// Отримуємо tenant_id із контексту для RLS
-	tenantID := repositories.TenantFromCtx(ctx)
+	if tenantID := repositories.TenantFromCtx(ctx); tenantID != "" {
+		args = append(args, tenantID)
+		where += fmt.Sprintf(" AND v.tenant_id = $%d::uuid", len(args))
+	}
+
+	if unitID > 0 {
+		args = append(args, unitID)
+		where += fmt.Sprintf(`
+			AND EXISTS (
+				SELECT 1
+				FROM warehouses w
+				WHERE (w.id = v.current_warehouse_id OR w.id = v.home_warehouse_id)
+				  AND w.unit_id = $%d
+				  AND w.tenant_id = v.tenant_id
+			)`, len(args))
+	}
 
 	// Базова статистика по машинах за 90 днів
-	// RLS автоматично фільтрує через POLICY, але додаємо явну перевірку для надійності
 	statsQuery := `
 		SELECT
 			v.id,
@@ -617,20 +711,47 @@ func (s *AnalyticsService) GetFuelAnomalyDetection(ctx context.Context, unitID i
 			MAX(fr.created_at) FILTER (WHERE fr.is_anomaly) AS last_anomaly_at,
 			STRING_AGG(DISTINCT fr.anomaly_reason, '; ') FILTER (WHERE fr.is_anomaly AND fr.anomaly_reason IS NOT NULL AND fr.created_at >= NOW() - INTERVAL '90 days') AS reasons
 		FROM vehicles v
-		LEFT JOIN fuel_records fr ON fr.vehicle_id = v.id
-		WHERE ($1::text = '' OR v.tenant_id::text = $1::text)
+		LEFT JOIN fuel_records fr ON fr.vehicle_id = v.id AND fr.tenant_id = v.tenant_id
+		` + where + `
 		GROUP BY v.id, v.plate_number
 		HAVING COUNT(fr.id) > 0
 		ORDER BY anomaly_count DESC, v.plate_number
 	`
 
-	rows, err := s.db.Query(ctx, statsQuery, tenantID)
+	rows, err := s.db.Query(ctx, statsQuery, args...)
 	if err != nil {
 		return nil, fmt.Errorf("fuel anomalies query: %w", err)
 	}
 	defer rows.Close()
 
-	const fuelUAHPerLiter = 55.0
+	priceArgs := []interface{}{}
+	priceFilter := ""
+	if tenantID := repositories.TenantFromCtx(ctx); tenantID != "" {
+		priceArgs = append(priceArgs, tenantID)
+		priceFilter += fmt.Sprintf(" AND sr.tenant_id = $%d::uuid", len(priceArgs))
+	}
+	if unitID > 0 {
+		priceArgs = append(priceArgs, unitID)
+		priceFilter += fmt.Sprintf(`
+			AND EXISTS (
+				SELECT 1
+				FROM vehicles v
+				JOIN warehouses w
+				  ON (w.id = v.current_warehouse_id OR w.id = v.home_warehouse_id)
+				 AND w.tenant_id = v.tenant_id
+				WHERE v.id = sr.vehicle_id
+				  AND v.tenant_id = sr.tenant_id
+				  AND w.unit_id = $%d
+			)`, len(priceArgs))
+	}
+	priceQuery := fmt.Sprintf(`
+		SELECT COALESCE(SUM(sr.cost_uah) / NULLIF(SUM(sr.liters), 0), 0)
+		FROM shipment_refuels sr
+		WHERE sr.cost_uah IS NOT NULL%s
+	`, priceFilter)
+	avgFuelUAHPerLiter := 0.0
+	_ = s.db.QueryRow(ctx, priceQuery, priceArgs...).Scan(&avgFuelUAHPerLiter)
+
 	anomalies := make([]map[string]interface{}, 0)
 	totalMonitored := 0
 	withAnomalies := 0
@@ -695,11 +816,11 @@ func (s *AnalyticsService) GetFuelAnomalyDetection(ctx context.Context, unitID i
 		// Рахуємо лише ЗАЙВЕ пальне (перевитрата понад норму + витрата без руху),
 		// а не весь обсяг аномальних записів. total_excess_liters — сума за 90 днів,
 		// тож ділимо на 3, щоб отримати оцінку на місяць.
-		potentialLossPerMonth := (totalExcessLiters * fuelUAHPerLiter) / 3.0
+		potentialLossPerMonth := (totalExcessLiters * avgFuelUAHPerLiter) / 3.0
 		// Підстраховка для історичних записів без excess (стара схема): якщо аномалії є,
 		// а зайвих літрів не зафіксовано — беремо консервативну оцінку від середнього обсягу.
 		if potentialLossPerMonth == 0 && anomalyCount > 0 {
-			potentialLossPerMonth = (avgAnomalyLiters * float64(anomalyCount) * fuelUAHPerLiter) / 3.0
+			potentialLossPerMonth = (avgAnomalyLiters * float64(anomalyCount) * avgFuelUAHPerLiter) / 3.0
 		}
 		totalLoss += potentialLossPerMonth
 

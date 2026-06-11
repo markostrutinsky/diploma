@@ -206,6 +206,57 @@ func (h *VehicleHandler) PerformMaintenance(c *gin.Context) {
 	c.JSON(http.StatusOK, record)
 }
 
+func (h *VehicleHandler) ScheduleMaintenance(c *gin.Context) {
+	vehicleID := c.Param("id")
+	userID := c.GetString("user_id")
+
+	var req struct {
+		OdometerKm   int    `json:"odometer_km"`
+		ServiceType  string `json:"service_type"`
+		ScheduledFor string `json:"scheduled_for"`
+		Description  string `json:"description"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Некоректні дані планування ТО"})
+		return
+	}
+	if req.OdometerKm < 0 || req.ServiceType == "" || req.ScheduledFor == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Одометр, тип ТО та дата планування є обов'язковими"})
+		return
+	}
+
+	scheduledFor, err := time.Parse(time.RFC3339, req.ScheduledFor)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Дата планування має бути у форматі RFC3339"})
+		return
+	}
+
+	description := strings.TrimSpace(req.Description)
+	if description == "" {
+		description = "Заплановане ТО"
+	}
+
+	record := &models.MaintenanceRecord{
+		VehicleID:    vehicleID,
+		OdometerKm:   req.OdometerKm,
+		Description:  description,
+		PerformedBy:  "Планування",
+		ServiceType:  strings.ToUpper(strings.TrimSpace(req.ServiceType)),
+		ScheduledFor: &scheduledFor,
+	}
+
+	if err := h.service.ScheduleMaintenance(c.Request.Context(), record); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	go func(uID string, entityID string) {
+		_ = h.auditService.LogAction(context.Background(), uID, "CREATE", "VEHICLE", entityID, "Заплановано ТО")
+	}(userID, vehicleID)
+
+	c.JSON(http.StatusOK, record)
+}
+
 func (h *VehicleHandler) GetMaintenanceHistory(c *gin.Context) {
 	vehicleID := c.Param("id")
 

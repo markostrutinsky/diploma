@@ -9,8 +9,30 @@ import { usePermissions } from '../hooks/usePermissions';
 import { PaywallBadge } from '../components/FeatureGate';
 
 const TCO_COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#6366f1', '#ec4899'];
-const requestLabels: Record<string, string> = { 'OPEN': 'Відкриті', 'IN_PROGRESS': 'В роботі', 'COMPLETED': 'Виконані', 'CANCELLED': 'Скасовані', 'ESCALATED': 'Ескальовані (SLA)' };
-const requestColors: Record<string, string> = { 'OPEN': '#3b82f6', 'IN_PROGRESS': '#f59e0b', 'COMPLETED': '#10b981', 'CANCELLED': '#ef4444', 'ESCALATED': '#9f1239' };
+const requestLabels: Record<string, string> = {
+  'OPEN': 'Відкриті',
+  'TAKEN': 'В роботі',
+  'IN_PROGRESS': 'В роботі',
+  'DELIVERED': 'Доставлені',
+  'ACCEPTED': 'Прийняті',
+  'COMPLETED': 'Виконані',
+  'REJECTED': 'Відхилені',
+  'CANCELED': 'Скасовані',
+  'CANCELLED': 'Скасовані',
+  'ESCALATED': 'Ескальовані (SLA)',
+};
+const requestColors: Record<string, string> = {
+  'OPEN': '#3b82f6',
+  'TAKEN': '#f59e0b',
+  'IN_PROGRESS': '#f59e0b',
+  'DELIVERED': '#0ea5e9',
+  'ACCEPTED': '#10b981',
+  'COMPLETED': '#10b981',
+  'REJECTED': '#ef4444',
+  'CANCELED': '#64748b',
+  'CANCELLED': '#64748b',
+  'ESCALATED': '#9f1239',
+};
 
 const AnalyticsDashboard: React.FC = () => {
   const [data, setData] = useState<any>(null);
@@ -145,7 +167,8 @@ const AnalyticsDashboard: React.FC = () => {
   const handleExportFuel = async () => {
     const toastId = toast.loading('Формування Excel звіту (Пальне)...');
     try {
-      const { blob, filename } = await api.analytics.exportFuel(startDate, endDate); 
+      const unitIdToExport = selectedUnit ? parseInt(selectedUnit, 10) : undefined;
+      const { blob, filename } = await api.analytics.exportFuel(startDate, endDate, unitIdToExport); 
       
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -230,6 +253,7 @@ const AnalyticsDashboard: React.FC = () => {
   // БЕЗПЕЧНИЙ РОЗРАХУНОК ВОРОНКИ
   const contractorFunnel = Array.isArray(data?.CONTRACTOR_funnel) ? data.CONTRACTOR_funnel : [];
   const totalcontractorReqs = contractorFunnel.reduce((acc: number, curr: any) => acc + (curr.count || 0), 0) || 1;
+  const reportNumber = `OMNI-${startDate.replace(/-/g, '')}-${endDate.replace(/-/g, '')}${selectedUnit ? `-${selectedUnit}` : ''}`;
 
   return (
     <div className="analytics-erp-container">
@@ -455,7 +479,7 @@ const AnalyticsDashboard: React.FC = () => {
                 
                 <div className="sla-banner-right">
                   <p className="sla-banner-desc">
-                    Середній час закриття одного запиту зовнішніми постачальниками (від моменту створення до статусу "Виконані").
+                    Середній час закриття одного запиту зовнішніми постачальниками від моменту створення до фінального виконання.
                   </p>
                   <div className="sla-banner-stats">
                     <span>Успішно виконано за обраний період:</span>
@@ -500,7 +524,7 @@ const AnalyticsDashboard: React.FC = () => {
             <div className="erp-widget col-span-full" style={{ height: 'auto', minHeight: '180px' }}>
               <div className="widget-header">
                 <h3>🔄 Життєвий цикл та рух активів</h3>
-                <span className="info-badge">За весь час</span>
+                <span className="info-badge">Стан + період</span>
               </div>
               
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginTop: '10px' }}>
@@ -799,7 +823,7 @@ const AnalyticsDashboard: React.FC = () => {
                   <span style={{ fontSize: '10pt', color: '#555' }}>Деталізований аналітичний звіт стану активів</span>
                 </td>
                 <td style={{ verticalAlign: 'top', textAlign: 'right', fontSize: '10pt' }}>
-                  <strong>Документ №:</strong> {Math.floor(Math.random() * 10000)}<br/>
+                  <strong>Документ №:</strong> {reportNumber}<br/>
                   <strong>Дата:</strong> {new Date().toLocaleDateString('uk-UA')}<br/>
                   <strong>Період:</strong> {startDate} — {endDate}
                 </td>

@@ -6,10 +6,11 @@ interface ProtectedRouteProps {
   children: React.ReactNode
   forbidRoles?: string[]
   allowedRoles?: string[] // 🔥 Додали нову властивість
+  requireTenantContext?: boolean
 }
 
-export default function ProtectedRoute({ children, forbidRoles, allowedRoles }: ProtectedRouteProps) {
-  const { user, token, loading } = useAuth()
+export default function ProtectedRoute({ children, forbidRoles, allowedRoles, requireTenantContext }: ProtectedRouteProps) {
+  const { user, token, loading, supportTenant } = useAuth()
 
   if (loading) {
     return <div className="loading-full">Завантаження...</div>
@@ -29,6 +30,10 @@ export default function ProtectedRoute({ children, forbidRoles, allowedRoles }: 
   if (user && allowedRoles && !allowedRoles.includes(user.role)) {
     console.warn(`Доступ заборонено (allowedRoles) для ролі: ${user.role}`)
     return <Navigate to="/" replace />
+  }
+
+  if (user?.role === 'SYSTEM_ADMIN' && requireTenantContext && !supportTenant) {
+    return <Navigate to="/platform" replace />
   }
 
   return <>{children}</>

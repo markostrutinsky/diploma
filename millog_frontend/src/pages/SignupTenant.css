@@ -1,48 +1,57 @@
 .signup-tenant-page {
-  min-height: 100vh;
+  min-height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2rem 1rem;
+  padding: clamp(0.75rem, 1.8vh, 1.25rem) 1rem;
   background: var(--bg-body);
 }
 
 .signup-tenant-card {
   width: 100%;
-  max-width: 500px;
+  max-width: 560px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 2.5rem;
+  padding: clamp(1.5rem, 2vw, 2rem);
   color: var(--text);
   box-shadow: var(--shadow-lg);
-  animation: slideUp 0.3s ease;
+  animation: signup-card-fade 0.24s ease;
+}
+
+@keyframes signup-card-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .signup-tenant-card h1 {
-  margin: 0 0 0.5rem;
-  font-size: 1.875rem;
+  margin: 0 0 0.375rem;
+  font-size: 1.75rem;
   font-weight: 700;
   color: var(--text-bright);
 }
 
 .signup-tenant-card .subtitle {
   color: var(--text-muted);
-  margin: 0 0 2rem;
-  font-size: 0.9375rem;
-  line-height: 1.5;
+  margin: 0 0 1.25rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
 }
 
 .signup-tenant-card form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.875rem 1rem;
 }
 
 .signup-tenant-card label {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.375rem;
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--text);
@@ -50,13 +59,20 @@
   padding: 0;
 }
 
+.signup-tenant-card label:nth-child(1),
+.signup-tenant-card label:nth-child(2),
+.signup-tenant-card button,
+.signup-tenant-card .signup-tenant-footer {
+  grid-column: 1 / -1;
+}
+
 .signup-tenant-card input {
   background: var(--bg-input);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 0.875rem 1rem;
+  padding: 0.75rem 0.875rem;
   color: var(--text);
-  font-size: 0.9375rem;
+  font-size: 0.9rem;
   outline: none;
   transition: all 0.2s ease;
   width: 100%;
@@ -75,19 +91,20 @@
 
 .signup-tenant-card small {
   color: var(--text-dim);
-  font-size: 0.8125rem;
-  line-height: 1.4;
+  font-size: 0.78rem;
+  line-height: 1.35;
 }
 
 .signup-tenant-card .primary-btn,
 .signup-tenant-card .btn {
-  margin-top: 0.5rem;
+  margin-top: 0.125rem;
   background: var(--accent);
   color: white;
   border: none;
   border-radius: 8px;
-  padding: 1rem;
-  font-size: 1rem;
+  min-height: 46px;
+  padding: 0.875rem 1rem;
+  font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -113,12 +130,12 @@
 }
 
 .signup-tenant-footer {
-  margin-top: 1.5rem;
-  padding-top: 1.5rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
   border-top: 1px solid var(--border);
   text-align: center;
   color: var(--text-muted);
-  font-size: 0.9375rem;
+  font-size: 0.9rem;
 }
 
 .signup-tenant-footer a {
@@ -131,4 +148,31 @@
 .signup-tenant-footer a:hover {
   color: var(--accent);
   text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+  .signup-tenant-page {
+    align-items: flex-start;
+    padding: 1rem;
+  }
+
+  .signup-tenant-card {
+    max-width: 500px;
+    padding: 1.5rem;
+  }
+
+  .signup-tenant-card form {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .signup-tenant-card label,
+  .signup-tenant-card button,
+  .signup-tenant-card .signup-tenant-footer {
+    grid-column: auto;
+  }
+
+  .signup-tenant-card h1 {
+    font-size: 1.625rem;
+  }
 }

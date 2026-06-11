@@ -119,6 +119,13 @@ func (h *AnalyticsHandler) ExportFuel(c *gin.Context) {
 	userID := c.GetString("user_id")
 	startStr := c.Query("start")
 	endStr := c.Query("end")
+	var unitID *int
+	if idStr := c.Query("unit_id"); idStr != "" {
+		id, err := strconv.Atoi(idStr)
+		if err == nil {
+			unitID = &id
+		}
+	}
 
 	// Дефолт: за останні 30 днів
 	endDate := time.Now()
@@ -135,7 +142,7 @@ func (h *AnalyticsHandler) ExportFuel(c *gin.Context) {
 		}
 	}
 
-	fileBytes, err := h.service.GenerateFuelExcel(c.Request.Context(), startDate, endDate)
+	fileBytes, err := h.service.GenerateFuelExcel(c.Request.Context(), startDate, endDate, unitID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Не вдалося згенерувати звіт"})
 		return

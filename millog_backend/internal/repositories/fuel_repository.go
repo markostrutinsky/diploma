@@ -40,10 +40,15 @@ func (r *FuelRepository) CreateFuelRecord(ctx context.Context, record *models.Fu
 	}
 	defer tx.Rollback(ctx)
 
+	tid := TenantFromCtx(ctx)
+	if tid == "" {
+		return fmt.Errorf("tenant_id is required for fuel records")
+	}
+
 	// 1. Отримуємо дані авто та БЛОКУЄМО рядок (FOR UPDATE), щоб ніхто не змінив дані паралельно
 	var fuelNorm float64
 	var tankCapacity float64
-	err = tx.QueryRow(ctx, "SELECT fuel_norm, tank_capacity FROM vehicles WHERE id = $1 FOR UPDATE", record.VehicleID).Scan(&fuelNorm, &tankCapacity)
+	err = tx.QueryRow(ctx, "SELECT fuel_norm, tank_capacity FROM vehicles WHERE id = $1 AND tenant_id = $2::uuid FOR UPDATE", record.VehicleID, tid).Scan(&fuelNorm, &tankCapacity)
 	if err != nil {
 		return fmt.Errorf("помилка отримання даних авто: %w", err)
 	}
@@ -53,9 +58,9 @@ func (r *FuelRepository) CreateFuelRecord(ctx context.Context, record *models.Fu
 	balanceQuery := `
 		SELECT COALESCE(SUM(CASE WHEN record_type = 'REFUEL' THEN liters ELSE -liters END), 0)
 		FROM fuel_records
-		WHERE vehicle_id = $1
+		WHERE vehicle_id = $1 AND tenant_id = $2::uuid
 	`
-	err = tx.QueryRow(ctx, balanceQuery, record.VehicleID).Scan(&currentBalance)
+	err = tx.QueryRow(ctx, balanceQuery, record.VehicleID, tid).Scan(&currentBalance)
 	if err != nil {
 		return fmt.Errorf("помилка розрахунку залишку пального: %w", err)
 	}
@@ -83,9 +88,9 @@ func (r *FuelRepository) CreateFuelRecord(ctx context.Context, record *models.Fu
 	if record.OdometerKm != nil {
 		err = tx.QueryRow(ctx,
 			`SELECT odometer_km FROM fuel_records 
-             WHERE vehicle_id = $1 AND odometer_km IS NOT NULL 
+             WHERE vehicle_id = $1 AND tenant_id = $2::uuid AND odometer_km IS NOT NULL 
              ORDER BY created_at DESC LIMIT 1`,
-			record.VehicleID,
+			record.VehicleID, tid,
 		).Scan(&lastOdometer)
 
 		if err == nil {
@@ -128,28 +133,15 @@ func (r *FuelRepository) CreateFuelRecord(ctx context.Context, record *models.Fu
 		}
 	}
 	// 5. Запис у базу
-	tid := TenantFromCtx(ctx)
-	if tid == "" {
-		query := `
-        INSERT INTO fuel_records (
-            vehicle_id, liters, odometer_km, record_type, created_by, is_anomaly, anomaly_reason, anomaly_excess_liters
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        RETURNING id, created_at`
-		err = tx.QueryRow(ctx, query,
-			record.VehicleID, record.Liters, record.OdometerKm, record.RecordType,
-			record.CreatedBy, record.IsAnomaly, record.AnomalyReason, record.AnomalyExcessLiters,
-		).Scan(&record.ID, &record.CreatedAt)
-	} else {
-		query := `
+	query := `
         INSERT INTO fuel_records (
             vehicle_id, liters, odometer_km, record_type, created_by, is_anomaly, anomaly_reason, anomaly_excess_liters, tenant_id
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         RETURNING id, created_at`
-		err = tx.QueryRow(ctx, query,
-			record.VehicleID, record.Liters, record.OdometerKm, record.RecordType,
-			record.CreatedBy, record.IsAnomaly, record.AnomalyReason, record.AnomalyExcessLiters, tid,
-		).Scan(&record.ID, &record.CreatedAt)
-	}
+	err = tx.QueryRow(ctx, query,
+		record.VehicleID, record.Liters, record.OdometerKm, record.RecordType,
+		record.CreatedBy, record.IsAnomaly, record.AnomalyReason, record.AnomalyExcessLiters, tid,
+	).Scan(&record.ID, &record.CreatedAt)
 
 	if err != nil {
 		return fmt.Errorf("помилка створення запису пального: %w", err)

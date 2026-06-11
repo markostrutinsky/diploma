@@ -80,8 +80,8 @@ func (s *NotificationService) ListNotifications(ctx context.Context, userID stri
 }
 
 // MarkAsRead позначає сповіщення як прочитане
-func (s *NotificationService) MarkAsRead(ctx context.Context, notificationID string) error {
-	return s.repo.MarkAsRead(ctx, s.dbPool, notificationID)
+func (s *NotificationService) MarkAsRead(ctx context.Context, notificationID string, userID string) error {
+	return s.repo.MarkAsRead(ctx, s.dbPool, notificationID, userID)
 }
 
 // MarkAllAsRead позначає всі сповіщення користувача як прочитані
@@ -90,8 +90,8 @@ func (s *NotificationService) MarkAllAsRead(ctx context.Context, userID string) 
 }
 
 // DeleteNotification видаляє сповіщення
-func (s *NotificationService) DeleteNotification(ctx context.Context, notificationID string) error {
-	return s.repo.Delete(ctx, s.dbPool, notificationID)
+func (s *NotificationService) DeleteNotification(ctx context.Context, notificationID string, userID string) error {
+	return s.repo.Delete(ctx, s.dbPool, notificationID, userID)
 }
 
 // GetUnreadCount повертає кількість непрочитаних сповіщень

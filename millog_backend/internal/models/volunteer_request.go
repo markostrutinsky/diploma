@@ -42,9 +42,11 @@ type CreateContractorRequest struct {
 }
 
 type AcceptContractorPayload struct {
-	ResourceID *string         `json:"resource_id"`
-	CategoryID string          `json:"category_id" binding:"required"`
-	Name       string          `json:"name" binding:"required"`
-	Quantity   int             `json:"quantity" binding:"required,min=1"`
-	UnitType   UnitMeasurement `json:"unit_type" binding:"required,oneof=PCS KIT KG L"`
+	ResourceID   *string         `json:"resource_id"`
+	CategoryID   string          `json:"category_id"`
+	CategoryName string          `json:"category_name"`
+	Name         string          `json:"name"`
+	Quantity     int             `json:"quantity" binding:"required,min=1"`
+	UnitType     UnitMeasurement `json:"unit_type" binding:"required,oneof=PCS KIT KG L"`
+	UnitPrice    float64         `json:"unit_price" binding:"omitempty,gte=0"`
 }

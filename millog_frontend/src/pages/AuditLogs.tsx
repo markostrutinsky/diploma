@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, ROLE_NAMES } from '../api/client';
 import toast from 'react-hot-toast';
 import Pagination from '../components/Pagination';
+import { useAuth } from '../contexts/AuthContext';
 import './AuditLogs.css';
 
 interface AuditLog {
@@ -20,6 +21,10 @@ const ACTION_LABELS: Record<string, { label: string; cls: string; icon: string }
   CREATE: { label: 'Створення', cls: 'badge-create', icon: '✨' },
   UPDATE: { label: 'Оновлення', cls: 'badge-update', icon: '✏️' },
   DELETE: { label: 'Видалення', cls: 'badge-delete', icon: '🗑️' },
+  EXPORT: { label: 'Експорт', cls: 'badge-primary', icon: '📤' },
+  REPORT: { label: 'Рапорт', cls: 'badge-warning', icon: '📝' },
+  REFRESH: { label: 'Оновлення токена', cls: 'badge-neutral', icon: '🔁' },
+  INVENTORY_AUDIT: { label: 'Переоблік', cls: 'badge-primary', icon: '📋' },
   WRITE_OFF: { label: 'Списання', cls: 'badge-warning', icon: '📉' },
   ASSIGN: { label: 'Видача персоналу', cls: 'badge-primary', icon: '👤' },
   RETURN: { label: 'Повернення на склад', cls: 'badge-primary', icon: '↩️' },
@@ -38,19 +43,27 @@ const ACTION_LABELS: Record<string, { label: string; cls: string; icon: string }
 const ENTITY_LABELS: Record<string, string> = {
   VEHICLE: 'Автомобіль',
   WAREHOUSE: 'Склад',
+  TENANT: 'Організація',
   RESOURCE: 'Майно / Ресурс',
   SUPPLY_REQUEST: 'Заявка на постачання',
   CONTRACTOR_REQUEST: 'Заявка підряднику',
+  CONTRACTOR_MEMBERSHIP: 'Співпраця з підрядником',
   REQUEST: 'Заявка',
   UNIT: 'Орг. одиниця',
   USER: 'Користувач',
+  TOKEN: 'Токен доступу',
   SHIPMENT: 'Рейс / Відправка',
+  SHIPMENT_REFUEL: 'Дозаправка рейсу',
   FUEL_LOG: 'Журнал пального',
+  FUEL_RECORD: 'Запис пального',
+  FUEL: 'Пальне',
   MAINTENANCE: 'ТО автомобіля',
+  INVENTORY: 'Складські залишки',
   AUDIT: 'Інвентаризація',
   SECURITY: 'Безпека',
   CATEGORY: 'Категорія',
   RESOURCE_ASSIGNMENT: 'Видача майна',
+  SMART_REPLENISH: 'Автопоповнення складу',
 };
 
 const translateAction = (action: string): { label: string; cls: string; icon: string } => {
@@ -69,6 +82,7 @@ const translateEntity = (entity: string): string => {
 };
 
 const AuditLogs = () => {
+  const { user } = useAuth();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -84,7 +98,9 @@ const AuditLogs = () => {
     if (showToast) setIsRefreshing(true);
     try {
       if (!showToast) setLoading(true);
-      const data = await api.admin.getAuditLogs();
+      const data = user?.role === 'SYSTEM_ADMIN'
+        ? await api.platform.getAuditLogs()
+        : await api.admin.getAuditLogs();
       setLogs(Array.isArray(data) ? data : []);
       if (showToast) toast.success('Журнал оновлено');
     } catch (err: any) {
@@ -97,7 +113,7 @@ const AuditLogs = () => {
 
   useEffect(() => {
     fetchLogs();
-  }, []);
+  }, [user?.role]);
 
   useEffect(() => { setLogsPage(0); }, [searchQuery, actionFilter, entityFilter]);
 
@@ -218,7 +234,9 @@ const AuditLogs = () => {
             <option value="CREATE">✨ Створення</option>
             <option value="UPDATE">✏️ Оновлення</option>
             <option value="DELETE">🗑️ Видалення</option>
+            <option value="EXPORT">📤 Експорт</option>
             <option value="WRITE_OFF">📉 Списання</option>
+            <option value="INVENTORY_AUDIT">📋 Переоблік</option>
             <option value="ASSIGN">👤 Видача персоналу</option>
             <option value="APPROVE">✅ Погодження</option>
             <option value="REJECT">❌ Відхилення</option>
@@ -228,12 +246,18 @@ const AuditLogs = () => {
             <option value="ALL">Всі об'єкти</option>
             <option value="VEHICLE">🚗 Автомобіль</option>
             <option value="WAREHOUSE">🏬 Склад</option>
+            <option value="TENANT">🏛️ Організація</option>
             <option value="RESOURCE">📦 Майно / Ресурс</option>
             <option value="SUPPLY_REQUEST">📝 Заявка на постачання</option>
             <option value="CONTRACTOR_REQUEST">🤝 Заявка підряднику</option>
+            <option value="CONTRACTOR_MEMBERSHIP">🤝 Співпраця з підрядником</option>
             <option value="UNIT">🏢 Орг. одиниця</option>
             <option value="USER">👤 Користувач</option>
             <option value="SHIPMENT">🚚 Рейс / Відправка</option>
+            <option value="FUEL_RECORD">⛽ Запис пального</option>
+            <option value="SHIPMENT_REFUEL">⛽ Дозаправка рейсу</option>
+            <option value="INVENTORY">📦 Складські залишки</option>
+            <option value="CATEGORY">🏷️ Категорія</option>
             <option value="SECURITY">🛡️ Безпека</option>
           </select>
         </div>

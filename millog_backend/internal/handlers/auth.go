@@ -6,6 +6,7 @@ import (
 	"Omnilog_backend/internal/services"
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -16,6 +17,15 @@ import (
 type AuthHandler struct {
 	authService  *services.AuthService
 	auditService *services.AuditService
+}
+
+func setRefreshTokenCookie(c *gin.Context, value string, maxAge int) {
+	c.SetSameSite(http.SameSiteLaxMode)
+	c.SetCookie("refresh_token", value, maxAge, "/", "", isSecureRequest(c), true)
+}
+
+func isSecureRequest(c *gin.Context) bool {
+	return c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https")
 }
 
 func NewAuthHandler(authService *services.AuthService, auditService *services.AuditService) *AuthHandler {
@@ -73,6 +83,10 @@ func (h *AuthHandler) RegisterUser(c *gin.Context) {
 			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 			return
 		}
+		if strings.Contains(err.Error(), "вже має призначеного керівника") {
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -100,7 +114,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	// Зберігаємо refresh_token як httpOnly cookie (недоступний для JS)
-	c.SetCookie("refresh_token", response.RefreshToken, 30*24*3600, "/", "", true, true)
+	setRefreshTokenCookie(c, response.RefreshToken, 30*24*3600)
 	// Прибираємо refresh_token з тіла відповіді
 	response.RefreshToken = ""
 
@@ -113,7 +127,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 func (h *AuthHandler) Logout(c *gin.Context) {
 	// Очищуємо refresh_token cookie
-	c.SetCookie("refresh_token", "", -1, "/", "", true, true)
+	setRefreshTokenCookie(c, "", -1)
 	c.JSON(http.StatusOK, gin.H{"message": "Вийдено успішно"})
 }
 
@@ -224,7 +238,7 @@ func (h *AuthHandler) Refresh(c *gin.Context) {
 	}
 
 	// Оновлюємо refresh_token cookie
-	c.SetCookie("refresh_token", response.RefreshToken, 30*24*3600, "/", "", true, true)
+	setRefreshTokenCookie(c, response.RefreshToken, 30*24*3600)
 	response.RefreshToken = ""
 
 	go func() {
@@ -269,6 +283,10 @@ func (h *AuthHandler) UpdateRoleAndUnit(c *gin.Context) {
 
 	err := h.authService.UpdateRoleAndUnit(c.Request.Context(), commanderID, targetUserID, string(req.Role), req.UnitID)
 	if err != nil {
+		if strings.Contains(err.Error(), "вже має призначеного керівника") {
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 		return
 	}
@@ -310,7 +328,7 @@ func (h *AuthHandler) BlockUser(c *gin.Context) {
 	}
 
 	// 2. Перевіряємо права на блокування
-	if claims.Role == models.RoleAdmin {
+	if claims.Role == models.RoleTenantAdmin || claims.Role == models.RoleAdmin {
 		isAuthorized = true
 	} else if isManager {
 		if claims.UnitID != 0 {
@@ -354,7 +372,7 @@ func (h *AuthHandler) UnblockUser(c *gin.Context) {
 	}
 	claims := claimsVal.(*middleware.Claims)
 
-	if claims.Role != "ADMIN" && claims.Role != "REGION_DIRECTOR" {
+	if claims.Role != models.RoleTenantAdmin && claims.Role != models.RoleAdmin && claims.Role != models.RoleRegionDirector {
 		c.JSON(http.StatusForbidden, gin.H{"error": "Тільки Адміністратор або Керівник регіону може розблоковувати людей"})
 		return
 	}
@@ -446,7 +464,11 @@ func (h *AuthHandler) RequestPasswordReset(c *gin.Context) {
 		return
 	}
 
-	_ = h.authService.RequestPasswordReset(c.Request.Context(), req.Email)
+	if err := h.authService.RequestPasswordReset(c.Request.Context(), req.Email); err != nil {
+		slog.Error("Password reset request failed", "email", req.Email, "error", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Не вдалося надіслати лист для відновлення пароля"})
+		return
+	}
 
 	go func(email string) {
 		_ = h.auditService.LogAction(context.Background(), "SYSTEM", "UPDATE", "USER", email, "Запит на скидання пароля")
@@ -464,7 +486,11 @@ func (h *AuthHandler) GetUserLimits(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Не вдалося визначити підрозділ користувача"})
 		return
 	}
-	unitID := unitIDVal.(string)
+	unitID := fmt.Sprint(unitIDVal)
+	if unitID == "" || unitID == "0" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Не вдалося визначити підрозділ користувача"})
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 	defer cancel()

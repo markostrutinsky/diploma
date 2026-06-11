@@ -721,13 +721,13 @@ export default function Vehicles() {
       {fuelModalVehicle && (
         <div className="modal-overlay vehicles-modal" onClick={() => !isProcessing && setFuelModalVehicle(null)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Пальне: {fuelModalVehicle.brand} ({fuelModalVehicle.plate_number})</h3>
+            <h3>Облік пального: {fuelModalVehicle.brand} ({fuelModalVehicle.plate_number})</h3>
             <form onSubmit={handleAddFuel}>
               <div className="form-group">
                 <label>Тип операції</label>
                 <select value={fuelForm.record_type} onChange={(e) => setFuelForm({ ...fuelForm, record_type: e.target.value as FuelRecordType })} className={`erp-input fuel-type-select ${fuelForm.record_type === 'REFUEL' ? 'type-refuel' : 'type-expense'}`} disabled={isProcessing}>
-                  <option value="EXPENSE">Списання (Витрата)</option>
-                  <option value="REFUEL">Заправка (Прихід)</option>
+                  <option value="EXPENSE">Позарейсова витрата / коригування</option>
+                  <option value="REFUEL">Заправка / прихід</option>
                 </select>
               </div>
               <div className="form-row-2">
@@ -743,7 +743,7 @@ export default function Vehicles() {
               </div>
               <div className="modal-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setFuelModalVehicle(null)} disabled={isProcessing}>Скасувати</button>
-                <button type="submit" className={fuelForm.record_type === 'REFUEL' ? "btn btn-success" : "btn btn-danger"} disabled={isProcessing || !fuelForm.liters || fuelForm.liters <= 0 || (fuelForm.record_type === 'EXPENSE' && !fuelForm.odometer_km)}>{fuelForm.record_type === 'REFUEL' ? 'Заправити' : 'Списати'}</button>
+                <button type="submit" className={fuelForm.record_type === 'REFUEL' ? "btn btn-success" : "btn btn-danger"} disabled={isProcessing || !fuelForm.liters || fuelForm.liters <= 0 || (fuelForm.record_type === 'EXPENSE' && !fuelForm.odometer_km)}>{fuelForm.record_type === 'REFUEL' ? 'Заправити' : 'Записати витрату'}</button>
               </div>
             </form>
           </div>
@@ -889,6 +889,7 @@ export default function Vehicles() {
                       <thead>
                         <tr>
                           <th>Дата ТО</th>
+                          <th>Статус</th>
                           <th>Водій</th>
                           <th>Одометр</th>
                           <th>Опис виконаних робіт</th>
@@ -901,7 +902,12 @@ export default function Vehicles() {
                         {maintenanceRecords.map(record => (
                           <tr key={record.id}>
                             <td className="text-muted">
-                              {new Date(record.created_at).toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                              {new Date(record.scheduled_for || record.created_at).toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                            </td>
+                            <td>
+                              <span className={`badge ${record.status === 'SCHEDULED' ? 'badge-primary' : 'badge-success'}`}>
+                                {record.status === 'SCHEDULED' ? 'Заплановано' : 'Завершено'}
+                              </span>
                             </td>
                             <td className="text-muted">
                               {record.driver_name ? `👤 ${record.driver_name}` : <span className="unassigned-text-italic">Не призначено</span>}
@@ -1216,7 +1222,7 @@ export default function Vehicles() {
                                 
                                 {v.status === 'ACTIVE' && (
                                   <button style={{color: '#2563eb'}} onClick={() => { setFuelModalVehicle(v); setFuelForm({ record_type: 'EXPENSE', liters: 0, odometer_km: '' }); setActiveMenuId(null); }}>
-                                    ⛽ Додати пальне
+                                    ⛽ Облік пального
                                   </button>
                                 )}
 

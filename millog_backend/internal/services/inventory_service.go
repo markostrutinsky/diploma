@@ -164,9 +164,12 @@ func (s *InventoryService) CreateResource(ctx context.Context, req *models.Creat
 		Quantity:     req.Quantity,
 		UnitType:     req.UnitType, // <--- ДОДАЛИ одиниці виміру
 		SerialNumber: req.SerialNumber,
+		Barcode:      req.Barcode,
+		Location:     req.Location,
 		Condition:    cond,
 		MinQuantity:  req.MinQuantity,
 		WeightKg:     req.WeightKg,
+		UnitPrice:    req.UnitPrice,
 	}
 	if err := s.resourceRepo.Create(ctx, s.dbPool, res); err != nil {
 		return nil, fmt.Errorf("failed to create resource: %w", err)
@@ -370,11 +373,16 @@ func (s *InventoryService) StartShipment(ctx context.Context, shipmentID string)
 // LogShipmentRefuel — реєструє дозаправку під час рейсу.
 // Одночасно пише в shipment_refuels І в fuel_records як REFUEL.
 func (s *InventoryService) LogShipmentRefuel(ctx context.Context, shipmentID string, userID string, req *models.LogShipmentRefuelRequest) (*models.ShipmentRefuel, error) {
+	tenantID := repositories.TenantFromCtx(ctx)
+	if tenantID == "" {
+		return nil, fmt.Errorf("tenant_id is required for shipment refuel")
+	}
+
 	// Отримуємо vehicle_id і статус рейсу
 	var vehicleID string
 	var status string
 	err := s.dbPool.QueryRow(ctx,
-		`SELECT vehicle_id, status FROM shipments WHERE id = $1`, shipmentID,
+		`SELECT vehicle_id, status FROM shipments WHERE id = $1 AND tenant_id = $2::uuid`, shipmentID, tenantID,
 	).Scan(&vehicleID, &status)
 	if err != nil {
 		return nil, fmt.Errorf("рейс не знайдено")
@@ -386,10 +394,10 @@ func (s *InventoryService) LogShipmentRefuel(ctx context.Context, shipmentID str
 	// Перевіряємо місткість баку
 	var tankCapacity float64
 	var currentBalance float64
-	_ = s.dbPool.QueryRow(ctx, `SELECT tank_capacity FROM vehicles WHERE id = $1`, vehicleID).Scan(&tankCapacity)
+	_ = s.dbPool.QueryRow(ctx, `SELECT tank_capacity FROM vehicles WHERE id = $1 AND tenant_id = $2::uuid`, vehicleID, tenantID).Scan(&tankCapacity)
 	_ = s.dbPool.QueryRow(ctx, `
 		SELECT GREATEST(0, COALESCE(SUM(CASE WHEN record_type = 'REFUEL' THEN liters ELSE -liters END), 0))
-		FROM fuel_records WHERE vehicle_id = $1`, vehicleID,
+		FROM fuel_records WHERE vehicle_id = $1 AND tenant_id = $2::uuid`, vehicleID, tenantID,
 	).Scan(&currentBalance)
 
 	liters := req.Liters
@@ -403,9 +411,6 @@ func (s *InventoryService) LogShipmentRefuel(ctx context.Context, shipmentID str
 		}
 	}
 
-	tenantID := ""
-	_ = s.dbPool.QueryRow(ctx, `SELECT tenant_id FROM shipments WHERE id = $1`, shipmentID).Scan(&tenantID)
-
 	tx, err := s.dbPool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -418,10 +423,7 @@ func (s *InventoryService) LogShipmentRefuel(ctx context.Context, shipmentID str
 	if userID != "" {
 		uid = &userID
 	}
-	var tid *string
-	if tenantID != "" {
-		tid = &tenantID
-	}
+	tid := &tenantID
 	err = tx.QueryRow(ctx, `
 		INSERT INTO shipment_refuels (shipment_id, vehicle_id, liters, odometer_km, station_name, cost_uah, created_by, tenant_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8::uuid)
@@ -434,17 +436,10 @@ func (s *InventoryService) LogShipmentRefuel(ctx context.Context, shipmentID str
 	}
 
 	// 2. Запис у fuel_records як REFUEL (для балансу пального)
-	if tenantID != "" {
-		_, err = tx.Exec(ctx, `
-			INSERT INTO fuel_records (vehicle_id, liters, odometer_km, record_type, created_by, is_anomaly, tenant_id)
-			VALUES ($1, $2, $3, 'REFUEL', $4, false, $5::uuid)
-		`, vehicleID, liters, req.OdometerKm, uid, tenantID)
-	} else {
-		_, err = tx.Exec(ctx, `
-			INSERT INTO fuel_records (vehicle_id, liters, odometer_km, record_type, created_by, is_anomaly)
-			VALUES ($1, $2, $3, 'REFUEL', $4, false)
-		`, vehicleID, liters, req.OdometerKm, uid)
-	}
+	_, err = tx.Exec(ctx, `
+		INSERT INTO fuel_records (vehicle_id, liters, odometer_km, record_type, created_by, is_anomaly, tenant_id)
+		VALUES ($1, $2, $3, 'REFUEL', $4, false, $5::uuid)
+	`, vehicleID, liters, req.OdometerKm, uid, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("помилка запису в fuel_records: %w", err)
 	}
@@ -457,12 +452,18 @@ func (s *InventoryService) LogShipmentRefuel(ctx context.Context, shipmentID str
 
 // GetShipmentRefuels — повертає всі дозаправки для конкретного рейсу.
 func (s *InventoryService) GetShipmentRefuels(ctx context.Context, shipmentID string) ([]*models.ShipmentRefuel, error) {
+	tenantID := repositories.TenantFromCtx(ctx)
+	if tenantID == "" {
+		return nil, fmt.Errorf("tenant_id is required for shipment refuels")
+	}
+
 	rows, err := s.dbPool.Query(ctx, `
-		SELECT id, shipment_id, vehicle_id, liters, odometer_km, station_name, cost_uah, created_by, tenant_id, created_at
-		FROM shipment_refuels
-		WHERE shipment_id = $1
-		ORDER BY created_at ASC
-	`, shipmentID)
+		SELECT sr.id, sr.shipment_id, sr.vehicle_id, sr.liters, sr.odometer_km, sr.station_name, sr.cost_uah, sr.created_by, sr.tenant_id, sr.created_at
+		FROM shipment_refuels sr
+		JOIN shipments s ON s.id = sr.shipment_id
+		WHERE sr.shipment_id = $1 AND s.tenant_id = $2::uuid AND sr.tenant_id = $2::uuid
+		ORDER BY sr.created_at ASC
+	`, shipmentID, tenantID)
 	if err != nil {
 		return nil, err
 	}
