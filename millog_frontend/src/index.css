@@ -69,6 +69,10 @@ html {
   scrollbar-gutter: stable;
 }
 
+html.app-modal-open {
+  overflow: hidden;
+}
+
 body {
   margin: 0;
   font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -80,9 +84,25 @@ body {
   overflow-y: auto;
 }
 
+body.app-modal-open {
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
 #root {
   min-height: 100dvh;
   background: var(--bg-body);
+}
+
+body.app-modal-open #root {
+  overflow: hidden;
+  max-height: 100dvh;
+}
+
+body > [data-modal-portal] {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
 }
 
 input, select, button, textarea {
@@ -192,13 +212,17 @@ a:hover {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.72);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 100;
   animation: fadeIn 0.2s ease;
+  padding: 1.5rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 @keyframes fadeIn {
@@ -212,9 +236,15 @@ a:hover {
   border-radius: 8px;
   padding: 1.5rem;
   max-width: 400px;
-  width: 90%;
+  width: min(90vw, 400px);
   box-shadow: var(--shadow-lg);
   animation: slideUp 0.2s ease;
+  overflow: auto;
+}
+
+.modal-overlay > .modal {
+  margin: auto;
+  max-height: calc(100dvh - 3rem);
 }
 
 @keyframes slideUp {

@@ -5,6 +5,7 @@ import { usePermissions } from '../hooks/usePermissions'
 import { PaywallBadge } from '../components/FeatureGate'
 import toast from 'react-hot-toast'
 import Pagination from '../components/Pagination'
+import ModalPortal from '../components/ModalPortal'
 import SearchableSelect from '../components/SearchableSelect'
 import './Requests.css'
 
@@ -31,6 +32,20 @@ const APPROVAL_MATRIX: Record<string, string[]> = {
   'REGION_LOGISTICIAN': ['REGION_DIRECTOR', 'ADMIN']
 };
 
+function normalizeRequestsPayload(payload: unknown): SupplyRequest[] {
+  const candidate = Array.isArray(payload)
+    ? payload
+    : payload && typeof payload === 'object'
+      ? (payload as { requests?: unknown; items?: unknown; data?: unknown }).requests
+        ?? (payload as { requests?: unknown; items?: unknown; data?: unknown }).items
+        ?? (payload as { requests?: unknown; items?: unknown; data?: unknown }).data
+      : []
+
+  return Array.isArray(candidate)
+    ? candidate.filter((req): req is SupplyRequest => Boolean(req && typeof req === 'object' && 'id' in req && (req as SupplyRequest).id))
+    : []
+}
+
 export default function Requests() {
   const { user } = useAuth()
   const [requests, setRequests] = useState<SupplyRequest[]>([])
@@ -40,6 +55,7 @@ export default function Requests() {
   const [units, setUnits] = useState<Unit[]>([]) 
   
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [showForm, setShowForm] = useState(false)
   
   const [newReq, setNewReq] = useState({ 
@@ -117,6 +133,9 @@ export default function Requests() {
   const hasSmartDispatch = perms.hasFeature('smart_dispatch')
 
   const loadData = async () => {
+    setLoading(true)
+    setLoadError('')
+
     try {
       const [reqs, resRes, uniqueRes, whs, usersRes, unitsRes] = await Promise.all([
         api.requests.list().catch(() => []),
@@ -127,13 +146,11 @@ export default function Requests() {
         api.units.list().catch(() => []) 
       ])
       
-      setRequests(Array.isArray(reqs) ? reqs : [])
-      console.log('📊 Loaded requests:', reqs)
-      console.log('📊 Requests count:', Array.isArray(reqs) ? reqs.length : 0)
+      const normalizedRequests = normalizeRequestsPayload(reqs)
+
+      setRequests(normalizedRequests)
       setResources(Array.isArray(resRes) ? resRes : [])
       setUniqueResources(Array.isArray(uniqueRes) ? uniqueRes : []) // Зберігаємо унікальні назви
-      console.log('🔍 Loaded unique resources:', uniqueRes)
-      console.log('🔍 Unique resources count:', Array.isArray(uniqueRes) ? uniqueRes.length : 0)
       const whsArray = Array.isArray(whs) ? whs : []
       setWarehouses(whsArray)
       warehousesRef.current = whsArray  // оновлюємо ref синхронно зі стейтом
@@ -154,7 +171,11 @@ export default function Requests() {
           target_warehouse_id: prev.target_warehouse_id || whsArray[0].id 
         }))
       }
-    } catch (error) { console.error(error) } finally { setLoading(false) }
+    } catch (error) {
+      console.error(error)
+      setRequests([])
+      setLoadError('Не вдалося завантажити заявки. Спробуйте оновити сторінку.')
+    } finally { setLoading(false) }
   }
 
   useEffect(() => { loadData() }, [])
@@ -189,9 +210,6 @@ export default function Requests() {
 
     return matchStatus && matchWarehouse && matchSearch;
   })
-
-  console.log('📊 Filtered requests count:', filteredRequests.length, 'Total:', requests.length, 'Filter status:', filterStatus)
-
   const selectedRequestsDetails = requests.filter(r => selectedReqIds.has(r.id))
   const currentTotalWeight = useMemo(() => {
     return selectedRequestsDetails.reduce((sum, req) => {
@@ -515,6 +533,17 @@ export default function Requests() {
   const reqTotalPages = Math.max(1, Math.ceil(filteredRequests.length / REQUESTS_PAGE_SIZE));
   const safeReqPage = Math.min(requestsPage, reqTotalPages - 1);
   const pagedRequests = filteredRequests.slice(safeReqPage * REQUESTS_PAGE_SIZE, (safeReqPage + 1) * REQUESTS_PAGE_SIZE);
+  const hasActiveFilters = filterStatus !== 'ALL' || filterWarehouseId !== 'ALL' || searchQuery.trim() !== '';
+  const hasRequests = requests.length > 0;
+  const showList = pagedRequests.length > 0;
+  const showEmptyState = !loading && !showList;
+  const listStateMessage = loadError
+    ? loadError
+    : hasRequests
+      ? (searchQuery
+          ? `За запитом "${searchQuery}" нічого не знайдено`
+          : 'За поточними фільтрами заявок немає')
+      : 'Поки що немає жодної заявки';
 
   const showActionsColumn = canApprove || canCreate;
 
@@ -556,7 +585,7 @@ export default function Requests() {
                   className="btn btn-smart" 
                   onClick={handleSmartDispatchPreview}
                 >
-                  ✨ Smart Розподіл (AI)
+                  ✨ Smart Розподіл
                 </button>
               ) : (
                 <button
@@ -632,6 +661,8 @@ export default function Requests() {
       </div>
 
       {/* --- МОДАЛКА SMART РОЗПОДІЛУ --- */}
+      {(showSmartPreview || !!rejectModalData || !!cancelModalData || showDispatchModal || showForm) && (
+        <ModalPortal>
       {showSmartPreview && (
         <div className="modal-overlay" onClick={() => setShowSmartPreview(false)}>
           <div className="modal modal-wide" onClick={(e) => e.stopPropagation()}>
@@ -973,125 +1004,6 @@ export default function Requests() {
         </div>
       )}
 
-      {/* Таблиця Заявок */}
-      <div className="card">
-        {filteredRequests.length === 0 ? (
-          <div className="empty-state">
-            {searchQuery ? `За запитом "${searchQuery}" нічого не знайдено` : 'Заявок не знайдено'}
-          </div>
-        ) : (
-          <>
-          <table className="data-table">
-            <thead>
-              <tr>
-                {canApprove && <th className="th-checkbox"></th>}
-                <th>Ресурс</th>
-                <th>Кількість</th>
-                <th>Склад отримувач & Коментарі</th>
-                <th>Статус</th>
-                <th>Дата</th>
-                {showActionsColumn && <th>Дії</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {pagedRequests.map((r) => {
-                const isLocked = activeTargetWarehouseId !== null && activeTargetWarehouseId !== r.target_warehouse_id;
-                const isSelected = selectedReqIds.has(r.id);
-                const authorUser = users.find(u => u.id === r.created_by);
-                const targetWarehouse = warehouses.find(w => w.id === r.target_warehouse_id);
-                
-                return (
-                <tr key={r.id} className={`${isSelected ? 'row-selected' : ''} ${isLocked ? 'row-locked' : ''}`}>
-                  {canApprove && (
-                    <td className="td-checkbox">
-                      {r.status === 'APPROVED' ? (
-                        <input 
-                          type="checkbox" 
-                          className="custom-checkbox"
-                          checked={isSelected} 
-                          onChange={() => toggleSelection(r.id)}
-                          disabled={isLocked}
-                        />
-                      ) : null}
-                    </td>
-                  )}
-                  <td className="font-medium">
-                    {r.resource_name || 'Невідомий ресурс'}
-                    <div style={{fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px', fontWeight: 'normal'}}>
-                      ID: {r.id.split('-')[0].toUpperCase()}
-                    </div>
-                  </td>
-                  <td style={{ fontWeight: 600 }}>{r.quantity} шт</td>
-                  <td className="text-muted" style={{ fontSize: '13px' }}>
-                    <div style={{ fontWeight: 600, color: 'var(--text)' }}>📍 {targetWarehouse?.name || 'Не вказано'}</div>
-                    <div style={{ fontSize: '11px', color: '#94a3b8' }}>Замовив: {authorUser?.full_name}</div>
-                    
-                    {r.comment && (
-                      <div className={`comment-box ${r.status === 'REJECTED' ? 'rejected' : ''}`}>
-                        💬 {r.comment}
-                      </div>
-                    )}
-                  </td>
-                  <td>
-                    <span className={`badge badge-${r.status === 'PENDING' ? 'warning' : r.status === 'APPROVED' ? 'success' : r.status === 'LOADING' ? 'info' : r.status === 'DISPATCHED' ? 'warning' : r.status === 'REJECTED' ? 'danger' : 'neutral'}`}>
-                      {statusLabel[r.status] || r.status}
-                    </span>
-                  </td>
-                  <td className="text-muted">{new Date(r.created_at).toLocaleDateString('uk-UA')}</td>
-                  
-                  {showActionsColumn && (
-                    <td>
-                      {r.status === 'PENDING' ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start' }}>
-                          
-                          {/* Розумна перевірка по матриці ієрархії */}
-                          {canApproveThis(r) && (
-                            <div className="action-buttons-flex">
-                              <button className="btn btn-sm btn-primary" onClick={() => handleApprove(r.id)}>Затвердити</button>
-                              <button className="btn btn-sm btn-danger-outline" onClick={() => setRejectModalData(r)}>Відхилити</button>
-                            </div>
-                          )}
-                          
-                          {/* Скасування тільки власних заявок */}
-                          {r.created_by === user?.id && (
-                             <button 
-                               className="btn btn-sm" 
-                               style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-muted)', border: '1px dashed var(--border-light)', fontSize: '12px' }} 
-                               onClick={() => setCancelModalData(r)}
-                             >
-                               Скасувати власну
-                             </button>
-                          )}
-
-                        </div>
-                      ) : r.status === 'APPROVED' ? (
-                        <span className="status-text-waiting">{isLocked ? '⛔ Інший напрямок' : 'Очікує логістику'}</span>
-                      ) : r.status === 'LOADING' ? (
-                        <span className="status-text-waiting" style={{ color: '#6366f1' }}>📦 Завантажується</span>
-                      ) : r.status === 'DISPATCHED' ? (
-                        <span className="status-text-waiting" style={{ color: '#d97706' }}>🚛 В дорозі</span>
-                      ) : (
-                        <span className="status-text-closed">
-                          {r.status === 'COMPLETED' ? '✅ Доставлено' : r.status === 'REJECTED' ? '❌ Відхилено' : '🔒 Закрито'}
-                        </span>
-                      )}
-                    </td>
-                  )}
-                </tr>
-              )})}
-            </tbody>
-          </table>
-          <Pagination
-            currentPage={safeReqPage}
-            totalPages={reqTotalPages}
-            onPageChange={setRequestsPage}
-            totalItems={filteredRequests.length}
-            itemsPerPage={REQUESTS_PAGE_SIZE}
-          />
-          </>
-        )}
-      </div>
-
       {showForm && (
         <div className="modal-overlay" onClick={() => setShowForm(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -1117,16 +1029,16 @@ export default function Requests() {
               </div>
               <div className="form-group">
                 <label>Кількість <span className="required">*</span></label>
-                <input 
-                  className="erp-input" 
-                  type="number" 
-                  min={1} 
-                  value={newReq.quantity} 
+                <input
+                  className="erp-input"
+                  type="number"
+                  min={1}
+                  value={newReq.quantity}
                   onChange={(e) => {
                     const val = e.target.value;
                     setNewReq({ ...newReq, quantity: val === '' ? 0 : parseInt(val) });
-                  }} 
-                  required 
+                  }}
+                  required
                 />
               </div>
               <div className="form-group">
@@ -1152,6 +1064,153 @@ export default function Requests() {
           </div>
         </div>
       )}
+        </ModalPortal>
+      )}
+
+      {/* Таблиця Заявок */}
+      <div className="card requests-list-card">
+        <div className="requests-list-header">
+          <div>
+            <h2 className="requests-list-title">Список заявок</h2>
+            <p className="requests-list-subtitle">
+              {hasRequests
+                ? `Показано ${filteredRequests.length} з ${requests.length} заявок`
+                : 'Тут відображатимуться заявки на постачання'}
+            </p>
+          </div>
+          {hasActiveFilters && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => {
+                setFilterStatus('ALL')
+                setFilterWarehouseId('ALL')
+                setSearchQuery('')
+              }}
+            >
+              Скинути фільтри
+            </button>
+          )}
+        </div>
+
+        {loading ? (
+          <div className="empty-state requests-empty-state">
+            Завантаження заявок...
+          </div>
+        ) : showEmptyState ? (
+          <div className={`empty-state requests-empty-state${loadError ? ' is-error' : ''}`}>
+            {listStateMessage}
+          </div>
+        ) : (
+          <>
+          <div className="requests-table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  {canApprove && <th className="th-checkbox"></th>}
+                  <th>Ресурс</th>
+                  <th>Кількість</th>
+                  <th>Склад отримувач & Коментарі</th>
+                  <th>Статус</th>
+                  <th>Дата</th>
+                  {showActionsColumn && <th>Дії</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {pagedRequests.map((r) => {
+                  const isLocked = activeTargetWarehouseId !== null && activeTargetWarehouseId !== r.target_warehouse_id;
+                  const isSelected = selectedReqIds.has(r.id);
+                  const authorUser = users.find(u => u.id === r.created_by);
+                  const targetWarehouse = warehouses.find(w => w.id === r.target_warehouse_id);
+                  
+                  return (
+                  <tr key={r.id} className={`${isSelected ? 'row-selected' : ''} ${isLocked ? 'row-locked' : ''}`}>
+                    {canApprove && (
+                      <td className="td-checkbox">
+                        {r.status === 'APPROVED' ? (
+                          <input 
+                            type="checkbox" 
+                            className="custom-checkbox"
+                            checked={isSelected} 
+                            onChange={() => toggleSelection(r.id)}
+                            disabled={isLocked}
+                          />
+                        ) : null}
+                      </td>
+                    )}
+                    <td className="font-medium">
+                      {r.resource_name || 'Невідомий ресурс'}
+                      <div style={{fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px', fontWeight: 'normal'}}>
+                        ID: {String(r.id).split('-')[0].toUpperCase()}
+                      </div>
+                    </td>
+                    <td style={{ fontWeight: 600 }}>{r.quantity} шт</td>
+                    <td className="text-muted" style={{ fontSize: '13px' }}>
+                      <div style={{ fontWeight: 600, color: 'var(--text)' }}>📍 {targetWarehouse?.name || 'Не вказано'}</div>
+                      <div style={{ fontSize: '11px', color: '#94a3b8' }}>Замовив: {authorUser?.full_name}</div>
+                      
+                      {r.comment && (
+                        <div className={`comment-box ${r.status === 'REJECTED' ? 'rejected' : ''}`}>
+                          💬 {r.comment}
+                        </div>
+                      )}
+                    </td>
+                    <td>
+                      <span className={`badge badge-${r.status === 'PENDING' ? 'warning' : r.status === 'APPROVED' ? 'success' : r.status === 'LOADING' ? 'info' : r.status === 'DISPATCHED' ? 'warning' : r.status === 'REJECTED' ? 'danger' : 'neutral'}`}>
+                        {statusLabel[r.status] || r.status}
+                      </span>
+                    </td>
+                    <td className="text-muted">{r.created_at ? new Date(r.created_at).toLocaleDateString('uk-UA') : '—'}</td>
+                    
+                    {showActionsColumn && (
+                      <td>
+                        {r.status === 'PENDING' ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start' }}>
+                            {canApproveThis(r) && (
+                              <div className="action-buttons-flex">
+                                <button className="btn btn-sm btn-primary" onClick={() => handleApprove(r.id)}>Затвердити</button>
+                                <button className="btn btn-sm btn-danger-outline" onClick={() => setRejectModalData(r)}>Відхилити</button>
+                              </div>
+                            )}
+                            {r.created_by === user?.id && (
+                               <button 
+                                 className="btn btn-sm" 
+                                 style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-muted)', border: '1px dashed var(--border-light)', fontSize: '12px' }} 
+                                 onClick={() => setCancelModalData(r)}
+                               >
+                                 Скасувати власну
+                               </button>
+                            )}
+                          </div>
+                        ) : r.status === 'APPROVED' ? (
+                          <span className="status-text-waiting">{isLocked ? '⛔ Інший напрямок' : 'Очікує логістику'}</span>
+                        ) : r.status === 'LOADING' ? (
+                          <span className="status-text-waiting" style={{ color: '#6366f1' }}>📦 Завантажується</span>
+                        ) : r.status === 'DISPATCHED' ? (
+                          <span className="status-text-waiting" style={{ color: '#d97706' }}>🚛 В дорозі</span>
+                        ) : (
+                          <span className="status-text-closed">
+                            {r.status === 'COMPLETED' ? '✅ Доставлено' : r.status === 'REJECTED' ? '❌ Відхилено' : '🔒 Закрито'}
+                          </span>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                )})}
+              </tbody>
+            </table>
+          </div>
+          <Pagination
+            currentPage={safeReqPage}
+            totalPages={reqTotalPages}
+            onPageChange={setRequestsPage}
+            totalItems={filteredRequests.length}
+            itemsPerPage={REQUESTS_PAGE_SIZE}
+          />
+          </>
+        )}
+      </div>
+
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { usePermissions } from '../hooks/usePermissions'
 import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
 import Pagination from '../components/Pagination'
+import ModalPortal from '../components/ModalPortal'
 import SearchableSelect from '../components/SearchableSelect'
 import './Vehicles.css'
 
@@ -455,6 +456,8 @@ export default function Vehicles() {
       </div>
 
       {/* МОДАЛКА: АНОМАЛІЯ ПАЛЬНОГО */}
+      {(!!anomalyAlert || !!tripRefuelModal || showVehicleForm || !!editingVehicle || !!vehicleToDelete || !!statusModalVehicle || !!driverModalVehicle || !!fuelModalVehicle || !!maintenanceModalVehicle || !!historyVehicle) && (
+        <ModalPortal>
       {anomalyAlert && (
         <div className="modal-overlay vehicles-modal">
           <div className="modal confirm-modal anomaly-modal">
@@ -1044,6 +1047,8 @@ export default function Vehicles() {
             </div>
           </div>
         </div>
+      )}
+        </ModalPortal>
       )}
 
       {/* ТАБЛИЦЯ АВТОПАРКУ */}

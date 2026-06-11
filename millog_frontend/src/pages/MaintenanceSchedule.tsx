@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { api } from '../api/client';
 import { usePermissions } from '../hooks/usePermissions';
 import { PaywallScreen } from '../components/FeatureGate';
+import ModalPortal from '../components/ModalPortal';
 import Pagination from '../components/Pagination';
 import './MaintenanceSchedule.css';
 
@@ -280,57 +281,59 @@ export function MaintenanceSchedule() {
       />
 
       {detailItem && (
-        <div className="maint-modal-overlay" onClick={() => setDetailItem(null)}>
-          <div className="maint-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="maint-modal-header">
-              <h2>📋 {detailItem.vehicle_plate}</h2>
-              <button className="maint-modal-close" onClick={() => setDetailItem(null)}>✕</button>
-            </div>
-            <div className="maint-modal-body">
-              <div className="maint-modal-block">
-                <span className="label">Вид обслуговування:</span>
-                <span className="value">{getServiceLabel(detailItem.service_type)}</span>
+        <ModalPortal>
+          <div className="maint-modal-overlay" onClick={() => setDetailItem(null)}>
+            <div className="maint-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="maint-modal-header">
+                <h2>📋 {detailItem.vehicle_plate}</h2>
+                <button className="maint-modal-close" onClick={() => setDetailItem(null)}>✕</button>
               </div>
-              <div className="maint-modal-block">
-                <span className="label">Пріоритет:</span>
-                <span className="value">{getPriorityLabel(detailItem.priority)}</span>
+              <div className="maint-modal-body">
+                <div className="maint-modal-block">
+                  <span className="label">Вид обслуговування:</span>
+                  <span className="value">{getServiceLabel(detailItem.service_type)}</span>
+                </div>
+                <div className="maint-modal-block">
+                  <span className="label">Пріоритет:</span>
+                  <span className="value">{getPriorityLabel(detailItem.priority)}</span>
+                </div>
+                <div className="maint-modal-block">
+                  <span className="label">Статус:</span>
+                  <span className="value">{getStatusLabel(detailItem.status)}</span>
+                </div>
+                <div className="maint-modal-block">
+                  <span className="label">Останнє ТО:</span>
+                  <span className="value">{new Date(detailItem.last_service_date).toLocaleDateString('uk-UA')}</span>
+                </div>
+                <div className="maint-modal-block">
+                  <span className="label">Наступне ТО:</span>
+                  <span className="value">{new Date(detailItem.next_service_date).toLocaleDateString('uk-UA')}</span>
+                </div>
+                <div className="maint-modal-block">
+                  <span className="label">Пробіг з моменту ТО:</span>
+                  <span className="value">
+                    {Math.round(detailItem.mileage_since_service)} / {Math.round(detailItem.recommended_mileage)} км
+                    {' '}({Math.round((detailItem.mileage_since_service / detailItem.recommended_mileage) * 100)}%)
+                  </span>
+                </div>
+                <div className="maint-modal-block">
+                  <span className="label">Залишилось:</span>
+                  <span className="value">
+                    {detailItem.days_remaining < 0
+                      ? `Прострочено на ${Math.abs(detailItem.days_remaining)} днів`
+                      : `${detailItem.days_remaining} днів`}
+                  </span>
+                </div>
+                <div className="maint-modal-note">
+                  ℹ️ Графік розраховується на основі пробігу з останнього ТО та рекомендованого інтервалу обслуговування.
+                </div>
               </div>
-              <div className="maint-modal-block">
-                <span className="label">Статус:</span>
-                <span className="value">{getStatusLabel(detailItem.status)}</span>
+              <div className="maint-modal-footer">
+                <button className="btn-details" onClick={() => setDetailItem(null)}>Закрити</button>
               </div>
-              <div className="maint-modal-block">
-                <span className="label">Останнє ТО:</span>
-                <span className="value">{new Date(detailItem.last_service_date).toLocaleDateString('uk-UA')}</span>
-              </div>
-              <div className="maint-modal-block">
-                <span className="label">Наступне ТО:</span>
-                <span className="value">{new Date(detailItem.next_service_date).toLocaleDateString('uk-UA')}</span>
-              </div>
-              <div className="maint-modal-block">
-                <span className="label">Пробіг з моменту ТО:</span>
-                <span className="value">
-                  {Math.round(detailItem.mileage_since_service)} / {Math.round(detailItem.recommended_mileage)} км
-                  {' '}({Math.round((detailItem.mileage_since_service / detailItem.recommended_mileage) * 100)}%)
-                </span>
-              </div>
-              <div className="maint-modal-block">
-                <span className="label">Залишилось:</span>
-                <span className="value">
-                  {detailItem.days_remaining < 0
-                    ? `Прострочено на ${Math.abs(detailItem.days_remaining)} днів`
-                    : `${detailItem.days_remaining} днів`}
-                </span>
-              </div>
-              <div className="maint-modal-note">
-                ℹ️ Графік розраховується на основі пробігу з останнього ТО та рекомендованого інтервалу обслуговування.
-              </div>
-            </div>
-            <div className="maint-modal-footer">
-              <button className="btn-details" onClick={() => setDetailItem(null)}>Закрити</button>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
 

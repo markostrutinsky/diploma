@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import Pagination from '../components/Pagination';
 import './Inventory.css';
+import ModalPortal from '../components/ModalPortal';
 import SearchableSelect from '../components/SearchableSelect';
 
 export default function Inventory() {
@@ -525,6 +526,8 @@ export default function Inventory() {
 
       {/* ============================== МОДАЛКИ КАТЕГОРІЙ ============================== */}
       {/* ... (Модалки категорій залишені без змін) ... */}
+      {(showCategoryForm || !!editingCategory || !!deletingCategory || showResourceForm || !!assignModalData || !!resourceToDelete || !!editModalId || !!writeOffModalData || !!qrPreviewData || isScannerOpen || !!scannedResource) && (
+        <ModalPortal>
       {showCategoryForm && canManageCategories && (
         <div className="modal-overlay inventory-modal" onClick={() => setShowCategoryForm(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -904,6 +907,8 @@ export default function Inventory() {
           </div>
         </div>
       )}
+        </ModalPortal>
+      )}
 
       {/* ============================== ОСНОВНИЙ КОНТЕНТ (СІТКА) ============================== */}
       <div className="content-grid">
@@ -1022,6 +1027,7 @@ export default function Inventory() {
 
           {/* ============================== МОДАЛКА ІМПОРТУ EXCEL ============================== */}
       {showImportModal && (
+        <ModalPortal>
         <div className="modal-overlay inventory-modal" onClick={() => !isImporting && setShowImportModal(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
@@ -1096,6 +1102,7 @@ export default function Inventory() {
             </form>
           </div>
         </div>
+        </ModalPortal>
       )}
 
           {/* Відображення результатів */}

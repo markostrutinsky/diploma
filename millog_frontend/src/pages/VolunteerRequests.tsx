@@ -4,6 +4,7 @@ import { api, type ContractorRequest, type Unit, type ContractorMembership, type
 import { useAuth } from '../contexts/AuthContext'
 import { usePermissions } from '../hooks/usePermissions'
 import Pagination from '../components/Pagination'
+import ModalPortal from '../components/ModalPortal'
 import './VolunteerRequests.css'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -392,6 +393,8 @@ export default function ContractorRequests() {
         </div>
       </div>
 
+      {(showCreateForm || !!acceptModalId) && (
+        <ModalPortal>
       {showCreateForm && (
         <div className="modal-overlay" onClick={() => setShowCreateForm(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -665,6 +668,8 @@ export default function ContractorRequests() {
             </form>
           </div>
         </div>
+      )}
+        </ModalPortal>
       )}
 
       {isCONTRACTOR && (

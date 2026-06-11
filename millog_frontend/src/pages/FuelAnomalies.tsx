@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { api } from '../api/client';
 import { usePermissions } from '../hooks/usePermissions';
 import { PaywallScreen } from '../components/FeatureGate';
+import ModalPortal from '../components/ModalPortal';
 import Pagination from '../components/Pagination';
 import './FuelAnomalies.css';
 
@@ -262,71 +263,73 @@ export function FuelAnomalies() {
       />
 
       {investigating && (
-        <div className="fuel-modal-overlay" onClick={() => setInvestigating(null)}>
-          <div className="fuel-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="fuel-modal-header">
-              <h2>🔍 Розслідування: {investigating.vehicle_plate}</h2>
-              <button className="fuel-modal-close" onClick={() => setInvestigating(null)}>✕</button>
-            </div>
-            <div className="fuel-modal-body">
-              <div className="fuel-modal-row">
-                <span className="label">Тип аномалії:</span>
-                <span className="value">{getAnomalyTypeLabel(investigating.anomaly_type)}</span>
+        <ModalPortal>
+          <div className="fuel-modal-overlay" onClick={() => setInvestigating(null)}>
+            <div className="fuel-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="fuel-modal-header">
+                <h2>🔍 Розслідування: {investigating.vehicle_plate}</h2>
+                <button className="fuel-modal-close" onClick={() => setInvestigating(null)}>✕</button>
               </div>
-              <div className="fuel-modal-row">
-                <span className="label">Рівень загрози:</span>
-                <span className="value">{getLevelLabel(investigating.investigation_level)}</span>
+              <div className="fuel-modal-body">
+                <div className="fuel-modal-row">
+                  <span className="label">Тип аномалії:</span>
+                  <span className="value">{getAnomalyTypeLabel(investigating.anomaly_type)}</span>
+                </div>
+                <div className="fuel-modal-row">
+                  <span className="label">Рівень загрози:</span>
+                  <span className="value">{getLevelLabel(investigating.investigation_level)}</span>
+                </div>
+                <div className="fuel-modal-row">
+                  <span className="label">Рейтинг ризику:</span>
+                  <span className="value" style={{ color: getRiskColor(investigating.risk_score) }}>
+                    {investigating.risk_score}/100
+                  </span>
+                </div>
+                <div className="fuel-modal-row">
+                  <span className="label">Впевненість детекції:</span>
+                  <span className="value">{investigating.confidence}%</span>
+                </div>
+                <div className="fuel-modal-row">
+                  <span className="label">Останнє виявлення:</span>
+                  <span className="value">{new Date(investigating.last_detected).toLocaleString('uk-UA')}</span>
+                </div>
+                <div className="fuel-modal-row">
+                  <span className="label">Потенційні втрати:</span>
+                  <span className="value" style={{ color: '#dc2626' }}>
+                    {Math.round(investigating.potential_loss)} ₴/місяць
+                  </span>
+                </div>
+                <div className="fuel-modal-details">
+                  <strong>📋 Деталі виявлення:</strong>
+                  <p>{investigating.details}</p>
+                </div>
+                <div className="fuel-modal-steps">
+                  <strong>✅ Рекомендовані дії:</strong>
+                  <ol>
+                    <li>Зв'язатися з водієм машини та запитати пояснення по факту.</li>
+                    <li>Перевірити чеки АЗС та співставити з бортовим комп'ютером.</li>
+                    <li>Звірити маршрут GPS з датою/часом заправки.</li>
+                    <li>Скласти службову записку при підтвердженні фроду.</li>
+                  </ol>
+                </div>
               </div>
-              <div className="fuel-modal-row">
-                <span className="label">Рейтинг ризику:</span>
-                <span className="value" style={{ color: getRiskColor(investigating.risk_score) }}>
-                  {investigating.risk_score}/100
-                </span>
+              <div className="fuel-modal-footer">
+                <button
+                  className="btn-investigate"
+                  onClick={() => {
+                    toast.success('📝 Розслідування відкрито у внутрішньому трекері', { duration: 4000 });
+                    setInvestigating(null);
+                  }}
+                >
+                  Відкрити службове розслідування
+                </button>
+                <button className="btn-alert" onClick={() => setInvestigating(null)}>
+                  Закрити
+                </button>
               </div>
-              <div className="fuel-modal-row">
-                <span className="label">Впевненість детекції:</span>
-                <span className="value">{investigating.confidence}%</span>
-              </div>
-              <div className="fuel-modal-row">
-                <span className="label">Останнє виявлення:</span>
-                <span className="value">{new Date(investigating.last_detected).toLocaleString('uk-UA')}</span>
-              </div>
-              <div className="fuel-modal-row">
-                <span className="label">Потенційні втрати:</span>
-                <span className="value" style={{ color: '#dc2626' }}>
-                  {Math.round(investigating.potential_loss)} ₴/місяць
-                </span>
-              </div>
-              <div className="fuel-modal-details">
-                <strong>📋 Деталі виявлення:</strong>
-                <p>{investigating.details}</p>
-              </div>
-              <div className="fuel-modal-steps">
-                <strong>✅ Рекомендовані дії:</strong>
-                <ol>
-                  <li>Зв'язатися з водієм машини та запитати пояснення по факту.</li>
-                  <li>Перевірити чеки АЗС та співставити з бортовим комп'ютером.</li>
-                  <li>Звірити маршрут GPS з датою/часом заправки.</li>
-                  <li>Скласти службову записку при підтвердженні фроду.</li>
-                </ol>
-              </div>
-            </div>
-            <div className="fuel-modal-footer">
-              <button
-                className="btn-investigate"
-                onClick={() => {
-                  toast.success('📝 Розслідування відкрито у внутрішньому трекері', { duration: 4000 });
-                  setInvestigating(null);
-                }}
-              >
-                Відкрити службове розслідування
-              </button>
-              <button className="btn-alert" onClick={() => setInvestigating(null)}>
-                Закрити
-              </button>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
 

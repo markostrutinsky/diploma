@@ -7,6 +7,7 @@ import './AnalyticsDashboard.css';
 import { api, Unit } from '../api/client';
 import { usePermissions } from '../hooks/usePermissions';
 import { PaywallBadge } from '../components/FeatureGate';
+import ModalPortal from '../components/ModalPortal';
 
 const TCO_COLORS = ['#3b82f6', '#f59e0b', '#10b981', '#6366f1', '#ec4899'];
 const requestLabels: Record<string, string> = {
@@ -95,40 +96,38 @@ const AnalyticsDashboard: React.FC = () => {
     const input = document.getElementById('official-pdf-report');
     if (!input) return;
     
-    // Жорстко фіксуємо розміри перед рендером
-    input.style.display = 'block';
-    input.style.position = 'absolute';
-    input.style.top = '0';
-    input.style.left = '-9999px'; 
-    input.style.width = '210mm'; // Строго формат А4
-    
     toast.loading("Формування детального звіту...", { id: 'pdf-toast' });
     try {
-      // Чекаємо трохи довше, щоб усі шрифти підтягнулися
-      await new Promise(resolve => setTimeout(resolve, 800));
+      if ('fonts' in document) {
+        await (document as Document & { fonts: FontFaceSet }).fonts.ready;
+      }
+      await new Promise(resolve => setTimeout(resolve, 250));
 
       const canvas = await html2canvas(input, { 
-        scale: 2, 
+        scale: 3,
         useCORS: true,
-        windowWidth: 800 // Фіксоване вікно рендеру
+        backgroundColor: '#ffffff',
+        logging: false,
+        windowWidth: input.scrollWidth,
+        windowHeight: input.scrollHeight
       });
       
-      const imgData = canvas.toDataURL('image/jpeg', 1.0);
+      const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfWidth = pdf.internal.pageSize.getWidth() - 16;
       const pageHeight = pdf.internal.pageSize.getHeight();
       const imgHeight = (canvas.height * pdfWidth) / canvas.width;
       
       let heightLeft = imgHeight;
-      let position = 0;
+      let position = 8;
 
-      pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight);
+      pdf.addImage(imgData, 'PNG', 8, position, pdfWidth, imgHeight);
       heightLeft -= pageHeight;
 
       while (heightLeft > 0) {
-        position = position - pageHeight;
+        position -= pageHeight;
         pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, pdfWidth, imgHeight);
+        pdf.addImage(imgData, 'PNG', 8, position, pdfWidth, imgHeight);
         heightLeft -= pageHeight;
       }
       
@@ -138,8 +137,6 @@ const AnalyticsDashboard: React.FC = () => {
       toast.success("Звіт успішно збережено", { id: 'pdf-toast' });
     } catch (e) {
       toast.error("Помилка генерації документа", { id: 'pdf-toast' });
-    } finally {
-      input.style.display = 'none';
     }
   };
 
@@ -256,62 +253,65 @@ const AnalyticsDashboard: React.FC = () => {
   const reportNumber = `OMNI-${startDate.replace(/-/g, '')}-${endDate.replace(/-/g, '')}${selectedUnit ? `-${selectedUnit}` : ''}`;
 
   return (
-    <div className="analytics-erp-container">
+    <>
+      <div className="analytics-erp-container">
 
 
       {/* --- МОДАЛЬНЕ ВІКНО SMART ПОПОВНЕННЯ --- */}
       {isModalOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h3>⚡ Smart Поповнення (Критичний дефіцит)</h3>
-              <button className="close-btn" onClick={() => setIsModalOpen(false)}>×</button>
-            </div>
-            <div className="modal-body">
-              <p className="modal-desc">Оберіть джерело постачання для майна, запаси якого впали нижче критичної норми.</p>
-              {(!data?.deficit_resources || data.deficit_resources.length === 0) ? (
-                <div className="empty">Наразі дефіциту майна не виявлено. Всі запаси в нормі.</div>
-              ) : (
-                <table className="deficit-table">
-                  <thead>
-                    <tr>
-                      <th>Майно</th>
-                      <th>Залишок</th>
-                      <th>Потрібно дозамовити</th>
-                      <th>Джерело запиту</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.deficit_resources.map((res: any) => (
-                      <tr key={res.id}>
-                        <td style={{fontWeight: 600}}>{res.name}</td>
-                        <td className="text-danger">{res.current} з {res.min} (мін)</td>
-                        <td style={{fontWeight: 600}}>+{res.needed} шт.</td>
-                        <td>
-                          <select 
-                            className="source-select"
-                            value={orderConfig[res.id]} 
-                            onChange={(e) => setOrderConfig(prev => ({ ...prev, [res.id]: e.target.value }))}
-                          >
-                            <option value="WAREHOUSE">🏢 Зі складу (Внутрішній)</option>
-                            <option value="CONTRACTOR">🤝 Зовнішній запит</option>
-                            <option value="NONE">❌ Не замовляти зараз</option>
-                          </select>
-                        </td>
+        <ModalPortal>
+          <div className="modal-overlay">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h3>⚡ Smart Поповнення (Критичний дефіцит)</h3>
+                <button className="close-btn" onClick={() => setIsModalOpen(false)}>×</button>
+              </div>
+              <div className="modal-body">
+                <p className="modal-desc">Оберіть джерело постачання для майна, запаси якого впали нижче критичної норми.</p>
+                {(!data?.deficit_resources || data.deficit_resources.length === 0) ? (
+                  <div className="empty">Наразі дефіциту майна не виявлено. Всі запаси в нормі.</div>
+                ) : (
+                  <table className="deficit-table">
+                    <thead>
+                      <tr>
+                        <th>Майно</th>
+                        <th>Залишок</th>
+                        <th>Потрібно дозамовити</th>
+                        <th>Джерело запиту</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-            <div className="modal-footer">
-              <button className="btn-secondary" onClick={() => setIsModalOpen(false)}>Скасувати</button>
-              <button className="btn-primary" onClick={submitSmartReplenish} disabled={!data?.deficit_resources || data.deficit_resources.length === 0}>
-                Підтвердити формування
-              </button>
+                    </thead>
+                    <tbody>
+                      {data.deficit_resources.map((res: any) => (
+                        <tr key={res.id}>
+                          <td style={{fontWeight: 600}}>{res.name}</td>
+                          <td className="text-danger">{res.current} з {res.min} (мін)</td>
+                          <td style={{fontWeight: 600}}>+{res.needed} шт.</td>
+                          <td>
+                            <select 
+                              className="source-select"
+                              value={orderConfig[res.id]} 
+                              onChange={(e) => setOrderConfig(prev => ({ ...prev, [res.id]: e.target.value }))}
+                            >
+                              <option value="WAREHOUSE">🏢 Зі складу (Внутрішній)</option>
+                              <option value="CONTRACTOR">🤝 Зовнішній запит</option>
+                              <option value="NONE">❌ Не замовляти зараз</option>
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button className="btn-secondary" onClick={() => setIsModalOpen(false)}>Скасувати</button>
+                <button className="btn-primary" onClick={submitSmartReplenish} disabled={!data?.deficit_resources || data.deficit_resources.length === 0}>
+                  Підтвердити формування
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
 
       {/* ХЕДЕР ДАШБОРДУ З ФІЛЬТРАМИ ТА КНОПКАМИ */}
@@ -808,135 +808,142 @@ const AnalyticsDashboard: React.FC = () => {
         )}
       </div>
 
-      {/* =========================================================================
-          ОНОВЛЕНИЙ PDF ШАБЛОН (СУВОРІ ДЕТАЛЬНІ ТАБЛИЦІ + ЖИТТЄВИЙ ЦИКЛ)
-      ========================================================================= */}
-      <div id="official-pdf-report" style={{ display: 'none', background: '#fff', color: '#000', width: '210mm', padding: '20mm', boxSizing: 'border-box', fontFamily: 'sans-serif' }}>
-        
-        {/* ШАПКА ЗВІТУ */}
-        <div style={{ borderBottom: '2px solid #000', paddingBottom: '10px', marginBottom: '20px' }}>
-          <table style={{ width: '100%', border: 'none' }}>
-            <tbody>
-              <tr>
-                <td style={{ verticalAlign: 'top', width: '60%' }}>
-                  <strong style={{ fontSize: '14pt' }}>OMNILOG - ОПЕРАЦІЙНА ЛОГІСТИКА</strong><br/>
-                  <span style={{ fontSize: '10pt', color: '#555' }}>Деталізований аналітичний звіт стану активів</span>
-                </td>
-                <td style={{ verticalAlign: 'top', textAlign: 'right', fontSize: '10pt' }}>
-                  <strong>Документ №:</strong> {reportNumber}<br/>
-                  <strong>Дата:</strong> {new Date().toLocaleDateString('uk-UA')}<br/>
-                  <strong>Період:</strong> {startDate} — {endDate}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <h1 style={{ textAlign: 'center', fontSize: '16pt', marginBottom: '20px' }}>
-          ЗВЕДЕННЯ: {selectedUnit ? units.find(u => u.id.toString() === selectedUnit)?.name?.toUpperCase() : "ВСЯ ОРГАНІЗАЦІЯ"}
-        </h1>
-
-        {/* СЕКЦІЯ 1: ГОЛОВНІ ПОКАЗНИКИ */}
-        <h2 style={{ fontSize: '12pt', backgroundColor: '#f0f0f0', padding: '8px', borderLeft: '4px solid #3b82f6', marginBottom: '15px' }}>1. ЗАГАЛЬНІ ПОКАЗНИКИ ДІЯЛЬНОСТІ</h2>
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '30px', fontSize: '11pt' }}>
-          <tbody>
-            <tr>
-              <td style={{ border: '1px solid #ccc', padding: '10px', width: '33%' }}><strong>Експлуатовані активи:</strong><br/>{data?.active_vehicles || 0} од.</td>
-              <td style={{ border: '1px solid #ccc', padding: '10px', width: '33%' }}><strong>Критичний дефіцит:</strong><br/>{data?.critical_resources || 0} позицій</td>
-              <td style={{ border: '1px solid #ccc', padding: '10px', width: '33%' }}><strong>Аномалії транзакцій:</strong><br/>{data?.fuel_anomalies || 0} інцидентів</td>
-            </tr>
-          </tbody>
-        </table>
-
-        {/* СЕКЦІЯ 2: ЖИТТЄВИЙ ЦИКЛ ТА РУХ */}
-        <h2 style={{ fontSize: '12pt', backgroundColor: '#f0f0f0', padding: '8px', borderLeft: '4px solid #10b981', marginBottom: '15px' }}>2. РУХ АКТИВІВ ТА СПИСАННЯ (LIFECYCLE)</h2>
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '30px', fontSize: '11pt' }}>
-          <tbody>
-            <tr>
-              <td style={{ border: '1px solid #ccc', padding: '10px', width: '25%' }}><strong>Списано майна:</strong><br/>{data?.written_off_resources || 0} позицій</td>
-              <td style={{ border: '1px solid #ccc', padding: '10px', width: '25%' }}><strong>Виконано переміщень:</strong><br/>{data?.completed_requests || 0} заявок</td>
-              <td style={{ border: '1px solid #ccc', padding: '10px', width: '25%' }}><strong>Техніка в ремонті:</strong><br/>{data?.in_repair_vehicles || 0} од.</td>
-              <td style={{ border: '1px solid #ccc', padding: '10px', width: '25%' }}><strong>Списані авто:</strong><br/>{data?.inactive_vehicles || 0} од.</td>
-            </tr>
-          </tbody>
-        </table>
-
-        {/* СЕКЦІЯ 3: ПОЛНИЙ СПИСОК ДЕФІЦИТУ */}
-        <h2 style={{ fontSize: '12pt', backgroundColor: '#f0f0f0', padding: '8px', borderLeft: '4px solid #ef4444', marginBottom: '15px' }}>3. ДЕТАЛІЗАЦІЯ ДЕФІЦИТНИХ РЕСУРСІВ (ПОТРЕБА)</h2>
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '30px', fontSize: '10pt' }}>
-          <thead>
-            <tr style={{ backgroundColor: '#e2e8f0' }}>
-              <th style={{ border: '1px solid #94a3b8', padding: '8px', textAlign: 'left' }}>Найменування майна</th>
-              <th style={{ border: '1px solid #94a3b8', padding: '8px', textAlign: 'center' }}>Факт. залишок</th>
-              <th style={{ border: '1px solid #94a3b8', padding: '8px', textAlign: 'center' }}>Мінімальна норма</th>
-              <th style={{ border: '1px solid #94a3b8', padding: '8px', textAlign: 'center' }}>Витрата (шт/день)</th>
-              <th style={{ border: '1px solid #94a3b8', padding: '8px', textAlign: 'center' }}>Прогноз вичерпання</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(!data?.predictive_burn_rate || data.predictive_burn_rate.length === 0) ? (
-              <tr><td colSpan={5} style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center' }}>Показники в межах норми</td></tr>
-            ) : (
-              data.predictive_burn_rate.map((item: any, idx: number) => (
-                <tr key={idx}>
-                  <td style={{ border: '1px solid #ccc', padding: '8px' }}>{item.resource_name}</td>
-                  <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center', fontWeight: 'bold' }}>{item.current_stock}</td>
-                  <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center' }}>{item.min_quantity ?? '---'}</td>
-                  <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center' }}>{(item.daily_burn_rate ?? 0).toFixed(1)}</td>
-                  <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center', color: item.days_left <= 7 ? 'red' : 'black' }}>{item.days_left} дн.</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-
-        {/* СЕКЦІЯ 4: РИЗИКИ АВТОПАРКУ */}
-        <h2 style={{ fontSize: '12pt', backgroundColor: '#f0f0f0', padding: '8px', borderLeft: '4px solid #f59e0b', marginBottom: '15px' }}>4. ВИЯВЛЕНІ АНОМАЛІЇ ТА РИЗИКИ АВТОПАРКУ</h2>
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '40px', fontSize: '10pt' }}>
-          <thead>
-            <tr style={{ backgroundColor: '#e2e8f0' }}>
-              <th style={{ border: '1px solid #94a3b8', padding: '8px', textAlign: 'left' }}>Транспортний засіб (Ідентифікатор)</th>
-              <th style={{ border: '1px solid #94a3b8', padding: '8px', textAlign: 'center' }}>Всього транзакцій (за період)</th>
-              <th style={{ border: '1px solid #94a3b8', padding: '8px', textAlign: 'center' }}>Аномальних (Перевитрата)</th>
-              <th style={{ border: '1px solid #94a3b8', padding: '8px', textAlign: 'center' }}>Рейтинг ризику</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(!data?.fleet_risk || data.fleet_risk.length === 0) ? (
-              <tr><td colSpan={4} style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center' }}>Аномалій не зафіксовано</td></tr>
-            ) : (
-              data.fleet_risk.map((risk: any, idx: number) => (
-                <tr key={idx}>
-                  <td style={{ border: '1px solid #ccc', padding: '8px', fontWeight: 'bold' }}>{risk.vehicle_name}</td>
-                  <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center' }}>{risk.total_refuels}</td>
-                  <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center', color: 'red', fontWeight: 'bold' }}>{risk.anomalies}</td>
-                  <td style={{ border: '1px solid #ccc', padding: '8px', textAlign: 'center' }}>{risk.risk_score}%</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-
-        {/* ПІДПИСИ */}
-        <div style={{ marginTop: '40px', fontSize: '11pt' }}>
-          <table style={{ width: '100%', border: 'none' }}>
-            <tbody>
-              <tr>
-                <td style={{ width: '50%' }}>
-                  <strong>Особа, що сформувала звіт:</strong><br/><br/>
-                  ________________________ / ________________ /
-                </td>
-                <td style={{ width: '50%', textAlign: 'right' }}>
-                  <strong>Керівник організації:</strong><br/><br/>
-                  ________________________ / ________________ /
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
       </div>
-    </div>
+
+      {/* Off-screen PDF render root for html2canvas/jsPDF export only. */}
+      <div className="official-report-render-root" aria-hidden="true">
+        <div id="official-pdf-report" className="official-report">
+          <div className="official-report__header">
+            <div>
+              <div className="official-report__eyebrow">Omnilog</div>
+              <div className="official-report__brand">Операційна логістика</div>
+              <div className="official-report__subtitle">Деталізований аналітичний звіт стану активів</div>
+            </div>
+            <div className="official-report__meta">
+              <div><span>Документ №</span><strong>{reportNumber}</strong></div>
+              <div><span>Дата</span><strong>{new Date().toLocaleDateString('uk-UA')}</strong></div>
+              <div><span>Період</span><strong>{startDate} — {endDate}</strong></div>
+            </div>
+          </div>
+
+          <div className="official-report__hero">
+            <div className="official-report__hero-label">Зведення</div>
+            <h1>
+              {selectedUnit ? units.find(u => u.id.toString() === selectedUnit)?.name?.toUpperCase() : "ВСЯ ОРГАНІЗАЦІЯ"}
+            </h1>
+          </div>
+
+          <section className="official-report__section">
+            <h2 className="official-report__section-title accent-blue">1. Загальні показники діяльності</h2>
+            <div className="official-report__stats official-report__stats--three">
+              <div className="official-report__stat-card">
+                <span>Експлуатовані активи</span>
+                <strong>{data?.active_vehicles || 0} од.</strong>
+              </div>
+              <div className="official-report__stat-card">
+                <span>Критичний дефіцит</span>
+                <strong>{data?.critical_resources || 0} позицій</strong>
+              </div>
+              <div className="official-report__stat-card">
+                <span>Аномалії транзакцій</span>
+                <strong>{data?.fuel_anomalies || 0} інцидентів</strong>
+              </div>
+            </div>
+          </section>
+
+          <section className="official-report__section">
+            <h2 className="official-report__section-title accent-green">2. Рух активів та списання (Lifecycle)</h2>
+            <div className="official-report__stats official-report__stats--four">
+              <div className="official-report__stat-card">
+                <span>Списано майна</span>
+                <strong>{data?.written_off_resources || 0} позицій</strong>
+              </div>
+              <div className="official-report__stat-card">
+                <span>Виконано переміщень</span>
+                <strong>{data?.completed_requests || 0} заявок</strong>
+              </div>
+              <div className="official-report__stat-card">
+                <span>Техніка в ремонті</span>
+                <strong>{data?.in_repair_vehicles || 0} од.</strong>
+              </div>
+              <div className="official-report__stat-card">
+                <span>Списані авто</span>
+                <strong>{data?.inactive_vehicles || 0} од.</strong>
+              </div>
+            </div>
+          </section>
+
+          <section className="official-report__section">
+            <h2 className="official-report__section-title accent-red">3. Деталізація дефіцитних ресурсів (Потреба)</h2>
+            <table className="official-report__table">
+              <thead>
+                <tr>
+                  <th>Найменування майна</th>
+                  <th className="is-centered">Факт. залишок</th>
+                  <th className="is-centered">Мінімальна норма</th>
+                  <th className="is-centered">Витрата (шт/день)</th>
+                  <th className="is-centered">Прогноз вичерпання</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(!data?.predictive_burn_rate || data.predictive_burn_rate.length === 0) ? (
+                  <tr><td colSpan={5} className="official-report__empty">Показники в межах норми</td></tr>
+                ) : (
+                  data.predictive_burn_rate.map((item: any, idx: number) => (
+                    <tr key={idx}>
+                      <td>{item.resource_name}</td>
+                      <td className="is-centered is-strong">{item.current_stock}</td>
+                      <td className="is-centered">{item.min_quantity ?? '---'}</td>
+                      <td className="is-centered">{(item.daily_burn_rate ?? 0).toFixed(1)}</td>
+                      <td className={`is-centered ${item.days_left <= 7 ? 'is-critical' : ''}`}>{item.days_left} дн.</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </section>
+
+          <section className="official-report__section">
+            <h2 className="official-report__section-title accent-amber">4. Виявлені аномалії та ризики автопарку</h2>
+            <table className="official-report__table">
+              <thead>
+                <tr>
+                  <th>Транспортний засіб (Ідентифікатор)</th>
+                  <th className="is-centered">Всього транзакцій (за період)</th>
+                  <th className="is-centered">Аномальних (Перевитрата)</th>
+                  <th className="is-centered">Рейтинг ризику</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(!data?.fleet_risk || data.fleet_risk.length === 0) ? (
+                  <tr><td colSpan={4} className="official-report__empty">Аномалій не зафіксовано</td></tr>
+                ) : (
+                  data.fleet_risk.map((risk: any, idx: number) => (
+                    <tr key={idx}>
+                      <td className="is-strong">{risk.vehicle_name}</td>
+                      <td className="is-centered">{risk.total_refuels}</td>
+                      <td className="is-centered is-critical">{risk.anomalies}</td>
+                      <td className="is-centered">{risk.risk_score}%</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </section>
+
+          <div className="official-report__signatures">
+            <div>
+              <strong>Особа, що сформувала звіт:</strong>
+              <div className="official-report__signature-line">________________________ / ________________ /</div>
+            </div>
+            <div className="is-right">
+              <strong>Керівник організації:</strong>
+              <div className="official-report__signature-line">________________________ / ________________ /</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 };
 

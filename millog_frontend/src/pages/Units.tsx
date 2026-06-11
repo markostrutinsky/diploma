@@ -5,6 +5,7 @@ import { usePermissions } from '../hooks/usePermissions'
 import toast from 'react-hot-toast'
 import Pagination from '../components/Pagination'
 import './Units.css'
+import ModalPortal from '../components/ModalPortal'
 import SearchableSelect from '../components/SearchableSelect'
 
 const ROLE_UNIT_CREATION_MAP: Record<string, string[]> = {
@@ -190,6 +191,8 @@ export default function Units() {
         {canManageUnits && <button className="btn btn-primary" onClick={handleOpenCreate}>+ Додати одиницю</button>}
       </div>
 
+      {(showForm || !!unitToDelete || !!unitToChangeManager) && (
+        <ModalPortal>
       {showForm && (
         <div className="modal-overlay" onClick={() => !isProcessing && setShowForm(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -265,6 +268,8 @@ export default function Units() {
             </form>
            </div>
         </div>
+      )}
+        </ModalPortal>
       )}
 
       <div className="card">

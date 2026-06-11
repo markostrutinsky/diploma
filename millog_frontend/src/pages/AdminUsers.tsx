@@ -3,6 +3,7 @@ import { api, type CreateUserRequest, type Unit, type User, ROLE_NAMES, UNIT_TYP
 import { usePermissions } from '../hooks/usePermissions'
 import { useNavigate } from 'react-router-dom'
 import Pagination from '../components/Pagination'
+import ModalPortal from '../components/ModalPortal'
 import './AdminUsers.css'
 import SearchableSelect from '../components/SearchableSelect'
 
@@ -359,6 +360,8 @@ export default function AdminUsers() {
         )}
       </div>
 
+      {((showForm || editingUser) || !!confirmModal) && (
+        <ModalPortal>
       {(showForm || editingUser) && (
         <div className="modal-overlay" onClick={() => !loading && (setShowForm(false), setEditingUser(null))}>
            <div className="modal modal-form" onClick={(e) => e.stopPropagation()}>
@@ -489,6 +492,8 @@ export default function AdminUsers() {
             </div>
           </div>
         </div>
+      )}
+        </ModalPortal>
       )}
 
       <div className="card card-table card-table-spaced">

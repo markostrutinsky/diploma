@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Html5QrcodeScanner, Html5Qrcode } from 'html5-qrcode'; // 🔥 Додали Html5Qrcode
 import { api, type InventoryItem } from '../api/client';
 import toast from 'react-hot-toast';
+import ModalPortal from './ModalPortal';
 import './InventoryAuditModal.css';
 
 interface AuditItem extends InventoryItem {
@@ -145,15 +146,18 @@ export default function InventoryAuditModal({ warehouseId, warehouseName, onClos
 
   if (loading) {
     return (
-      <div className="audit-modal-wrapper">
-        <div className="spinner" />
-      </div>
+      <ModalPortal>
+        <div className="audit-modal-wrapper">
+          <div className="spinner" />
+        </div>
+      </ModalPortal>
     );
   }
 
   return (
-    <div className="audit-modal-wrapper">
-      <div className="audit-modal-content">
+    <ModalPortal>
+      <div className="audit-modal-wrapper">
+        <div className="audit-modal-content">
         
         <div className="audit-header">
           <h3>📋 Переоблік: <span className="warehouse-name-highlight">{warehouseName}</span></h3>
@@ -256,7 +260,8 @@ export default function InventoryAuditModal({ warehouseId, warehouseName, onClos
             {isProcessing ? 'Обробка...' : '✅ Затвердити результати (Сформувати Акт)'}
           </button>
         </div>
+        </div>
       </div>
-    </div>
+    </ModalPortal>
   );
 }

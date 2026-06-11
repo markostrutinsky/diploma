@@ -5,6 +5,7 @@ import 'leaflet/dist/leaflet.css'
 import { api } from '../api/client'
 import { usePermissions } from '../hooks/usePermissions'
 import { PaywallScreen } from '../components/FeatureGate'
+import ModalPortal from '../components/ModalPortal'
 import './GPSTracking.css'
 
 // Leaflet default icon fix (Vite/webpack asset issue)
@@ -275,97 +276,100 @@ const GPSTracking: React.FC = () => {
 
       {/* ── Модалка з деталями + траса ── */}
       {detailVehicle && (
-        <div className="gps-modal-overlay" onClick={closeDetail}>
-          <div className="gps-modal gps-modal--wide" onClick={(e) => e.stopPropagation()}>
-            <div className="gps-modal-header">
-              <h2>🚗 {detailVehicle.plate_number || `Машина #${detailVehicle.vehicle_id}`}</h2>
-              <button className="gps-modal-close" onClick={closeDetail}>✕</button>
-            </div>
-            <div className="gps-modal-body">
-              <div className="gps-detail-grid">
-                <div className="gps-detail-item">
-                  <span className="gps-detail-label">Широта</span>
-                  <span className="gps-detail-value">{Number(detailVehicle.latitude).toFixed(6)}°</span>
-                </div>
-                <div className="gps-detail-item">
-                  <span className="gps-detail-label">Довгота</span>
-                  <span className="gps-detail-value">{Number(detailVehicle.longitude).toFixed(6)}°</span>
-                </div>
-                <div className="gps-detail-item">
-                  <span className="gps-detail-label">Швидкість</span>
-                  <span className="gps-detail-value">{Number(detailVehicle.speed).toFixed(1)} км/год</span>
-                </div>
-                <div className="gps-detail-item">
-                  <span className="gps-detail-label">Курс</span>
-                  <span className="gps-detail-value">{Math.round(detailVehicle.heading ?? 0)}°</span>
-                </div>
-                <div className="gps-detail-item">
-                  <span className="gps-detail-label">Останній пінг</span>
-                  <span className="gps-detail-value">{new Date(detailVehicle.timestamp).toLocaleString('uk-UA')}</span>
-                </div>
-                <div className="gps-detail-item">
-                  <span className="gps-detail-label">Статус</span>
-                  <span className="gps-detail-value">{detailVehicle.speed === 0 ? '🛑 Стоїть' : '🚗 Рухається'}</span>
-                </div>
+        <ModalPortal>
+          <div className="gps-modal-overlay" onClick={closeDetail}>
+            <div className="gps-modal gps-modal--wide" onClick={(e) => e.stopPropagation()}>
+              <div className="gps-modal-header">
+                <h2>🚗 {detailVehicle.plate_number || `Машина #${detailVehicle.vehicle_id}`}</h2>
+                <button className="gps-modal-close" onClick={closeDetail}>✕</button>
               </div>
-
-              <h3 className="gps-traj-title">📍 Маршрут за останні 24 години</h3>
-
-              {trajectoryLoading ? (
-                <p className="gps-traj-empty">Завантаження маршруту...</p>
-              ) : trajectory.length === 0 ? (
-                <p className="gps-traj-empty">Немає даних маршруту за вказаний період.</p>
-              ) : (
-                <>
-                  <div className="gps-traj-stats">
-                    <div className="gps-detail-item">
-                      <span className="gps-detail-label">Точок зафіксовано</span>
-                      <span className="gps-detail-value">{trajectory.length}</span>
-                    </div>
-                    <div className="gps-detail-item">
-                      <span className="gps-detail-label">Перша точка</span>
-                      <span className="gps-detail-value">{new Date(trajectory[0]?.timestamp).toLocaleString('uk-UA')}</span>
-                    </div>
-                    <div className="gps-detail-item">
-                      <span className="gps-detail-label">Остання точка</span>
-                      <span className="gps-detail-value">{new Date(trajectory[trajectory.length - 1]?.timestamp).toLocaleString('uk-UA')}</span>
-                    </div>
+              <div className="gps-modal-body">
+                <div className="gps-detail-grid">
+                  <div className="gps-detail-item">
+                    <span className="gps-detail-label">Широта</span>
+                    <span className="gps-detail-value">{Number(detailVehicle.latitude).toFixed(6)}°</span>
                   </div>
-
-                  {/* Міні-карта маршруту */}
-                  <div className="traj-map-wrapper">
-                    <MapContainer
-                      center={[detailVehicle.latitude, detailVehicle.longitude]}
-                      zoom={12}
-                      style={{ height: '100%', width: '100%', borderRadius: '8px' }}
-                    >
-                      <TileLayer
-                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                        attribution='&copy; OpenStreetMap'
-                      />
-                      <Polyline
-                        positions={trajectory.map((p: any) => [p.latitude, p.longitude])}
-                        color="#3b82f6"
-                        weight={3}
-                        opacity={0.8}
-                      />
-                      <Marker position={[trajectory[0]?.latitude, trajectory[0]?.longitude]}>
-                        <Popup>🚀 Старт: {new Date(trajectory[0]?.timestamp).toLocaleTimeString('uk-UA')}</Popup>
-                      </Marker>
-                      <Marker position={[detailVehicle.latitude, detailVehicle.longitude]}
-                        icon={makeVehicleIcon(detailVehicle.speed, detailVehicle.heading ?? 0, detailVehicle.plate_number)}>
-                        <Popup>📍 Поточна позиція</Popup>
-                      </Marker>
-                    </MapContainer>
+                  <div className="gps-detail-item">
+                    <span className="gps-detail-label">Довгота</span>
+                    <span className="gps-detail-value">{Number(detailVehicle.longitude).toFixed(6)}°</span>
                   </div>
-                </>
-              )}
-            </div>
-            <div className="gps-modal-footer">
-              <button className="btn-refresh" onClick={closeDetail}>Закрити</button>
+                  <div className="gps-detail-item">
+                    <span className="gps-detail-label">Швидкість</span>
+                    <span className="gps-detail-value">{Number(detailVehicle.speed).toFixed(1)} км/год</span>
+                  </div>
+                  <div className="gps-detail-item">
+                    <span className="gps-detail-label">Курс</span>
+                    <span className="gps-detail-value">{Math.round(detailVehicle.heading ?? 0)}°</span>
+                  </div>
+                  <div className="gps-detail-item">
+                    <span className="gps-detail-label">Останній пінг</span>
+                    <span className="gps-detail-value">{new Date(detailVehicle.timestamp).toLocaleString('uk-UA')}</span>
+                  </div>
+                  <div className="gps-detail-item">
+                    <span className="gps-detail-label">Статус</span>
+                    <span className="gps-detail-value">{detailVehicle.speed === 0 ? '🛑 Стоїть' : '🚗 Рухається'}</span>
+                  </div>
+                </div>
+
+                <h3 className="gps-traj-title">📍 Маршрут за останні 24 години</h3>
+
+                {trajectoryLoading ? (
+                  <p className="gps-traj-empty">Завантаження маршруту...</p>
+                ) : trajectory.length === 0 ? (
+                  <p className="gps-traj-empty">Немає даних маршруту за вказаний період.</p>
+                ) : (
+                  <>
+                    <div className="gps-traj-stats">
+                      <div className="gps-detail-item">
+                        <span className="gps-detail-label">Точок зафіксовано</span>
+                        <span className="gps-detail-value">{trajectory.length}</span>
+                      </div>
+                      <div className="gps-detail-item">
+                        <span className="gps-detail-label">Перша точка</span>
+                        <span className="gps-detail-value">{new Date(trajectory[0]?.timestamp).toLocaleString('uk-UA')}</span>
+                      </div>
+                      <div className="gps-detail-item">
+                        <span className="gps-detail-label">Остання точка</span>
+                        <span className="gps-detail-value">{new Date(trajectory[trajectory.length - 1]?.timestamp).toLocaleString('uk-UA')}</span>
+                      </div>
+                    </div>
+
+                    <div className="traj-map-wrapper">
+                      <MapContainer
+                        center={[detailVehicle.latitude, detailVehicle.longitude]}
+                        zoom={12}
+                        style={{ height: '100%', width: '100%', borderRadius: '8px' }}
+                      >
+                        <TileLayer
+                          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                          attribution="&copy; OpenStreetMap"
+                        />
+                        <Polyline
+                          positions={trajectory.map((p: any) => [p.latitude, p.longitude])}
+                          color="#3b82f6"
+                          weight={3}
+                          opacity={0.8}
+                        />
+                        <Marker position={[trajectory[0]?.latitude, trajectory[0]?.longitude]}>
+                          <Popup>🚀 Старт: {new Date(trajectory[0]?.timestamp).toLocaleTimeString('uk-UA')}</Popup>
+                        </Marker>
+                        <Marker
+                          position={[detailVehicle.latitude, detailVehicle.longitude]}
+                          icon={makeVehicleIcon(detailVehicle.speed, detailVehicle.heading ?? 0, detailVehicle.plate_number)}
+                        >
+                          <Popup>📍 Поточна позиція</Popup>
+                        </Marker>
+                      </MapContainer>
+                    </div>
+                  </>
+                )}
+              </div>
+              <div className="gps-modal-footer">
+                <button className="btn-refresh" onClick={closeDetail}>Закрити</button>
+              </div>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </div>
   )

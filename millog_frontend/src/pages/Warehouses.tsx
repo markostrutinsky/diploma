@@ -9,6 +9,7 @@ import Pagination from '../components/Pagination';
 import 'leaflet/dist/leaflet.css';
 import './Warehouses.css';
 import InventoryAuditModal from '../components/InventoryAuditModal';
+import ModalPortal from '../components/ModalPortal';
 import SearchableSelect from '../components/SearchableSelect';
 
 const stationaryIcon = L.divIcon({ html: '<div style="font-size: 24px; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">🏢</div>', className: 'custom-map-marker', iconSize: [30, 30], iconAnchor: [15, 30], popupAnchor: [0, -30] });
@@ -631,6 +632,8 @@ export default function Warehouses() {
       </div>
 
       {/* Модалка прийому рейсу з введенням фактичного пробігу */}
+      {(!!receiveShipmentModal || !!refuelModal || !!viewInventoryWarehouse || showForm || !!editingWarehouse || !!warehouseToDelete || !!confirmMove) && (
+        <ModalPortal>
       {receiveShipmentModal && (() => {
         const gps = receiveGPSSource;
         const actualKmNum = parseFloat(receiveActualKm) || 0;
@@ -901,6 +904,8 @@ export default function Warehouses() {
             <div className="modal-actions"><button className="btn btn-secondary cancel-margin" onClick={() => { setConfirmMove(null); loadData(); }}>Скасувати</button><button className="btn btn-primary" onClick={saveNewLocation}>Зберегти</button></div>
           </div>
         </div>
+      )}
+        </ModalPortal>
       )}
 
       {activeTab === 'list' && (

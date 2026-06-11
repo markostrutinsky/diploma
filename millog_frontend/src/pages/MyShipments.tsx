@@ -4,6 +4,7 @@ import { useGPS } from '../contexts/GPSContext';
 import { getInMemoryToken } from '../api/client';
 import toast from 'react-hot-toast';
 import Pagination from '../components/Pagination';
+import ModalPortal from '../components/ModalPortal';
 import './MyShipments.css';
 
 interface Shipment {
@@ -266,40 +267,42 @@ export default function MyShipments() {
 
       {/* Модалка підтвердження доставки з фактичним пробігом */}
       {completeModal && (
-        <div className="modal-overlay" style={{ zIndex: 1000 }} onClick={() => !isCompleting && setCompleteModal(null)}>
-          <div className="modal" style={{ maxWidth: '420px' }} onClick={e => e.stopPropagation()}>
-            <h3>✅ Підтвердити доставку</h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '20px' }}>
-              Вкажіть фактичний пробіг цього рейсу. Система автоматично запише витрату пального та оновить одометр авто.
-            </p>
-            <div style={{ marginBottom: '8px' }}>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                Фактичний пробіг (км) <span style={{ color: '#ef4444' }}>*</span>
-              </label>
-              <input
-                type="number"
-                min="1"
-                className="erp-input"
-                style={{ width: '100%', boxSizing: 'border-box' }}
-                value={actualKm}
-                onChange={e => setActualKm(e.target.value)}
-                disabled={isCompleting}
-                autoFocus
-              />
-              {completeModal.plannedKm > 0 && (
-                <span style={{ display: 'block', fontSize: '11px', color: '#64748b', marginTop: '5px' }}>
-                  Планова відстань маршруту: <strong>{completeModal.plannedKm} км</strong>. Якщо маршрут відрізнявся — введіть реальний пробіг.
-                </span>
-              )}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
-              <button className="btn btn-secondary" onClick={() => setCompleteModal(null)} disabled={isCompleting}>Скасувати</button>
-              <button className="btn btn-primary" onClick={handleConfirmComplete} disabled={isCompleting || !actualKm || parseInt(actualKm) < 1}>
-                {isCompleting ? 'Зберігаємо...' : 'Завершити рейс'}
-              </button>
+        <ModalPortal>
+          <div className="modal-overlay" style={{ zIndex: 1000 }} onClick={() => !isCompleting && setCompleteModal(null)}>
+            <div className="modal" style={{ maxWidth: '420px' }} onClick={e => e.stopPropagation()}>
+              <h3>✅ Підтвердити доставку</h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '20px' }}>
+                Вкажіть фактичний пробіг цього рейсу. Система автоматично запише витрату пального та оновить одометр авто.
+              </p>
+              <div style={{ marginBottom: '8px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                  Фактичний пробіг (км) <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  className="erp-input"
+                  style={{ width: '100%', boxSizing: 'border-box' }}
+                  value={actualKm}
+                  onChange={e => setActualKm(e.target.value)}
+                  disabled={isCompleting}
+                  autoFocus
+                />
+                {completeModal.plannedKm > 0 && (
+                  <span style={{ display: 'block', fontSize: '11px', color: '#64748b', marginTop: '5px' }}>
+                    Планова відстань маршруту: <strong>{completeModal.plannedKm} км</strong>. Якщо маршрут відрізнявся — введіть реальний пробіг.
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
+                <button className="btn btn-secondary" onClick={() => setCompleteModal(null)} disabled={isCompleting}>Скасувати</button>
+                <button className="btn btn-primary" onClick={handleConfirmComplete} disabled={isCompleting || !actualKm || parseInt(actualKm) < 1}>
+                  {isCompleting ? 'Зберігаємо...' : 'Завершити рейс'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        </ModalPortal>
       )}
     </div>
   );

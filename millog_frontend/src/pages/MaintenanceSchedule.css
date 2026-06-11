@@ -342,6 +342,8 @@
   background: rgba(15, 23, 42, 0.55);
   display: flex; align-items: center; justify-content: center;
   z-index: 1000;
+  padding: 24px;
+  overflow-y: auto;
 }
 .maint-modal {
   background: var(--bg-card);

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api, type MyEquipmentItem, ROLE_NAMES } from '../api/client'; // 🔥 Додали ROLE_NAMES
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
+import ModalPortal from '../components/ModalPortal';
 import './Profile.css';
 
 const STATUS_LABELS: Record<string, { label: string, color: string }> = {
@@ -380,6 +381,8 @@ export default function Profile() {
         </div>
       </div>
 
+      {(!!reportItem || showPasswordModal) && (
+        <ModalPortal>
       {reportItem && (
         <div className="modal-overlay" onClick={() => setReportItem(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
@@ -458,6 +461,8 @@ export default function Profile() {
             </form>
           </div>
         </div>
+      )}
+        </ModalPortal>
       )}
     </div>
   );
