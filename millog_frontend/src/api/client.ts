@@ -1,4 +1,7 @@
-const API_BASE = '/api'
+const API_BASE =
+  import.meta.env.VITE_API_URL
+    ? `${import.meta.env.VITE_API_URL}/api`
+    : '/api'
 export const AUTH_SESSION_MARKER = 'omnilog_has_session'
 export const SUPPORT_TENANT_KEY = 'omnilog_support_tenant'
 
