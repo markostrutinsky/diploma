@@ -68,7 +68,7 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 20px 40px -12px rgba(15, 23, 42, 0.25);
-  z-index: 1000;
+  z-index: 2147483000;
   overflow: hidden;
   display: flex;
   flex-direction: column;

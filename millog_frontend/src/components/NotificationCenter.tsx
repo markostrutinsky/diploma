@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import { usePermissions } from '../hooks/usePermissions'
@@ -22,6 +23,7 @@ export default function NotificationCenter() {
   const perms = usePermissions()
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<NotificationItem[]>([])
+  const [dropdownStyle, setDropdownStyle] = useState<CSSProperties>()
   const [dismissed, setDismissed] = useState<Set<string>>(() => {
     try {
       const raw = localStorage.getItem('notif:dismissed')
@@ -29,6 +31,7 @@ export default function NotificationCenter() {
     } catch { return new Set() }
   })
   const ref = useRef<HTMLDivElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   const canApproveRequests = perms.can('request_approve')
   const canSeeInventory = perms.canAny('resource_manage', 'warehouse_manage')
@@ -180,11 +183,46 @@ export default function NotificationCenter() {
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      const target = e.target as Node
+      if (ref.current?.contains(target) || dropdownRef.current?.contains(target)) return
+      setOpen(false)
     }
     document.addEventListener('mousedown', onClick)
     return () => document.removeEventListener('mousedown', onClick)
   }, [])
+
+  useEffect(() => {
+    if (!open) return
+
+    const updateDropdownPosition = () => {
+      const bellRect = ref.current?.getBoundingClientRect()
+      if (!bellRect) return
+
+      const DROPDOWN_WIDTH = 360
+      const GAP = 10
+      const VIEWPORT_PADDING = 8
+      const top = Math.round(bellRect.bottom + GAP)
+      const left = Math.min(
+        Math.max(VIEWPORT_PADDING, Math.round(bellRect.left)),
+        Math.round(window.innerWidth - DROPDOWN_WIDTH - VIEWPORT_PADDING)
+      )
+
+      setDropdownStyle({
+        top,
+        left,
+        width: DROPDOWN_WIDTH,
+      })
+    }
+
+    updateDropdownPosition()
+    window.addEventListener('resize', updateDropdownPosition)
+    window.addEventListener('scroll', updateDropdownPosition, true)
+
+    return () => {
+      window.removeEventListener('resize', updateDropdownPosition)
+      window.removeEventListener('scroll', updateDropdownPosition, true)
+    }
+  }, [open])
 
   const visibleItems = useMemo(
     () => items.filter(i => !dismissed.has(i.id)),
@@ -214,24 +252,6 @@ export default function NotificationCenter() {
   const count = visibleItems.length
   const hasDanger = visibleItems.some(i => i.severity === 'danger')
 
-  // Позиція випадайки рахується відносно дзвіночка, щоб не обрізалось сайдбаром.
-  const bellRect = ref.current?.getBoundingClientRect()
-  const DROPDOWN_WIDTH = 360
-  const GAP = 10
-  const dropdownStyle: CSSProperties | undefined = bellRect
-    ? (() => {
-        const top = Math.round(bellRect.bottom + GAP)
-        // Намагаємось відкрити праворуч від дзвіночка (у сайдбарі), якщо вміщується,
-        // інакше ліворуч (на вузьких екранах).
-        const rightEdge = bellRect.right + GAP + DROPDOWN_WIDTH
-        const left =
-          rightEdge <= window.innerWidth - 8
-            ? Math.round(bellRect.left)
-            : Math.max(8, Math.round(window.innerWidth - DROPDOWN_WIDTH - 8))
-        return { top, left, width: DROPDOWN_WIDTH }
-      })()
-    : undefined
-
   return (
     <div className="notif-center" ref={ref}>
       <button
@@ -244,8 +264,8 @@ export default function NotificationCenter() {
         {count > 0 && <span className="notif-badge">{count}</span>}
       </button>
 
-      {open && (
-        <div className="notif-dropdown" style={dropdownStyle}>
+      {open && createPortal(
+        <div ref={dropdownRef} className="notif-dropdown" style={dropdownStyle}>
           <div className="notif-header">
             <strong>Сповіщення</strong>
             {dismissed.size > 0 && (
@@ -283,7 +303,8 @@ export default function NotificationCenter() {
               ))}
             </ul>
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   )
